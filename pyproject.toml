@@ -9,10 +9,6 @@ build-backend = "setuptools.build_meta"
 # we only build on one python version since the wheels are not bound to it
 build = "cp39-*"
 
-# we can't list requests under build-system.requires because
-# that step happens _after_ the before-build command
-before-build = "pip install requests && python download-wgpu-native.py"
-
 # this is sufficient to trigger an install of the built wheel
 test-command = "echo Wheel installed"
 
