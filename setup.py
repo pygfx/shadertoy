@@ -5,8 +5,8 @@ from setuptools import find_packages, setup
 from wheel.bdist_wheel import get_platform, bdist_wheel as _bdist_wheel
 
 
-NAME = "wgpu"
-SUMMARY = "Next generation GPU API for Python"
+NAME = "shadertoy"
+SUMMARY = "Shadertoy implementation based on wgpu-py"
 
 with open(f"{NAME}/__init__.py") as fh:
     VERSION = re.search(r"__version__ = \"(.*?)\"", fh.read()).group(1)
@@ -24,7 +24,7 @@ setup(
     description=SUMMARY,
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    author="Almar Klein",
-    author_email="almar.klein@gmail.com",
-    url="https://github.com/pygfx/wgpu-py",
+    author="Jan Kels",
+    author_email="Jan.Kels@hhu.de",
+    url="https://github.com/pygfx/shadertoy",
 )
