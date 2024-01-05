@@ -6,6 +6,7 @@ import os
 import importlib
 import runpy
 import sys
+import time
 from unittest.mock import patch
 
 import imageio.v2 as imageio
@@ -59,8 +60,12 @@ def force_offscreen():
 def mock_time():
     """Some examples use time to animate. Fix the return value
     for repeatable output."""
-    with patch("time.time") as time_mock:
-        time_mock.return_value = 1.23456
+    with patch("time.time") as time_mock, patch(
+        "time.perf_counter"
+    ) as perf_counter_mock, patch("time.localtime") as localtime_mock:
+        time_mock.return_value = 1704449357.71442
+        perf_counter_mock.return_value = 6036.9424436
+        localtime_mock.return_value = time.struct_time((2024, 1, 5, 11, 9, 25, 4, 5, 0))
         yield
 
 
