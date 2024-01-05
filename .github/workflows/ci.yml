@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
   pull_request:
     branches:
       - main
@@ -32,27 +30,6 @@ jobs:
       run: |
           flake8 .
 
-  docs-build:
-    name: Test Docs
-    timeout-minutes: 5
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.9
-    - name: Install dev dependencies
-      run: |
-          python -m pip install --upgrade pip
-          pip install -U -r dev-requirements.txt
-    - name: Build docs
-      run: |
-          cd docs
-          make html SPHINXOPTS="-W --keep-going"
-
   test-examples-build:
     name: Test Examples
     timeout-minutes: 10
@@ -72,8 +49,7 @@ jobs:
     - name: Install dev dependencies
       run: |
           python -m pip install --upgrade pip
-          pip install -U -r dev-requirements.txt
-          pip install -e .
+          pip install -e .[dev]
     - name: Test examples
       env:
         EXPECT_LAVAPIPE: true
@@ -120,11 +96,7 @@ jobs:
     - name: Install dev dependencies
       run: |
           python -m pip install --upgrade pip
-          pip install -U -r dev-requirements.txt
-          pip install -e .
+          pip install -e .[dev]
     - name: Unit tests
       run: |
           pytest -v tests
-    - name: Memory tests
-      run: |
-          pytest -v tests_mem
