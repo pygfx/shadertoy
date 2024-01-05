@@ -63,3 +63,7 @@ differences.
 
 If you want to update the reference screenshot for a given example, you can grab
 those from the build artifacts as well and commit them to your branch.
+
+### Code of Conduct
+
+Our code of conduct can be found here: [Code of Conduct](./CODE_OF_CONDUCT.md)
