@@ -1,0 +1,43 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shadertoy"
+dynamic = ["version", "readme"]
+dependencies = [
+  "wgpu>=0.13.2,<0.14.0",
+]
+description = "Shadertoy implementation based on wgpu-py"
+license = {file = "LICENSE"}
+requires-python = ">=3.8.0"
+authors = [
+  {name = "Jan Kels", email = "Jan.Kels@hhu.de"},
+]
+
+[project.urls]
+Repository = "https://github.com/pygfx/shadertoy"
+
+[project.optional-dependencies]
+dev = [
+    "requests",
+    "numpy",
+    "pytest",
+    "black",
+    "flake8",
+    "flake8-black",
+    "pep8-naming",
+    "sphinx",
+    "imageio",
+    "wheel",
+    "setuptools",
+    "twine",
+    "glfw",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "shadertoy.__version__"}
+readme = {file = ["README.md"]}
