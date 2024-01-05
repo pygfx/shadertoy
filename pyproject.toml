@@ -5,26 +5,38 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
-[tool.cibuildwheel]
-# we only build on one python version since the wheels are not bound to it
-build = "cp39-*"
+[project]
+name = "shadertoy"
+dynamic = ["version", "readme"]
+dependencies = [
+  "wgpu>=0.13.2,<0.14.0",
+]
+description = "Shadertoy implementation based on wgpu-py"
+license = {file = "LICENSE"}
+requires-python = ">=3.8.0"
+authors = [
+  {name = "Jan Kels", email = "Jan.Kels@hhu.de"},
+]
 
-# this is sufficient to trigger an install of the built wheel
-test-command = "echo Wheel installed"
+[project.urls]
+Repository = "https://github.com/pygfx/shadertoy"
 
-# this is the minimum supported manylinux version
-manylinux-x86_64-image = "manylinux_2_24"
-manylinux-i686-image = "manylinux_2_24"
-manylinux-aarch64-image = "manylinux_2_24"
-manylinux-ppc64le-image = "manylinux_2_24"
-manylinux-s390x-image = "manylinux_2_24"
-manylinux-pypy_x86_64-image = "manylinux_2_24"
-manylinux-pypy_i686-image = "manylinux_2_24"
-manylinux-pypy_aarch64-image = "manylinux_2_24"
+[project.optional-dependencies]
+dev = [
+    "requests",
+    "numpy",
+    "pytest",
+    "black",
+    "flake8",
+    "flake8-black",
+    "pep8-naming",
+    "sphinx",
+    "imageio",
+    "wheel",
+    "setuptools",
+    "twine",
+]
 
-[tool.cibuildwheel.macos]
-# also create apple silicon wheels
-archs = ["x86_64", "arm64"]
-
-# the upstream binaries are not universal yet
-# archs = ["x86_64", "universal2", "arm64"]
+[tool.setuptools.dynamic]
+version = {attr = "shadertoy.__version__"}
+readme = {file = ["README.md"]}

@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 
-from testutils import (
+from tests.testutils import (
     can_use_wgpu_lib,
     wgpu_backend,
     is_lavapipe,

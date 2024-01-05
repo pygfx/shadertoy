@@ -1,4 +1,4 @@
-from wgpu.utils.shadertoy import Shadertoy
+from shadertoy import Shadertoy
 
 shader_code = """
 // source: https://www.shadertoy.com/view/MdVcRd

@@ -1,4 +1,4 @@
-from wgpu.utils.shadertoy import Shadertoy, ShadertoyChannel
+from shadertoy import Shadertoy, ShadertoyChannel
 
 shader_code_wgsl = """
 fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{
