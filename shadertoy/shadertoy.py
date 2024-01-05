@@ -1,6 +1,7 @@
 import time
 import ctypes
 import collections
+import os
 
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
@@ -341,7 +342,7 @@ class Shadertoy:
     # todo: support multiple render passes (`i_channel0`, `i_channel1`, etc.)
 
     def __init__(
-        self, shader_code, resolution=(800, 450), offscreen=False, inputs=[]
+        self, shader_code, resolution=(800, 450), offscreen=None, inputs=[]
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -356,6 +357,10 @@ class Shadertoy:
         self._shader_code = shader_code
         self._uniform_data["resolution"] = resolution + (1,)
 
+        # if no explicit offscreen option was given
+        # inherit wgpu-py force offscreen option
+        if offscreen is None and os.environ.get("WGPU_FORCE_OFFSCREEN") == "true":
+            offscreen = True
         self._offscreen = offscreen
 
         if len(inputs) > 4:

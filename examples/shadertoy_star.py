@@ -1,3 +1,4 @@
+# test_example = true
 from shadertoy import Shadertoy
 
 shader_code = """

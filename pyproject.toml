@@ -35,6 +35,7 @@ dev = [
     "wheel",
     "setuptools",
     "twine",
+    "glfw",
 ]
 
 [tool.setuptools.dynamic]

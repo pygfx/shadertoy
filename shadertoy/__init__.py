@@ -1,4 +1,4 @@
-from .shadertoy import Shadertoy  # noqa: F401,F403
+from .shadertoy import Shadertoy, ShadertoyChannel
 
 
 __version__ = "0.1.0"
