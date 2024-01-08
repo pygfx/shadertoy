@@ -1,4 +1,4 @@
-from shadertoy import Shadertoy, ShadertoyChannel
+from wgpu_shadertoy import Shadertoy, ShadertoyChannel
 
 shader_code = """
 void mainImage( out vec4 fragColor, in vec2 fragCoord )

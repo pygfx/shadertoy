@@ -1,4 +1,4 @@
-from shadertoy import Shadertoy
+from wgpu_shadertoy import Shadertoy
 
 shader_code = """
 
