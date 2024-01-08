@@ -19,7 +19,7 @@ def force_offscreen():
 
 def test_shadertoy_wgsl():
     # Import here, because it imports the wgpu.gui.auto
-    from shadertoy import Shadertoy  # noqa
+    from wgpu_shadertoy import Shadertoy  # noqa
 
     shader_code = """
         fn shader_main(frag_coord: vec2<f32>) -> vec4<f32> {
@@ -44,7 +44,7 @@ def test_shadertoy_wgsl():
 
 def test_shadertoy_glsl():
     # Import here, because it imports the wgpu.gui.auto
-    from shadertoy import Shadertoy  # noqa
+    from wgpu_shadertoy import Shadertoy  # noqa
 
     shader_code = """
         void shader_main(out vec4 fragColor, vec2 frag_coord) {
@@ -69,7 +69,7 @@ def test_shadertoy_glsl():
 
 def test_shadertoy_offscreen():
     # Import here, because it imports the wgpu.gui.auto
-    from shadertoy import Shadertoy  # noqa
+    from wgpu_shadertoy import Shadertoy  # noqa
 
     shader_code = """
         void shader_main(out vec4 fragColor, vec2 frag_coord) {
@@ -93,7 +93,7 @@ def test_shadertoy_offscreen():
 
 def test_shadertoy_snapshot():
     # Import here, because it imports the wgpu.gui.auto
-    from shadertoy import Shadertoy  # noqa
+    from wgpu_shadertoy import Shadertoy  # noqa
 
     shader_code = """
         void shader_main(out vec4 fragColor, vec2 frag_coord) {

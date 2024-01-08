@@ -6,7 +6,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shadertoy"
+name = "wgpu-shadertoy"
 dynamic = ["version", "readme"]
 dependencies = [
   "wgpu>=0.13.2,<0.14.0",
@@ -39,5 +39,5 @@ dev = [
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "shadertoy.__version__"}
+version = {attr = "wgpu_shadertoy.__version__"}
 readme = {file = ["README.md"]}
