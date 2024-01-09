@@ -1,9 +1,9 @@
 from wgpu_shadertoy import Shadertoy
 
+# shadertoy source: https://www.shadertoy.com/view/tlGfzd by Kali CC-BY-NC-SA-3.0
+# ported to wgsl
+
 shader_code = """
-
-// migrated from https://www.shadertoy.com/view/tlGfzd, By Kali
-
 var<private> objcol: vec3<f32>;
 
 fn hash12(p: vec2<f32>) -> f32 {

@@ -1,8 +1,8 @@
 from wgpu_shadertoy import Shadertoy
 
-shader_code = """
-// source: https://www.shadertoy.com/view/MdVcRd
+# shadertoy source: https://www.shadertoy.com/view/MdVcRd by tayloia CC-BY-NC-SA-3.0
 
+shader_code = """
 // See https://www.shadertoy.com/view/ldKGRR
 
 // Computes a smooth-edged diamond pixel value (Manhattan distance)

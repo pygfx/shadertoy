@@ -1,9 +1,9 @@
 from wgpu_shadertoy import Shadertoy
 
+# shadertoy source: https://www.shadertoy.com/view/csjGDD by Kali CC-BY-NC-SA-3.0
+# ported to wgsl
+
 shader_code = """
-
-// migrated from: https://www.shadertoy.com/view/csjGDD, By Kali
-
 var<private> det : f32 = 0.001;
 var<private> br : f32 = 0.0;
 var<private> tub : f32 = 0.0;

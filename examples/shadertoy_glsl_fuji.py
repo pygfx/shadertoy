@@ -1,9 +1,8 @@
 from wgpu_shadertoy import Shadertoy
 
+# shadertoy source: https://www.shadertoy.com/view/Wt33Wf by kaiware007 CC-BY-NC-SA-3.0
+
 shader_code = """
-
-// https://www.shadertoy.com/view/Wt33Wf
-
 float sun(vec2 uv, float battery)
 {
     float val = smoothstep(0.3, 0.29, length(uv));
