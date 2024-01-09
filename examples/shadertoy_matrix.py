@@ -1,9 +1,9 @@
 from wgpu_shadertoy import Shadertoy
 
+# shadertoy source: https://www.shadertoy.com/view/NlsXDH by Kali CC-BY-NC-SA-3.0
+# ported to wgsl
+
 shader_code = """
-
-// migrated from https://www.shadertoy.com/view/NlsXDH, By Kali
-
 const det = 0.001;
 
 var<private> t: f32;

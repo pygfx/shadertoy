@@ -1,9 +1,9 @@
 from wgpu_shadertoy import Shadertoy
 
+# shadertoy source: https://www.shadertoy.com/view/wlBcDK by Kali CC-BY-NC-SA-3.0
+# ported to wgsl
+
 shader_code = """
-
-// migrated from https://www.shadertoy.com/view/wlBcDK, By Kali
-
 fn hsv2rgb(c: vec3<f32>) -> vec3<f32> {
     let K = vec4<f32>(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
     let p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);

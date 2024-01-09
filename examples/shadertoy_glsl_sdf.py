@@ -1,8 +1,18 @@
 from wgpu_shadertoy import Shadertoy
 
-shader_code = """
+# shadertoy source: https://www.shadertoy.com/view/Xds3zN by iq
 
-// https://www.shadertoy.com/view/Xds3zN
+shader_code = """
+// A list of useful distance function to simple primitives. All
+// these functions (except for ellipsoid) return an exact
+// euclidean distance, meaning they produce a better SDF than
+// what you'd get if you were constructing them from boolean
+// operations (such as cutting an infinite cylinder with two planes).
+
+// List of other 3D SDFs:
+//    https://www.shadertoy.com/playlist/43cXRl
+// and
+//    https://iquilezles.org/articles/distfunctions
 
 #if HW_PERFORMANCE==0
 #define AA 1

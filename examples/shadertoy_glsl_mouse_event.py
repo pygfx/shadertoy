@@ -1,8 +1,11 @@
 from wgpu_shadertoy import Shadertoy
 
-shader_code = """
+# shadertoy source: https://www.shadertoy.com/view/Mss3zH by iq CC-BY-NC-SA-3.0
 
-// https://www.shadertoy.com/view/Mss3zH
+shader_code = """
+// Created by inigo quilez - iq/2013
+// https://www.youtube.com/c/InigoQuilez
+// https://iquilezles.org/
 
 // Shows how to use the mouse input (only left button supported):
 //
@@ -10,6 +13,19 @@ shader_code = """
 //  abs(mouse.zw) = mouse position during last button click
 // sign(mouze.z)  = button is down
 // sign(mouze.w)  = button is clicked
+
+
+
+// See also:
+//
+// Input - Keyboard    : https://www.shadertoy.com/view/lsXGzf
+// Input - Microphone  : https://www.shadertoy.com/view/llSGDh
+// Input - Mouse       : https://www.shadertoy.com/view/Mss3zH
+// Input - Sound       : https://www.shadertoy.com/view/Xds3Rr
+// Input - SoundCloud  : https://www.shadertoy.com/view/MsdGzn
+// Input - Time        : https://www.shadertoy.com/view/lsXGz8
+// Input - TimeDelta   : https://www.shadertoy.com/view/lsKGWV
+// Inout - 3D Texture  : https://www.shadertoy.com/view/4llcR4
 
 
 float distanceToSegment( vec2 a, vec2 b, vec2 p )
