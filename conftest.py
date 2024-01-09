@@ -37,3 +37,12 @@ def numerical_exceptions():
     Preferably using local `with np.errstate(...)` constructs
     """
     np.seterr(all="raise")
+
+
+@pytest.fixture(autouse=True, scope="function")
+def force_offscreen():
+    os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+    try:
+        yield
+    finally:
+        del os.environ["WGPU_FORCE_OFFSCREEN"]

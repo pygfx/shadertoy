@@ -47,16 +47,6 @@ def test_examples_run(module, force_offscreen):
 
 
 @pytest.fixture
-def force_offscreen():
-    """Force the offscreen canvas to be selected by the auto gui module."""
-    os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
-    try:
-        yield
-    finally:
-        del os.environ["WGPU_FORCE_OFFSCREEN"]
-
-
-@pytest.fixture
 def mock_time():
     """Some examples use time to animate. Fix the return value
     for repeatable output."""
