@@ -1,6 +1,4 @@
-import os
-
-from pytest import fixture, skip
+from pytest import skip
 from testutils import can_use_wgpu_lib
 
 
