@@ -1,11 +1,12 @@
-import time
-import ctypes
 import collections
+import ctypes
 import os
+import time
 
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
-from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas, run as run_offscreen
+from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
+from wgpu.gui.offscreen import run as run_offscreen
 
 vertex_code_glsl = """#version 450 core
 
@@ -355,7 +356,7 @@ class Shadertoy:
         )
 
         self._shader_code = shader_code
-        self._uniform_data["resolution"] = resolution + (1,)
+        self._uniform_data["resolution"] = (*resolution, 1)
 
         # if no explicit offscreen option was given
         # inherit wgpu-py force offscreen option
@@ -395,7 +396,7 @@ class Shadertoy:
             raise ValueError("Invalid shader code.")
 
     def _prepare_render(self):
-        import wgpu.backends.auto  # noqa
+        import wgpu.backends.auto
 
         if self._offscreen:
             self._canvas = OffscreenCanvas(

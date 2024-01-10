@@ -87,7 +87,7 @@ void mainImage(out vec4 O, vec2 U)
     Z(i.x / 100)
 }
 
-"""  # noqa
+"""
 shader = Shadertoy(shader_code)
 
 if __name__ == "__main__":

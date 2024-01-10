@@ -2,8 +2,8 @@
 Test that the examples run without error.
 """
 
-import os
 import importlib
+import os
 import runpy
 import sys
 import time
@@ -13,17 +13,15 @@ import imageio.v2 as imageio
 import numpy as np
 import pytest
 
-
 from tests.testutils import (
-    can_use_wgpu_lib,
-    wgpu_backend,
-    is_lavapipe,
-    find_examples,
     ROOT,
-    screenshots_dir,
+    can_use_wgpu_lib,
     diffs_dir,
+    find_examples,
+    is_lavapipe,
+    screenshots_dir,
+    wgpu_backend,
 )
-
 
 if not can_use_wgpu_lib:
     pytest.skip("Skipping tests that need the wgpu lib", allow_module_level=True)

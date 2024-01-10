@@ -23,14 +23,9 @@ Repository = "https://github.com/pygfx/shadertoy"
 
 [project.optional-dependencies]
 dev = [
-    "requests",
     "numpy",
     "pytest",
-    "black",
-    "flake8",
-    "flake8-black",
-    "pep8-naming",
-    "sphinx",
+    "ruff",
     "imageio",
     "wheel",
     "setuptools",
@@ -41,3 +36,21 @@ dev = [
 [tool.setuptools.dynamic]
 version = {attr = "wgpu_shadertoy.__version__"}
 readme = {file = ["README.md"]}
+
+[tool.ruff.lint]
+select = [
+    "E4",
+    "E5",
+    "E7",
+    "E9",
+    "F",   # Pyflakes (default)
+    "I",   # isort imports
+    "N",   # pep8-naming
+    "RUF", # ruff
+]
+extend-ignore = [
+  "E501",  # line too long
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
