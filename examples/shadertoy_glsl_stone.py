@@ -280,7 +280,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
     fragColor = vec4(color,1.0);
 }
 
-"""  # noqa
+"""
 shader = Shadertoy(shader_code)
 
 if __name__ == "__main__":

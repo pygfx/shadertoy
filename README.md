@@ -13,8 +13,8 @@ This code is distributed under the 2-clause BSD license.
 * Clone the repo.
 * Create a virtual environment using `python -m venv .venv`
 * Install using `.venv/bin/pip install -e .[dev]`
-* Use `.venv/bin/black .` to apply autoformatting.
-* Use `.venv/bin/flake8 .` to check for flake errors.
+* Use `.venv/bin/ruff format .` to apply autoformatting.
+* Use `.venv/bin/ruff --fix .` to run the linter.
 * Use `.venv/bin/pytest .` to run the tests.
 * Use `.venv/bin/pip wheel -w dist --no-deps .` to build a wheel.
 

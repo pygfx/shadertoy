@@ -1,14 +1,13 @@
 from pytest import skip
 from testutils import can_use_wgpu_lib
 
-
 if not can_use_wgpu_lib:
     skip("Skipping tests that need the wgpu lib", allow_module_level=True)
 
 
 def test_textures_wgsl():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy, ShadertoyChannel  # noqa
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannel
 
     shader_code_wgsl = """
     fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{
@@ -46,7 +45,7 @@ def test_textures_wgsl():
 
 def test_textures_glsl():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy, ShadertoyChannel  # noqa
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannel
 
     shader_code = """
     void mainImage( out vec4 fragColor, in vec2 fragCoord )
