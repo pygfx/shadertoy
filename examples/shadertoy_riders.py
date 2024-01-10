@@ -1,9 +1,9 @@
 from wgpu_shadertoy import Shadertoy
 
+# shadertoy source: https://www.shadertoy.com/view/3sGfD3 by Kali CC-BY-NC-SA-3.0
+# ported to wgsl
+
 shader_code = """
-
-// migrated from https://www.shadertoy.com/view/3sGfD3, By Kali
-
 fn rot(a: f32) -> mat2x2<f32> {
     let s=sin(a);
     let c=cos(a);

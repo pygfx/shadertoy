@@ -1,9 +1,12 @@
 # test_example = true
 from wgpu_shadertoy import Shadertoy
 
-shader_code = """
+# shadertoy source: https://www.shadertoy.com/view/XlfGRj by Kali MIT
+# ported to wgsl
 
-// migrated from: https://www.shadertoy.com/view/XlfGRj, By Kali
+shader_code = """
+// Star Nest by Pablo Roman Andrioli
+// License: MIT
 
 const iterations = 17;
 const formuparam = 0.53;

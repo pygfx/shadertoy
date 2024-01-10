@@ -1,20 +1,9 @@
-import os
-
-from pytest import fixture, skip
+from pytest import skip
 from testutils import can_use_wgpu_lib
 
 
 if not can_use_wgpu_lib:
     skip("Skipping tests that need the wgpu lib", allow_module_level=True)
-
-
-@fixture(autouse=True, scope="module")
-def force_offscreen():
-    os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
-    try:
-        yield
-    finally:
-        del os.environ["WGPU_FORCE_OFFSCREEN"]
 
 
 def test_shadertoy_wgsl():

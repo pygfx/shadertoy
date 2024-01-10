@@ -1,9 +1,9 @@
 from wgpu_shadertoy import Shadertoy
 
+# shadertoy source: https://www.shadertoy.com/view/mds3DX by morisil
+# ported to wgsl
+
 shader_code = """
-
-// migrated from: https://www.shadertoy.com/view/mds3DX
-
 const SHAPE_SIZE : f32 = .618;
 const CHROMATIC_ABBERATION : f32 = .01;
 const ITERATIONS : f32 = 10.;

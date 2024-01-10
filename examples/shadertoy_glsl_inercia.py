@@ -1,9 +1,8 @@
 from wgpu_shadertoy import Shadertoy
 
+# shadertoy source: https://www.shadertoy.com/view/cs2GWD by 0b5vr CC-BY-NC-SA-3.0
+
 shader_code = """
-
-// https://www.shadertoy.com/view/cs2GWD
-
 #define lofi(i,j) (floor((i)/(j))*(j))
 #define lofir(i,j) (round((i)/(j))*(j))
 

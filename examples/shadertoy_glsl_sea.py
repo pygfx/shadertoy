@@ -1,9 +1,8 @@
 from wgpu_shadertoy import Shadertoy
 
+# shadertoy source: https://www.shadertoy.com/view/mt2XR3 by guil
+
 shader_code = """
-
-// https://www.shadertoy.com/view/mt2XR3
-
 // License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
 // Created by S.Guillitte 
 

@@ -1,8 +1,14 @@
 from wgpu_shadertoy import Shadertoy
 
-shader_code = """
+# shadertoy source: https://www.shadertoy.com/view/Ms2SD1 by TDM
+# ported to wgsl and modified
 
-// migrated from https://www.shadertoy.com/view/Ms2SD1, "Seascape" by Alexander Alekseev aka TDM - 2014
+shader_code = """
+/*
+ * "Seascape" by Alexander Alekseev aka TDM - 2014
+ * License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+ * Contact: tdmaav@gmail.com
+ */
 
 const NUM_STEPS = 8;
 const PI = 3.141592;
