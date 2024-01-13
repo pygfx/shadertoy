@@ -59,7 +59,7 @@ channel0 = ShadertoyChannel(image_data, wrap="repeat")
 shader = Shadertoy(shader_code, resolution=(800, 450), inputs=[channel0])
 ```
 
-When passing `off_screen=True` the `.snapshot()` method allows you to render out specific frames.
+When passing `off_screen=True` the `.snapshot()` method allows you to render specific frames.
 ```
 shader = Shadertoy(shader_code, resolution=(800, 450), off_screen=True)
 frame0_data = shader.snapshot()
@@ -70,7 +70,7 @@ For more examples see [examples](./examples).
 
 ## Status
 
-This project is in still development. Some functionality from the Shadertoy [website is missing](https://github.com/pygfx/shadertoy/issues/4) and [new features](https://github.com/pygfx/shadertoy/issues/8) are being added. See the issues to follow the development or contribute yourself! For progress see the [changelog](./CHANGELOG.md).
+This project is still in still development. Some functionality from the Shadertoy [website is missing](https://github.com/pygfx/shadertoy/issues/4) and [new features](https://github.com/pygfx/shadertoy/issues/8) are being added. See the issues to follow the development or contribute yourself! For progress see the [changelog](./CHANGELOG.md).
 
 ## License
 
