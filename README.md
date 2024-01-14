@@ -60,7 +60,7 @@ shader = Shadertoy(shader_code, resolution=(800, 450), inputs=[channel0])
 ```
 
 When passing `off_screen=True` the `.snapshot()` method allows you to render specific frames.
-```
+```python
 shader = Shadertoy(shader_code, resolution=(800, 450), off_screen=True)
 frame0_data = shader.snapshot()
 frame10_data = shader.snapshot(10.0)
