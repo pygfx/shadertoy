@@ -9,7 +9,7 @@ Shadertoy implementation based on [wgpu-py](https://github.com/pygfx/wgpu-py).
 This library provides an easy to use python utility to run shader programs from the website [Shadertoy.com](https://www.shadertoy.com/). It provides the compability to let users copy code from the website directly and run it with the various [GUIs that are supported in wgpu-py](https://wgpu-py.readthedocs.io/en/stable/gui.html). Including Jupyter notebooks.     
 Shadertoys translated to wgsl are also supported using the uniforms `i_resolution`, `i_time`, etc. 
 
-This project is not affiliated with Shadertoy.com
+This project is not affiliated with shadertoy.com.
 
 ## Installation
 ```bash
@@ -64,13 +64,15 @@ When passing `off_screen=True` the `.snapshot()` method allows you to render spe
 shader = Shadertoy(shader_code, resolution=(800, 450), off_screen=True)
 frame0_data = shader.snapshot()
 frame10_data = shader.snapshot(10.0)
+frame0_img = Image.fromarray(np.asarray(frame0_data))
+frame0_img.save("frame0.png")
 ```
 For more examples see [examples](./examples).
 
 
 ## Status
 
-This project is still in still development. Some functionality from the Shadertoy [website is missing](https://github.com/pygfx/shadertoy/issues/4) and [new features](https://github.com/pygfx/shadertoy/issues/8) are being added. See the issues to follow the development or [contribute yourself](./CONTRIBUTING.md)! For progress see the [changelog](./CHANGELOG.md).
+This project is still in development. Some functionality from the Shadertoy [website is missing](https://github.com/pygfx/shadertoy/issues/4) and [new features](https://github.com/pygfx/shadertoy/issues/8) are being added. See the issues to follow the development or [contribute yourself](./CONTRIBUTING.md)! For progress see the [changelog](./CHANGELOG.md).
 
 ## License
 
