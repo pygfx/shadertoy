@@ -35,7 +35,7 @@ dev = [
 
 [tool.setuptools.dynamic]
 version = {attr = "wgpu_shadertoy.__version__"}
-readme = {file = ["README.md"]}
+readme = {file = ["README.md"], "content-type" = "text/markdown"}
 
 [tool.ruff.lint]
 select = [
