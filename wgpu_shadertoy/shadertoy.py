@@ -584,7 +584,7 @@ class Shadertoy:
         def on_mouse_up(event):
             if event["button"] == 1 or 1 in event["buttons"]:
                 x1, y1, x2, y2 = self._uniform_data["mouse"]
-                self._uniform_data["mouse"] = x1, y1, abs(x2), y2
+                self._uniform_data["mouse"] = x1, y1, -abs(x2), -abs(y2)
 
         self._canvas.add_event_handler(on_resize, "resize")
         self._canvas.add_event_handler(on_mouse_move, "pointer_move")
