@@ -574,12 +574,12 @@ class Shadertoy:
             if event["button"] == 1 or 1 in event["buttons"]:
                 _, _, x2, y2 = self._uniform_data["mouse"]
                 x1, y1 = event["x"], self.resolution[1] - event["y"]
-                self._uniform_data["mouse"] = x1, y1, x2, y2
+                self._uniform_data["mouse"] = x1, y1, abs(x2), -abs(y2)
 
         def on_mouse_down(event):
             if event["button"] == 1 or 1 in event["buttons"]:
                 x, y = event["x"], self.resolution[1] - event["y"]
-                self._uniform_data["mouse"] = (x, y, x, -y)
+                self._uniform_data["mouse"] = (x, y, abs(x), abs(y))
 
         def on_mouse_up(event):
             if event["button"] == 1 or 1 in event["buttons"]:
