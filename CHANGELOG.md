@@ -17,4 +17,12 @@ Possible sections in each release:
 * Security: in case of vulnerabilities.
 
 
-### [v0.1.0] - unreleased
+### [Unreleased]
+
+### [v0.1.0] - 2024-01-21
+
+Fixed:
+* Mouse events not releasing button down https://github.com/pygfx/shadertoy/pull/14
+
+
+**Note**: For development history before this release, see [wgpu-py changelog up to v0.13.2](https://github.com/pygfx/wgpu-py/blob/main/CHANGELOG.md#v0132---21-12-2023)
