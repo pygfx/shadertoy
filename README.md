@@ -13,7 +13,7 @@ This project is not affiliated with shadertoy.com.
 
 ## Installation
 ```bash
-pip install git+https://github.com/pygfx/shadertoy
+pip install wgpu-shadertoy
 ```
 
 ## Usage
