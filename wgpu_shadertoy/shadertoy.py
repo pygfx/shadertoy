@@ -135,8 +135,9 @@ builtin_variables_wgsl = """
 var<private> i_mouse: vec4<f32>;
 var<private> i_date: vec4<f32>;
 var<private> i_resolution: vec3<f32>;
-var<private> i_time_delta: f32;
 var<private> i_time: f32;
+var<private> i_channel_resolution: array<vec4<f32>,4>;
+var<private> i_time_delta: f32;
 var<private> i_frame: u32;
 var<private> i_framerate: f32;
 
@@ -153,6 +154,7 @@ struct ShadertoyInput {
     date: vec4<f32>,
     resolution: vec3<f32>,
     time: f32,
+    channel_res: array<vec4<f32>,4>,
     time_delta: f32,
     frame: u32,
     framerate: f32,
@@ -191,6 +193,7 @@ fn main(in: Varyings) -> @location(0) vec4<f32> {
     i_date = input.date;
     i_resolution = input.resolution;
     i_time = input.time;
+    i_channel_resolution = input.channel_res;
     i_time_delta = input.time_delta;
     i_frame = input.frame;
     i_framerate = input.framerate;
@@ -343,7 +346,7 @@ class Shadertoy:
     the entry point function also has an alias ``mainImage``, so you can use the shader code copied from shadertoy website without making any changes.
     """
 
-    # todo: add remaining built-in variables (i_channel_time, i_channel_resolution)
+    # todo: add remaining built-in variables (i_channel_time)
     # todo: support multiple render passes (`i_channel0`, `i_channel1`, etc.)
 
     def __init__(
