@@ -321,6 +321,7 @@ class Shadertoy:
 
     Parameters:
         shader_code (str): The shader code to use.
+        common (str): The common shaderpass code gets executed before all other shaderpasses (buffers/image/sound). Defaults to empty string.
         resolution (tuple): The resolution of the shadertoy in (width, height). Defaults to (800, 450).
         shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
@@ -354,6 +355,7 @@ class Shadertoy:
     def __init__(
         self,
         shader_code,
+        common="",
         resolution=(800, 450),
         shader_type="auto",
         offscreen=None,
@@ -371,6 +373,7 @@ class Shadertoy:
         )
 
         self._shader_code = shader_code
+        self.common = common
         self._uniform_data["resolution"] = (*resolution, 1)
 
         self._shader_type = shader_type.lower()
@@ -441,12 +444,18 @@ class Shadertoy:
         if shader_type == "glsl":
             vertex_shader_code = vertex_code_glsl
             frag_shader_code = (
-                builtin_variables_glsl + self.shader_code + fragment_code_glsl
+                builtin_variables_glsl
+                + self.common
+                + self.shader_code
+                + fragment_code_glsl
             )
         elif shader_type == "wgsl":
             vertex_shader_code = vertex_code_wgsl
             frag_shader_code = (
-                builtin_variables_wgsl + self.shader_code + fragment_code_wgsl
+                builtin_variables_wgsl
+                + self.common
+                + self.shader_code
+                + fragment_code_wgsl
             )
 
         vertex_shader_program = self._device.create_shader_module(
