@@ -7,7 +7,7 @@ Shadertoy implementation based on [wgpu-py](https://github.com/pygfx/wgpu-py).
 
 ## Introduction
 
-This library provides an easy to use python utility to run shader programs from the website [Shadertoy.com](https://www.shadertoy.com/). It provides the compability to let users copy code from the website directly and run it with the various [GUIs that are supported in wgpu-py](https://wgpu-py.readthedocs.io/en/stable/gui.html). Including Jupyter notebooks.     
+This library provides an easy to use python utility to run shader programs from the website [Shadertoy.com](https://www.shadertoy.com/). It provides the compatibility to let users copy code from the website directly and run it with the various [GUIs that are supported in wgpu-py](https://wgpu-py.readthedocs.io/en/stable/gui.html). Including Jupyter notebooks.     
 Shadertoys translated to wgsl are also supported using the uniforms `i_resolution`, `i_time`, etc. 
 
 This project is not affiliated with shadertoy.com.

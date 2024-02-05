@@ -218,14 +218,14 @@ class UniformArray:
     def __init__(self, *args):
         # Analyse incoming fields
         fields = []
-        byte_offet = 0
+        byte_offset = 0
         for name, format, n in args:
             assert format in ("f", "i", "I")
-            field = name, format, byte_offet, byte_offet + n * 4
+            field = name, format, byte_offset, byte_offset + n * 4
             fields.append(field)
-            byte_offet += n * 4
+            byte_offset += n * 4
         # Get padding
-        nbytes = byte_offet
+        nbytes = byte_offset
         while nbytes % 16:
             nbytes += 1
         # Construct memoryview object and a view for each field
@@ -710,7 +710,7 @@ class Shadertoy:
             time_float (float): The time to snapshot. It essentially sets ``i_time`` to a specific number. (Default is 0.0)
             mouse_pos (tuple): The mouse position in pixels in the snapshot. It essentially sets ``i_mouse`` to a 4-tuple. (Default is (0,0,0,0))
         Returns:
-            frame (memoryview): snapshot with transparancy. This object can be converted to a numpy array (without copying data)
+            frame (memoryview): snapshot with transparency. This object can be converted to a numpy array (without copying data)
         using ``np.asarray(arr)``
         """
         if not self._offscreen:
