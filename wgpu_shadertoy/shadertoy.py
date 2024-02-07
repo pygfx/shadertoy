@@ -34,6 +34,7 @@ vec4 i_mouse;
 vec4 i_date;
 vec3 i_resolution;
 float i_time;
+vec3 i_channel_resolution[4];
 float i_time_delta;
 int i_frame;
 float i_framerate;
@@ -58,6 +59,7 @@ layout(binding = 8) uniform sampler sampler3;
 #define iDate i_date
 #define iResolution i_resolution
 #define iTime i_time
+#define iChannelResolution i_channel_resolution
 #define iTimeDelta i_time_delta
 #define iFrame i_frame
 #define iFrameRate i_framerate
@@ -74,6 +76,7 @@ struct ShadertoyInput {
     vec4 date;
     vec3 resolution;
     float time;
+    vec3 channel_res[4];
     float time_delta;
     int frame;
     float framerate;
@@ -87,6 +90,7 @@ void main(){
     i_date = input.date;
     i_resolution = input.resolution;
     i_time = input.time;
+    i_channel_resolution = input.channel_res;
     i_time_delta = input.time_delta;
     i_frame = input.frame;
     i_framerate = input.framerate;
@@ -131,8 +135,9 @@ builtin_variables_wgsl = """
 var<private> i_mouse: vec4<f32>;
 var<private> i_date: vec4<f32>;
 var<private> i_resolution: vec3<f32>;
-var<private> i_time_delta: f32;
 var<private> i_time: f32;
+var<private> i_channel_resolution: array<vec4<f32>,4>;
+var<private> i_time_delta: f32;
 var<private> i_frame: u32;
 var<private> i_framerate: f32;
 
@@ -149,6 +154,7 @@ struct ShadertoyInput {
     date: vec4<f32>,
     resolution: vec3<f32>,
     time: f32,
+    channel_res: array<vec4<f32>,4>,
     time_delta: f32,
     frame: u32,
     framerate: f32,
@@ -187,6 +193,7 @@ fn main(in: Varyings) -> @location(0) vec4<f32> {
     i_date = input.date;
     i_resolution = input.resolution;
     i_time = input.time;
+    i_channel_resolution = input.channel_res;
     i_time_delta = input.time_delta;
     i_frame = input.frame;
     i_framerate = input.framerate;
@@ -339,7 +346,7 @@ class Shadertoy:
     the entry point function also has an alias ``mainImage``, so you can use the shader code copied from shadertoy website without making any changes.
     """
 
-    # todo: add remaining built-in variables (i_channel_time, i_channel_resolution)
+    # todo: add remaining built-in variables (i_channel_time)
     # todo: support multiple render passes (`i_channel0`, `i_channel1`, etc.)
 
     def __init__(
@@ -350,6 +357,7 @@ class Shadertoy:
             ("date", "f", 4),
             ("resolution", "f", 3),
             ("time", "f", 1),
+            ("channel_res", "f", (3 + 1) * 4),  # vec3 + 1 padding, 4 channels
             ("time_delta", "f", 1),
             ("frame", "I", 1),
             ("framerate", "f", 1),
@@ -458,7 +466,7 @@ class Shadertoy:
                 "buffer": {"type": wgpu.BufferBindingType.uniform},
             },
         ]
-
+        channel_res = []
         for input_idx, channel_input in enumerate(self.inputs):
             texture_binding = (2 * input_idx) + 1
             sampler_binding = 2 * (input_idx + 1)
@@ -516,7 +524,11 @@ class Shadertoy:
                     },
                 ]
             )
-
+            channel_res.append(channel_input.size[1])  # width
+            channel_res.append(channel_input.size[0])  # height
+            channel_res.append(1)  # always 1 for pixel aspect ratio
+            channel_res.append(-99)  # padding/tests
+        self._uniform_data["channel_res"] = tuple(channel_res)
         bind_group_layout = self._device.create_bind_group_layout(
             entries=binding_layout
         )
@@ -706,5 +718,4 @@ if __name__ == "__main__":
     }
     """
     )
-
     shader.show()
