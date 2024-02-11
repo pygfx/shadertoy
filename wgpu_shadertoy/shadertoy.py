@@ -1,6 +1,7 @@
 import collections
 import ctypes
 import os
+import re
 import time
 
 import wgpu
@@ -393,15 +394,16 @@ class Shadertoy:
     @property
     def shader_type(self):
         """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
-        if "fn shader_main" in self.shader_code:
+        wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main\(")
+        glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
+        if wgsl_main_expr.search(self.shader_code):
             return "wgsl"
-        elif (
-            "void shader_main" in self.shader_code
-            or "void mainImage" in self.shader_code
-        ):
+        elif glsl_main_expr.search(self.shader_code):
             return "glsl"
         else:
-            raise ValueError("Invalid shader code.")
+            raise ValueError(
+                "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
+            )
 
     def _prepare_render(self):
         import wgpu.backends.auto

@@ -54,18 +54,19 @@ def test_shadertoy_glsl():
 
     shader._draw_frame()
 
+
 def test_shadertoy_glsl2():
     # Import here, because it imports the wgpu.gui.auto
     from wgpu_shadertoy import Shadertoy
 
     shader_code = """
-        void mainImage(out vec4 fragColor, vec2 frag_coord) {
-            vec2 uv = frag_coord / i_resolution.xy;
+        void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
+            vec2 uv = fragCoord / iResolution.xy;
 
-            if ( length(frag_coord - i_mouse.xy) < 20.0 ) {
+            if ( length(fragCoord - iMouse.xy) < 20.0 ) {
                 fragColor = vec4(0.0, 0.0, 0.0, 1.0);
             }else{
-                fragColor = vec4( 0.5 + 0.5 * sin(i_time * vec3(uv, 1.0) ), 1.0);
+                fragColor = vec4( 0.5 + 0.5 * sin(iTime * vec3(uv, 1.0) ), 1.0);
             }
 
         }
@@ -77,19 +78,20 @@ def test_shadertoy_glsl2():
     assert shader.shader_type == "glsl"
 
     shader._draw_frame()
+
 
 def test_shadertoy_glsl3():
     # Import here, because it imports the wgpu.gui.auto
     from wgpu_shadertoy import Shadertoy
 
     shader_code = """
-        void    mainImage(out vec4 fragColor, vec2 frag_coord) {
-            vec2 uv = frag_coord / i_resolution.xy;
+        void    mainImage( out vec4 fragColor, in vec2 fragCoord ) {
+            vec2 uv = fragCoord / iResolution.xy;
 
-            if ( length(frag_coord - i_mouse.xy) < 20.0 ) {
+            if ( length(fragCoord - iMouse.xy) < 20.0 ) {
                 fragColor = vec4(0.0, 0.0, 0.0, 1.0);
             }else{
-                fragColor = vec4( 0.5 + 0.5 * sin(i_time * vec3(uv, 1.0) ), 1.0);
+                fragColor = vec4( 0.5 + 0.5 * sin(iTime * vec3(uv, 1.0) ), 1.0);
             }
 
         }
@@ -101,6 +103,7 @@ def test_shadertoy_glsl3():
     assert shader.shader_type == "glsl"
 
     shader._draw_frame()
+
 
 def test_shadertoy_offscreen():
     # Import here, because it imports the wgpu.gui.auto
