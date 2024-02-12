@@ -73,28 +73,28 @@ fragment_code_glsl = """
 layout(location = 0) in vec2 uv;
 
 struct ShadertoyInput {
-    vec4 mouse;
-    vec4 date;
-    vec3 resolution;
-    float time;
-    vec3 channel_res[4];
-    float time_delta;
-    int frame;
-    float framerate;
+    vec4 si_mouse;
+    vec4 si_date;
+    vec3 si_resolution;
+    float si_time;
+    vec3 si_channel_res[4];
+    float si_time_delta;
+    int si_frame;
+    float si_framerate;
 };
 
 layout(binding = 0) uniform ShadertoyInput input;
 out vec4 FragColor;
 void main(){
 
-    i_mouse = input.mouse;
-    i_date = input.date;
-    i_resolution = input.resolution;
-    i_time = input.time;
-    i_channel_resolution = input.channel_res;
-    i_time_delta = input.time_delta;
-    i_frame = input.frame;
-    i_framerate = input.framerate;
+    i_mouse = input.si_mouse;
+    i_date = input.si_date;
+    i_resolution = input.si_resolution;
+    i_time = input.si_time;
+    i_channel_resolution = input.si_channel_res;
+    i_time_delta = input.si_time_delta;
+    i_frame = input.si_frame;
+    i_framerate = input.si_framerate;
     vec2 uv = vec2(uv.x, 1.0 - uv.y);
     vec2 frag_coord = uv * i_resolution.xy;
 
@@ -151,14 +151,14 @@ var<private> i_framerate: f32;
 fragment_code_wgsl = """
 
 struct ShadertoyInput {
-    mouse: vec4<f32>,
-    date: vec4<f32>,
-    resolution: vec3<f32>,
-    time: f32,
-    channel_res: array<vec4<f32>,4>,
-    time_delta: f32,
-    frame: u32,
-    framerate: f32,
+    si_mouse: vec4<f32>,
+    si_date: vec4<f32>,
+    si_resolution: vec3<f32>,
+    si_time: f32,
+    si_channel_res: array<vec4<f32>,4>,
+    si_time_delta: f32,
+    si_frame: u32,
+    si_framerate: f32,
 };
 
 struct Varyings {
@@ -190,14 +190,14 @@ var sampler3: sampler;
 @fragment
 fn main(in: Varyings) -> @location(0) vec4<f32> {
 
-    i_mouse = input.mouse;
-    i_date = input.date;
-    i_resolution = input.resolution;
-    i_time = input.time;
-    i_channel_resolution = input.channel_res;
-    i_time_delta = input.time_delta;
-    i_frame = input.frame;
-    i_framerate = input.framerate;
+    i_mouse = input.si_mouse;
+    i_date = input.si_date;
+    i_resolution = input.si_resolution;
+    i_time = input.si_time;
+    i_channel_resolution = input.si_channel_res;
+    i_time_delta = input.si_time_delta;
+    i_frame = input.si_frame;
+    i_framerate = input.si_framerate;
     let uv = vec2<f32>(in.uv.x, 1.0 - in.uv.y);
     let frag_coord = uv * i_resolution.xy;
 
