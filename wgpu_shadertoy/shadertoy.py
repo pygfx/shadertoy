@@ -1,6 +1,7 @@
 import collections
 import ctypes
 import os
+import re
 import time
 
 import wgpu
@@ -320,7 +321,8 @@ class Shadertoy:
 
     Parameters:
         shader_code (str): The shader code to use.
-        resolution (tuple): The resolution of the shadertoy.
+        resolution (tuple): The resolution of the shadertoy in (width, height). Defaults to (800, 450).
+        shader_type (str): Can be "wgsl" or "glsl". If not provided, will be detected automatically.
         offscreen (bool): Whether to render offscreen. Default is False.
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
 
@@ -350,7 +352,12 @@ class Shadertoy:
     # todo: support multiple render passes (`i_channel0`, `i_channel1`, etc.)
 
     def __init__(
-        self, shader_code, resolution=(800, 450), offscreen=None, inputs=[]
+        self,
+        shader_code,
+        resolution=(800, 450),
+        shader_type="auto",
+        offscreen=None,
+        inputs=[],
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -365,6 +372,8 @@ class Shadertoy:
 
         self._shader_code = shader_code
         self._uniform_data["resolution"] = (*resolution, 1)
+
+        self._shader_type = shader_type.lower()
 
         # if no explicit offscreen option was given
         # inherit wgpu-py force offscreen option
@@ -393,15 +402,19 @@ class Shadertoy:
     @property
     def shader_type(self):
         """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
-        if "fn shader_main" in self.shader_code:
+        if self._shader_code in ("wgsl", "glsl"):
+            return self._shader_code
+
+        wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
+        glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
+        if wgsl_main_expr.search(self.shader_code):
             return "wgsl"
-        elif (
-            "void shader_main" in self.shader_code
-            or "void mainImage" in self.shader_code
-        ):
+        elif glsl_main_expr.search(self.shader_code):
             return "glsl"
         else:
-            raise ValueError("Invalid shader code.")
+            raise ValueError(
+                "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
+            )
 
     def _prepare_render(self):
         import wgpu.backends.auto
