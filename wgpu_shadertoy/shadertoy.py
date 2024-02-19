@@ -373,7 +373,7 @@ class Shadertoy:
         )
 
         self._shader_code = shader_code
-        self.common = common
+        self.common = common + "\n"
         self._uniform_data["resolution"] = (*resolution, 1)
 
         self._shader_type = shader_type.lower()
