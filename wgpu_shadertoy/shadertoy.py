@@ -402,8 +402,8 @@ class Shadertoy:
     @property
     def shader_type(self):
         """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
-        if self._shader_code in ("wgsl", "glsl"):
-            return self._shader_code
+        if self._shader_type in ("wgsl", "glsl"):
+            return self._shader_type
 
         wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
         glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
