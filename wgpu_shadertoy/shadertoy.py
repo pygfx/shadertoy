@@ -322,7 +322,7 @@ class Shadertoy:
     Parameters:
         shader_code (str): The shader code to use.
         resolution (tuple): The resolution of the shadertoy in (width, height). Defaults to (800, 450).
-        shader_type (str): Can be "wgsl" or "glsl". If not provided, will be detected automatically.
+        shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
 
