@@ -218,14 +218,14 @@ class UniformArray:
     def __init__(self, *args):
         # Analyse incoming fields
         fields = []
-        byte_offet = 0
+        byte_offset = 0
         for name, format, n in args:
             assert format in ("f", "i", "I")
-            field = name, format, byte_offet, byte_offet + n * 4
+            field = name, format, byte_offset, byte_offset + n * 4
             fields.append(field)
-            byte_offet += n * 4
+            byte_offset += n * 4
         # Get padding
-        nbytes = byte_offet
+        nbytes = byte_offset
         while nbytes % 16:
             nbytes += 1
         # Construct memoryview object and a view for each field
@@ -321,6 +321,7 @@ class Shadertoy:
 
     Parameters:
         shader_code (str): The shader code to use.
+        common (str): The common shaderpass code gets executed before all other shaderpasses (buffers/image/sound). Defaults to empty string.
         resolution (tuple): The resolution of the shadertoy in (width, height). Defaults to (800, 450).
         shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
@@ -354,6 +355,7 @@ class Shadertoy:
     def __init__(
         self,
         shader_code,
+        common="",
         resolution=(800, 450),
         shader_type="auto",
         offscreen=None,
@@ -371,6 +373,7 @@ class Shadertoy:
         )
 
         self._shader_code = shader_code
+        self.common = common + "\n"
         self._uniform_data["resolution"] = (*resolution, 1)
 
         self._shader_type = shader_type.lower()
@@ -441,12 +444,18 @@ class Shadertoy:
         if shader_type == "glsl":
             vertex_shader_code = vertex_code_glsl
             frag_shader_code = (
-                builtin_variables_glsl + self.shader_code + fragment_code_glsl
+                builtin_variables_glsl
+                + self.common
+                + self.shader_code
+                + fragment_code_glsl
             )
         elif shader_type == "wgsl":
             vertex_shader_code = vertex_code_wgsl
             frag_shader_code = (
-                builtin_variables_wgsl + self.shader_code + fragment_code_wgsl
+                builtin_variables_wgsl
+                + self.common
+                + self.shader_code
+                + fragment_code_wgsl
             )
 
         vertex_shader_program = self._device.create_shader_module(
@@ -701,7 +710,7 @@ class Shadertoy:
             time_float (float): The time to snapshot. It essentially sets ``i_time`` to a specific number. (Default is 0.0)
             mouse_pos (tuple): The mouse position in pixels in the snapshot. It essentially sets ``i_mouse`` to a 4-tuple. (Default is (0,0,0,0))
         Returns:
-            frame (memoryview): snapshot with transparancy. This object can be converted to a numpy array (without copying data)
+            frame (memoryview): snapshot with transparency. This object can be converted to a numpy array (without copying data)
         using ``np.asarray(arr)``
         """
         if not self._offscreen:
