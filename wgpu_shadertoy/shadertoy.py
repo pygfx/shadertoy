@@ -9,6 +9,8 @@ from wgpu.gui.auto import WgpuCanvas, run
 from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
+from .api import APIMixin
+
 vertex_code_glsl = """#version 450 core
 
 layout(location = 0) out vec2 vert_uv;
@@ -314,7 +316,7 @@ class ShadertoyChannel:
         return repr(class_repr)
 
 
-class Shadertoy:
+class Shadertoy(APIMixin):
     """Provides a "screen pixel shader programming interface" similar to `shadertoy <https://www.shadertoy.com/>`_.
 
     It helps you research and quickly build or test shaders using `WGSL` or `GLSL` via WGPU.
@@ -326,6 +328,7 @@ class Shadertoy:
         shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
+        title (str): The title of the window. Defaults to "Shadertoy".
 
     The shader code must contain a entry point function:
 
@@ -360,6 +363,7 @@ class Shadertoy:
         shader_type="auto",
         offscreen=None,
         inputs=[],
+        title="Shadertoy",
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -375,7 +379,6 @@ class Shadertoy:
         self._shader_code = shader_code
         self.common = common + "\n"
         self._uniform_data["resolution"] = (*resolution, 1)
-
         self._shader_type = shader_type.lower()
 
         # if no explicit offscreen option was given
@@ -388,6 +391,7 @@ class Shadertoy:
             raise ValueError("Only 4 inputs are supported.")
         self.inputs = inputs
         self.inputs.extend([ShadertoyChannel() for _ in range(4 - len(inputs))])
+        self.title = title
 
         self._prepare_render()
         self._bind_events()
@@ -424,11 +428,11 @@ class Shadertoy:
 
         if self._offscreen:
             self._canvas = OffscreenCanvas(
-                title="Shadertoy", size=self.resolution, max_fps=60
+                title=self.title, size=self.resolution, max_fps=60
             )
         else:
             self._canvas = WgpuCanvas(
-                title="Shadertoy", size=self.resolution, max_fps=60
+                title=self.title, size=self.resolution, max_fps=60
             )
 
         self._device = wgpu.utils.device.get_default_device()

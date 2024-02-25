@@ -18,6 +18,9 @@ authors = [
   {name = "Jan Kels", email = "Jan.Kels@hhu.de"},
 ]
 
+[project.scripts]
+wgpu-shadertoy = "wgpu_shadertoy.cli:main_cli"
+
 [project.urls]
 Repository = "https://github.com/pygfx/shadertoy"
 
