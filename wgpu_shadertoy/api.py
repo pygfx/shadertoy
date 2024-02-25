@@ -23,19 +23,22 @@ HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
 
 def get_shadertoy_by_id(shader_id) -> dict:
     """
-    Fetches a shader from Shadertoy.com by its ID and returns the JSON data as dict.
+    Fetches a shader from Shadertoy.com by its ID (or url) and returns the JSON data as dict.
     """
+    if "/" in shader_id:
+        shader_id = shader_id.rstrip("/").split("/")[-1]
     url = f"https://www.shadertoy.com/api/v1/shaders/{shader_id}"
     response = requests.get(url, params={"key": API_KEY}, headers=HEADERS)
     if response.status_code != 200:
-        raise Exception(
-            f"Failed to load shader at https://www.shadertoy.com/view/{shader_id}"
+        raise requests.exceptions.HTTPError(
+            f"Failed to load shader at https://www.shadertoy.com/view/{shader_id} with status code {response.status_code}"
         )
-    if "Error" in response.json():
+    shader_data = response.json()
+    if "Error" in shader_data:
         raise Exception(
-            f"Shadertoy API error: {response.json()['Error']}, perhaps the shader isn't set to `public+api`"
+            f"Shadertoy API error: {shader_data['Error']}, perhaps the shader isn't set to `public+api`"
         )
-    return response.json()
+    return shader_data
 
 
 # TODO: consider caching media locally?
