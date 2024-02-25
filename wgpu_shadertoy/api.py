@@ -5,6 +5,8 @@ import numpy as np
 import requests
 from PIL import Image
 
+from .inputs import ShadertoyChannel
+
 
 # TODO: write function that gives a good error message
 def get_api_key():
@@ -43,8 +45,6 @@ def get_shadertoy_by_id(shader_id) -> dict:
 
 # TODO: consider caching media locally?
 def download_media_channels(inputs):
-    from . import ShadertoyChannel  # lazy import to avoid circular imports?
-
     """
     Downloads media (currently just Textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
     """
