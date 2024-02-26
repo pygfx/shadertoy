@@ -9,7 +9,7 @@ from wgpu.gui.auto import WgpuCanvas, run
 from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
-from .api import APIMixin
+from .api import shader_args_from_json, shadertoy_from_id
 from .inputs import ShadertoyChannel
 
 vertex_code_glsl = """#version 450 core
@@ -261,7 +261,7 @@ class UniformArray:
                 m[i] = val[i]
 
 
-class Shadertoy(APIMixin):
+class Shadertoy:
     """Provides a "screen pixel shader programming interface" similar to `shadertoy <https://www.shadertoy.com/>`_.
 
     It helps you research and quickly build or test shaders using `WGSL` or `GLSL` via WGPU.
@@ -367,6 +367,18 @@ class Shadertoy(APIMixin):
             raise ValueError(
                 "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
             )
+
+    @classmethod
+    def from_json(cls, dict_or_path, **kwargs):
+        """Builds a `Shadertoy` instance from a JSON-like dict of Shadertoy.com shader data."""
+        shader_args = shader_args_from_json(dict_or_path, **kwargs)
+        return cls(**shader_args)
+
+    @classmethod
+    def from_id(cls, id_or_url: str, **kwargs):
+        """Builds a `Shadertoy` instance from a Shadertoy.com shader id or url. Requires API key to be set."""
+        shader_data = shadertoy_from_id(id_or_url)
+        return cls.from_json(shader_data, **kwargs)
 
     def _prepare_render(self):
         import wgpu.backends.auto

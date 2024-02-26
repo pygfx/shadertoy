@@ -1,4 +1,3 @@
-import json
 import os
 
 import numpy as np
@@ -9,7 +8,7 @@ from .inputs import ShadertoyChannel
 
 
 # TODO: write function that gives a good error message
-def get_api_key():
+def _get_api_key():
     key = os.environ.get("SHADERTOY_KEY", None)
     if key is None:
         raise Exception(
@@ -18,33 +17,13 @@ def get_api_key():
     return key
 
 
-API_KEY = get_api_key()
+API_KEY = _get_api_key()
 
 HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
 
 
-def get_shadertoy_by_id(shader_id) -> dict:
-    """
-    Fetches a shader from Shadertoy.com by its ID (or url) and returns the JSON data as dict.
-    """
-    if "/" in shader_id:
-        shader_id = shader_id.rstrip("/").split("/")[-1]
-    url = f"https://www.shadertoy.com/api/v1/shaders/{shader_id}"
-    response = requests.get(url, params={"key": API_KEY}, headers=HEADERS)
-    if response.status_code != 200:
-        raise requests.exceptions.HTTPError(
-            f"Failed to load shader at https://www.shadertoy.com/view/{shader_id} with status code {response.status_code}"
-        )
-    shader_data = response.json()
-    if "Error" in shader_data:
-        raise Exception(
-            f"Shadertoy API error: {shader_data['Error']}, perhaps the shader isn't set to `public+api`"
-        )
-    return shader_data
-
-
 # TODO: consider caching media locally?
-def download_media_channels(inputs):
+def _download_media_channels(inputs):
     """
     Downloads media (currently just Textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
     """
@@ -65,10 +44,37 @@ def download_media_channels(inputs):
     return list(channels.values())
 
 
-def build_shader_from_data(cls, shader_data, **kwargs):
+def shadertoy_from_id(id_or_url) -> dict:
+    """
+    Fetches a shader from Shadertoy.com by its ID (or url) and returns the JSON data as dict.
+    """
+    if "/" in id_or_url:
+        shader_id = id_or_url.rstrip("/").split("/")[-1]
+    else:
+        shader_id = id_or_url
+    url = f"https://www.shadertoy.com/api/v1/shaders/{shader_id}"
+    response = requests.get(url, params={"key": API_KEY}, headers=HEADERS)
+    if response.status_code != 200:
+        raise requests.exceptions.HTTPError(
+            f"Failed to load shader at https://www.shadertoy.com/view/{shader_id} with status code {response.status_code}"
+        )
+    shader_data = response.json()
+    if "Error" in shader_data:
+        raise Exception(
+            f"Shadertoy API error: {shader_data['Error']}, perhaps the shader isn't set to `public+api`"
+        )
+    return shader_data
+
+
+def shader_args_from_json(dict_or_path, **kwargs):
     """
     Builds a `Shadertoy` instance from a JSON-like dict of Shadertoy.com shader data.
     """
+    if isinstance(dict_or_path, str):
+        raise NotImplementedError("Loading from file not yet implemented")
+    else:
+        shader_data = dict_or_path
+
     if not isinstance(shader_data, dict):
         raise Exception("shader_data must be a dict")
     main_image_code = ""
@@ -78,37 +84,21 @@ def build_shader_from_data(cls, shader_data, **kwargs):
         if r_pass["type"] == "image":
             main_image_code = r_pass["code"]
             if r_pass["inputs"] is not []:
-                inputs = download_media_channels(r_pass["inputs"])
+                inputs = _download_media_channels(r_pass["inputs"])
         elif r_pass["type"] == "common":
             common_code = r_pass["code"]
         else:
             # TODO should be a warning and not verbose!
             print(
-                f"renderpass of type {r_pass['type']} not yet supported, will be ommitted"
+                f"renderpass of type {r_pass['type']} not yet supported, will be omitted."
             )
     title = f'{shader_data["Shader"]["info"]["name"]} by {shader_data["Shader"]["info"]["username"]}'
-    shader = cls(
-        main_image_code,
-        common=common_code,
-        shader_type="glsl",
-        inputs=inputs,
-        title=title,
-        **kwargs,
-    )
-    return shader
 
-
-class APIMixin:
-    @classmethod
-    def from_id(cls, shader_id, **kwargs):
-        shader_data = get_shadertoy_by_id(shader_id)
-        shader = build_shader_from_data(cls, shader_data, **kwargs)
-        return shader
-
-    # TODO consider caching locally to temp, .cache or custom?
-    @classmethod
-    def from_json(cls, json_path):
-        with open(json_path, "r") as f:
-            data = json.load(f)
-        shader = build_shader_from_data(cls, data)
-        return shader
+    shader_args = {
+        "shader_code": main_image_code,
+        "common": common_code,
+        "shader_type": "glsl",
+        "inputs": inputs,
+        "title": title,
+    }
+    return shader_args
