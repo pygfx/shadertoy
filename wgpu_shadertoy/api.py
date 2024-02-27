@@ -1,3 +1,4 @@
+import json
 import os
 
 import numpy as np
@@ -6,20 +7,31 @@ from PIL import Image
 
 from .inputs import ShadertoyChannel
 
+HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
+
 
 # TODO: write function that gives a good error message
 def _get_api_key():
     key = os.environ.get("SHADERTOY_KEY", None)
     if key is None:
-        raise Exception(
+        raise ValueError(
             "SHADERTOY_KEY environment variable not set, please set it to your Shadertoy API key to use API features. Follow the instructions at https://www.shadertoy.com/howto#q2"
+        )
+    test_url = "https://www.shadertoy.com/api/v1/shaders/query/test"
+    test_response = requests.get(test_url, params={"key": key}, headers=HEADERS)
+    if test_response.status_code != 200:
+        raise requests.exceptions.HTTPError(
+            f"Failed to use ShaderToy API with key: {test_response.status_code}"
+        )
+    test_response = test_response.json()
+    if "Error" in test_response:
+        raise ValueError(
+            f"Failed to use ShaderToy API with key: {test_response['Error']}"
         )
     return key
 
 
 API_KEY = _get_api_key()
-
-HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
 
 
 # TODO: consider caching media locally?
@@ -42,6 +54,16 @@ def _download_media_channels(inputs):
         )
         channels[inp["channel"]] = channel
     return list(channels.values())
+
+
+def _save_json(data, path):
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def _load_json(path):
+    with open(path, "r") as f:
+        return json.load(f)
 
 
 def shadertoy_from_id(id_or_url) -> dict:
@@ -70,8 +92,8 @@ def shader_args_from_json(dict_or_path, **kwargs):
     """
     Builds a `Shadertoy` instance from a JSON-like dict of Shadertoy.com shader data.
     """
-    if isinstance(dict_or_path, str):
-        raise NotImplementedError("Loading from file not yet implemented")
+    if isinstance(dict_or_path, (str, os.PathLike)):
+        shader_data = _load_json(dict_or_path)
     else:
         shader_data = dict_or_path
 

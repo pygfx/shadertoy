@@ -1,0 +1,52 @@
+{
+  "Shader": {
+    "ver": "0.1",
+    "info": {
+      "id": "MllSzX",
+      "date": "1438698189",
+      "viewed": 14064,
+      "name": "Bicubic Texture Filtering",
+      "username": "demofox",
+      "description": "Nearest neighbor texture filtering on left, Bilinear texture filtering in left middle, Lagrange Bicubic texture filtering on middle right, cubic hermite on the right.  Use the mouse to control pan / zoom.\n",
+      "likes": 61,
+      "published": 3,
+      "flags": 0,
+      "usePreview": 0,
+      "tags": [
+        "2d",
+        "texturefilter"
+      ],
+      "hasliked": 0
+    },
+    "renderpass": [
+      {
+        "inputs": [
+          {
+            "id": 16,
+            "src": "/media/a/3083c722c0c738cad0f468383167a0d246f91af2bfa373e9c5c094fb8c8413e0.png",
+            "ctype": "texture",
+            "channel": 0,
+            "sampler": {
+              "filter": "mipmap",
+              "wrap": "repeat",
+              "vflip": "false",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 37,
+            "channel": 0
+          }
+        ],
+        "code": "float c_textureSize = 64.0;\n\n#define c_onePixel  (1.0 / c_textureSize)\n#define c_twoPixels  (2.0 / c_textureSize)\n\nfloat c_x0 = -1.0;\nfloat c_x1 =  0.0;\nfloat c_x2 =  1.0;\nfloat c_x3 =  2.0;\n    \n//=======================================================================================\nvec3 CubicLagrange (vec3 A, vec3 B, vec3 C, vec3 D, float t)\n{\n    return\n        A * \n        (\n            (t - c_x1) / (c_x0 - c_x1) * \n            (t - c_x2) / (c_x0 - c_x2) *\n            (t - c_x3) / (c_x0 - c_x3)\n        ) +\n        B * \n        (\n            (t - c_x0) / (c_x1 - c_x0) * \n            (t - c_x2) / (c_x1 - c_x2) *\n            (t - c_x3) / (c_x1 - c_x3)\n        ) +\n        C * \n        (\n            (t - c_x0) / (c_x2 - c_x0) * \n            (t - c_x1) / (c_x2 - c_x1) *\n            (t - c_x3) / (c_x2 - c_x3)\n        ) +       \n        D * \n        (\n            (t - c_x0) / (c_x3 - c_x0) * \n            (t - c_x1) / (c_x3 - c_x1) *\n            (t - c_x2) / (c_x3 - c_x2)\n        );\n}\n\n//=======================================================================================\nvec3 BicubicLagrangeTextureSample (vec2 P)\n{\n    vec2 pixel = P * c_textureSize + 0.5;\n    \n    vec2 frac = fract(pixel);\n    pixel = floor(pixel) / c_textureSize - vec2(c_onePixel/2.0);\n    \n    vec3 C00 = texture(iChannel0, pixel + vec2(-c_onePixel ,-c_onePixel)).rgb;\n    vec3 C10 = texture(iChannel0, pixel + vec2( 0.0        ,-c_onePixel)).rgb;\n    vec3 C20 = texture(iChannel0, pixel + vec2( c_onePixel ,-c_onePixel)).rgb;\n    vec3 C30 = texture(iChannel0, pixel + vec2( c_twoPixels,-c_onePixel)).rgb;\n    \n    vec3 C01 = texture(iChannel0, pixel + vec2(-c_onePixel , 0.0)).rgb;\n    vec3 C11 = texture(iChannel0, pixel + vec2( 0.0        , 0.0)).rgb;\n    vec3 C21 = texture(iChannel0, pixel + vec2( c_onePixel , 0.0)).rgb;\n    vec3 C31 = texture(iChannel0, pixel + vec2( c_twoPixels, 0.0)).rgb;    \n    \n    vec3 C02 = texture(iChannel0, pixel + vec2(-c_onePixel , c_onePixel)).rgb;\n    vec3 C12 = texture(iChannel0, pixel + vec2( 0.0        , c_onePixel)).rgb;\n    vec3 C22 = texture(iChannel0, pixel + vec2( c_onePixel , c_onePixel)).rgb;\n    vec3 C32 = texture(iChannel0, pixel + vec2( c_twoPixels, c_onePixel)).rgb;    \n    \n    vec3 C03 = texture(iChannel0, pixel + vec2(-c_onePixel , c_twoPixels)).rgb;\n    vec3 C13 = texture(iChannel0, pixel + vec2( 0.0        , c_twoPixels)).rgb;\n    vec3 C23 = texture(iChannel0, pixel + vec2( c_onePixel , c_twoPixels)).rgb;\n    vec3 C33 = texture(iChannel0, pixel + vec2( c_twoPixels, c_twoPixels)).rgb;    \n    \n    vec3 CP0X = CubicLagrange(C00, C10, C20, C30, frac.x);\n    vec3 CP1X = CubicLagrange(C01, C11, C21, C31, frac.x);\n    vec3 CP2X = CubicLagrange(C02, C12, C22, C32, frac.x);\n    vec3 CP3X = CubicLagrange(C03, C13, C23, C33, frac.x);\n    \n    return CubicLagrange(CP0X, CP1X, CP2X, CP3X, frac.y);\n}\n\n//=======================================================================================\nvec3 CubicHermite (vec3 A, vec3 B, vec3 C, vec3 D, float t)\n{\n\tfloat t2 = t*t;\n    float t3 = t*t*t;\n    vec3 a = -A/2.0 + (3.0*B)/2.0 - (3.0*C)/2.0 + D/2.0;\n    vec3 b = A - (5.0*B)/2.0 + 2.0*C - D / 2.0;\n    vec3 c = -A/2.0 + C/2.0;\n   \tvec3 d = B;\n    \n    return a*t3 + b*t2 + c*t + d;\n}\n\n//=======================================================================================\nvec3 BicubicHermiteTextureSample (vec2 P)\n{\n    vec2 pixel = P * c_textureSize + 0.5;\n    \n    vec2 frac = fract(pixel);\n    pixel = floor(pixel) / c_textureSize - vec2(c_onePixel/2.0);\n    \n    vec3 C00 = texture(iChannel0, pixel + vec2(-c_onePixel ,-c_onePixel)).rgb;\n    vec3 C10 = texture(iChannel0, pixel + vec2( 0.0        ,-c_onePixel)).rgb;\n    vec3 C20 = texture(iChannel0, pixel + vec2( c_onePixel ,-c_onePixel)).rgb;\n    vec3 C30 = texture(iChannel0, pixel + vec2( c_twoPixels,-c_onePixel)).rgb;\n    \n    vec3 C01 = texture(iChannel0, pixel + vec2(-c_onePixel , 0.0)).rgb;\n    vec3 C11 = texture(iChannel0, pixel + vec2( 0.0        , 0.0)).rgb;\n    vec3 C21 = texture(iChannel0, pixel + vec2( c_onePixel , 0.0)).rgb;\n    vec3 C31 = texture(iChannel0, pixel + vec2( c_twoPixels, 0.0)).rgb;    \n    \n    vec3 C02 = texture(iChannel0, pixel + vec2(-c_onePixel , c_onePixel)).rgb;\n    vec3 C12 = texture(iChannel0, pixel + vec2( 0.0        , c_onePixel)).rgb;\n    vec3 C22 = texture(iChannel0, pixel + vec2( c_onePixel , c_onePixel)).rgb;\n    vec3 C32 = texture(iChannel0, pixel + vec2( c_twoPixels, c_onePixel)).rgb;    \n    \n    vec3 C03 = texture(iChannel0, pixel + vec2(-c_onePixel , c_twoPixels)).rgb;\n    vec3 C13 = texture(iChannel0, pixel + vec2( 0.0        , c_twoPixels)).rgb;\n    vec3 C23 = texture(iChannel0, pixel + vec2( c_onePixel , c_twoPixels)).rgb;\n    vec3 C33 = texture(iChannel0, pixel + vec2( c_twoPixels, c_twoPixels)).rgb;    \n    \n    vec3 CP0X = CubicHermite(C00, C10, C20, C30, frac.x);\n    vec3 CP1X = CubicHermite(C01, C11, C21, C31, frac.x);\n    vec3 CP2X = CubicHermite(C02, C12, C22, C32, frac.x);\n    vec3 CP3X = CubicHermite(C03, C13, C23, C33, frac.x);\n    \n    return CubicHermite(CP0X, CP1X, CP2X, CP3X, frac.y);\n}\n\n//=======================================================================================\nvec3 BilinearTextureSample (vec2 P)\n{\n    vec2 pixel = P * c_textureSize + 0.5;\n    \n    vec2 frac = fract(pixel);\n    pixel = (floor(pixel) / c_textureSize) - vec2(c_onePixel/2.0);\n\n    vec3 C11 = texture(iChannel0, pixel + vec2( 0.0        , 0.0)).rgb;\n    vec3 C21 = texture(iChannel0, pixel + vec2( c_onePixel , 0.0)).rgb;\n    vec3 C12 = texture(iChannel0, pixel + vec2( 0.0        , c_onePixel)).rgb;\n    vec3 C22 = texture(iChannel0, pixel + vec2( c_onePixel , c_onePixel)).rgb;\n\n    vec3 x1 = mix(C11, C21, frac.x);\n    vec3 x2 = mix(C12, C22, frac.x);\n    return mix(x1, x2, frac.y);\n}\n\n//=======================================================================================\nvec3 NearestTextureSample (vec2 P)\n{\n    vec2 pixel = P * c_textureSize;\n    \n    vec2 frac = fract(pixel);\n    pixel = (floor(pixel) / c_textureSize);\n    return texture(iChannel0, pixel + vec2(c_onePixel/2.0)).rgb;\n}\n\n//=======================================================================================\nvoid AnimateUV (inout vec2 uv)\n{\n    if (iMouse.z > 0.0)\n    {\n        uv -= vec2(0.0,0.5) * iResolution.y / iResolution.x;;\n        uv *= vec2(iMouse.y / iResolution.y);\n        uv += vec2(1.5 * iMouse.x / iResolution.x, 0.0);\n        \n    }\n    else\n    {    \n    \tuv += vec2(sin(iTime * 0.3)*0.5+0.5, sin(iTime * 0.7)*0.5+0.5);\n    \tuv *= (sin(iTime * 0.3)*0.5+0.5)*3.0 + 0.2;\n    }\n}\n\n//=======================================================================================\nvoid mainImage( out vec4 fragColor, in vec2 fragCoord )\n{\n    // set up our coordinate system\n    float aspectRatio = iResolution.y / iResolution.x;\n    vec2 uv = (fragCoord.xy / iResolution.xy);\n    uv.y *= aspectRatio;\n    \n    // do our sampling\n    vec3 color;\n    if (abs(uv.x - (1.0/4.0)) < 0.0025)\n    {\n        color = vec3(1.0);\n    }   \n    else if (abs(uv.x - (2.0/4.0)) < 0.0025)\n    {\n        color = vec3(1.0);\n    }          \n    else if (abs(uv.x - (3.0/4.0)) < 0.0025)\n    {\n        color = vec3(1.0);\n    }        \n    else if (uv.x < (1.0/4.0))\n    {\n        AnimateUV(uv);\n        color = NearestTextureSample(uv);\n    }\n    else if (uv.x < (2.0/4.0))\n    {\n        uv -= vec2((1.0/4.0),0.0);\n        AnimateUV(uv);\n        color = texture(iChannel0, uv).xyz;\n        //color = BilinearTextureSample(uv);\n    }\n    else if (uv.x < (3.0/4.0))\n    {\n        uv -= vec2((2.0/4.0),0.0);\n        AnimateUV(uv);\n        color = BicubicLagrangeTextureSample(uv);\n    }\n    else\n    {\n        uv -= vec2((3.0/4.0),0.0);\n        AnimateUV(uv);\n        color = BicubicHermiteTextureSample(uv);\n\t}\n    \n    // set the final color\n\tfragColor = vec4(color,1.0);    \n}",
+        "name": "Image",
+        "description": "",
+        "type": "image"
+      }
+    ]
+  }
+}
