@@ -31,9 +31,6 @@ def _get_api_key():
     return key
 
 
-API_KEY = _get_api_key()
-
-
 # TODO: consider caching media locally?
 def _download_media_channels(inputs):
     """
@@ -46,7 +43,9 @@ def _download_media_channels(inputs):
             continue  # we currently can't handle stuff that isn't textures for input...
         response = requests.get(media_url + inp["src"], headers=HEADERS, stream=True)
         if response.status_code != 200:
-            raise Exception(f"Failed to load media {media_url + inp['src']}")
+            raise Exception(
+                f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+            )
         img = Image.open(response.raw).convert("RGBA")
         img_data = np.array(img)
         channel = ShadertoyChannel(
@@ -57,12 +56,12 @@ def _download_media_channels(inputs):
 
 
 def _save_json(data, path):
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
 
 def _load_json(path):
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -75,7 +74,7 @@ def shadertoy_from_id(id_or_url) -> dict:
     else:
         shader_id = id_or_url
     url = f"https://www.shadertoy.com/api/v1/shaders/{shader_id}"
-    response = requests.get(url, params={"key": API_KEY}, headers=HEADERS)
+    response = requests.get(url, params={"key": _get_api_key()}, headers=HEADERS)
     if response.status_code != 200:
         raise requests.exceptions.HTTPError(
             f"Failed to load shader at https://www.shadertoy.com/view/{shader_id} with status code {response.status_code}"
