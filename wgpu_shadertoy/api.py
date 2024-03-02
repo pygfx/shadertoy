@@ -4,6 +4,7 @@ import os
 import numpy as np
 import requests
 from PIL import Image
+from wgpu import logger
 
 from .inputs import ShadertoyChannel
 
@@ -34,16 +35,17 @@ def _get_api_key():
 # TODO: consider caching media locally?
 def _download_media_channels(inputs):
     """
-    Downloads media (currently just Textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
+    Downloads media (currently just textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
+    Requiers internet connection (API key not required).
     """
     media_url = "https://www.shadertoy.com"
     channels = {}
     for inp in inputs:
         if inp["ctype"] != "texture":
-            continue  # we currently can't handle stuff that isn't textures for input...
+            continue  # TODO: support other media types
         response = requests.get(media_url + inp["src"], headers=HEADERS, stream=True)
         if response.status_code != 200:
-            raise Exception(
+            raise requests.exceptions.HTTPError(
                 f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
             )
         img = Image.open(response.raw).convert("RGBA")
@@ -60,7 +62,7 @@ def _save_json(data, path):
         json.dump(data, f, indent=2)
 
 
-def _load_json(path):
+def _load_json(path) -> dict:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -81,8 +83,8 @@ def shadertoy_from_id(id_or_url) -> dict:
         )
     shader_data = response.json()
     if "Error" in shader_data:
-        raise Exception(
-            f"Shadertoy API error: {shader_data['Error']}, perhaps the shader isn't set to `public+api`"
+        raise RuntimeError(
+            f"Shadertoy API error: {shader_data['Error']} for https://www.shadertoy.com/view/{shader_id}, perhaps the shader isn't set to `public+api`"
         )
     return shader_data
 
@@ -97,10 +99,14 @@ def shader_args_from_json(dict_or_path, **kwargs):
         shader_data = dict_or_path
 
     if not isinstance(shader_data, dict):
-        raise Exception("shader_data must be a dict")
+        raise TypeError("shader_data must be a dict")
     main_image_code = ""
     common_code = ""
     inputs = []
+    if "Shader" not in shader_data:
+        raise ValueError(
+            "shader_data must have a 'Shader' key, following Shadertoy export format."
+        )
     for r_pass in shader_data["Shader"]["renderpass"]:
         if r_pass["type"] == "image":
             main_image_code = r_pass["code"]
@@ -110,7 +116,7 @@ def shader_args_from_json(dict_or_path, **kwargs):
             common_code = r_pass["code"]
         else:
             # TODO should be a warning and not verbose!
-            print(
+            logger.warn(
                 f"renderpass of type {r_pass['type']} not yet supported, will be omitted."
             )
     title = f'{shader_data["Shader"]["info"]["name"]} by {shader_data["Shader"]["info"]["username"]}'
@@ -121,5 +127,6 @@ def shader_args_from_json(dict_or_path, **kwargs):
         "shader_type": "glsl",
         "inputs": inputs,
         "title": title,
+        **kwargs,
     }
     return shader_args
