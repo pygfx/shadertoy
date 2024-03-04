@@ -347,7 +347,7 @@ class Shadertoy:
         return tuple(self._uniform_data["resolution"])[:2]
 
     @property
-    def shader_code(self):
+    def shader_code(self) -> str:
         """The shader code to use."""
         return self._shader_code
 
