@@ -1,7 +1,6 @@
-""" Utils to render to a texture or screen. Tuned to the tests, so quite some
+"""Utils to render to a texture or screen. Tuned to the tests, so quite some
 assumptions here.
 """
-
 
 import ctypes
 

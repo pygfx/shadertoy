@@ -19,6 +19,9 @@ Possible sections in each release:
 
 ### [Unreleased]
 
+Added:
+* Run shaders from the website API https://github.com/pygfx/shadertoy/pull/25
+
 ### [v0.1.0] - 2024-01-21
 
 Fixed:

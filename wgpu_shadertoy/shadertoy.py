@@ -9,6 +9,9 @@ from wgpu.gui.auto import WgpuCanvas, run
 from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
+from .api import shader_args_from_json, shadertoy_from_id
+from .inputs import ShadertoyChannel
+
 vertex_code_glsl = """#version 450 core
 
 layout(location = 0) out vec2 vert_uv;
@@ -258,62 +261,6 @@ class UniformArray:
                 m[i] = val[i]
 
 
-class ShadertoyChannel:
-    """
-    Represents a shadertoy channel. It can be a texture.
-    Parameters:
-        data (array-like): Of shape (width, height, 4), will be converted to memoryview. For example read in your images using ``np.asarray(Image.open("image.png"))``
-        kind (str): The kind of channel. Can be one of ("texture"). More will be supported in the future
-        **kwargs: Additional arguments for the sampler:
-        wrap (str): The wrap mode, can be one of ("clamp-to-edge", "repeat", "clamp"). Default is "clamp-to-edge".
-    """
-
-    # TODO: add cubemap/volume, buffer, webcam, video, audio, keyboard?
-
-    def __init__(self, data=None, kind="texture", **kwargs):
-        if kind != "texture":
-            raise NotImplementedError("Only texture is supported for now.")
-        if data is not None:
-            self.data = memoryview(data)
-        else:
-            self.data = (
-                memoryview((ctypes.c_uint8 * 8 * 8 * 4)())
-                .cast("B")
-                .cast("B", shape=[8, 8, 4])
-            )
-        self.size = self.data.shape  # (rows, columns, channels)
-        self.texture_size = (
-            self.data.shape[1],
-            self.data.shape[0],
-            1,
-        )  # orientation change (columns, rows, 1)
-        self.bytes_per_pixel = (
-            self.data.nbytes // self.data.shape[1] // self.data.shape[0]
-        )
-        self.sampler_settings = {}
-        wrap = kwargs.pop("wrap", "clamp-to-edge")
-        if wrap.startswith("clamp"):
-            wrap = "clamp-to-edge"
-        self.sampler_settings["address_mode_u"] = wrap
-        self.sampler_settings["address_mode_v"] = wrap
-        self.sampler_settings["address_mode_w"] = wrap
-
-    def __repr__(self):
-        """
-        Convenience method to get a representation of this object for debugging.
-        """
-        data_repr = {
-            "repr": self.data.__repr__(),
-            "shape": self.data.shape,
-            "strides": self.data.strides,
-            "nbytes": self.data.nbytes,
-            "obj": self.data.obj,
-        }
-        class_repr = {k: v for k, v in self.__dict__.items() if k != "data"}
-        class_repr["data"] = data_repr
-        return repr(class_repr)
-
-
 class Shadertoy:
     """Provides a "screen pixel shader programming interface" similar to `shadertoy <https://www.shadertoy.com/>`_.
 
@@ -326,6 +273,7 @@ class Shadertoy:
         shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
+        title (str): The title of the window. Defaults to "Shadertoy".
 
     The shader code must contain a entry point function:
 
@@ -360,6 +308,7 @@ class Shadertoy:
         shader_type="auto",
         offscreen=None,
         inputs=[],
+        title="Shadertoy",
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -375,7 +324,6 @@ class Shadertoy:
         self._shader_code = shader_code
         self.common = common + "\n"
         self._uniform_data["resolution"] = (*resolution, 1)
-
         self._shader_type = shader_type.lower()
 
         # if no explicit offscreen option was given
@@ -388,6 +336,7 @@ class Shadertoy:
             raise ValueError("Only 4 inputs are supported.")
         self.inputs = inputs
         self.inputs.extend([ShadertoyChannel() for _ in range(4 - len(inputs))])
+        self.title = title
 
         self._prepare_render()
         self._bind_events()
@@ -398,7 +347,7 @@ class Shadertoy:
         return tuple(self._uniform_data["resolution"])[:2]
 
     @property
-    def shader_code(self):
+    def shader_code(self) -> str:
         """The shader code to use."""
         return self._shader_code
 
@@ -419,16 +368,28 @@ class Shadertoy:
                 "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
             )
 
+    @classmethod
+    def from_json(cls, dict_or_path, **kwargs):
+        """Builds a `Shadertoy` instance from a JSON-like dict of Shadertoy.com shader data."""
+        shader_args = shader_args_from_json(dict_or_path, **kwargs)
+        return cls(**shader_args)
+
+    @classmethod
+    def from_id(cls, id_or_url: str, **kwargs):
+        """Builds a `Shadertoy` instance from a Shadertoy.com shader id or url. Requires API key to be set."""
+        shader_data = shadertoy_from_id(id_or_url)
+        return cls.from_json(shader_data, **kwargs)
+
     def _prepare_render(self):
         import wgpu.backends.auto
 
         if self._offscreen:
             self._canvas = OffscreenCanvas(
-                title="Shadertoy", size=self.resolution, max_fps=60
+                title=self.title, size=self.resolution, max_fps=60
             )
         else:
             self._canvas = WgpuCanvas(
-                title="Shadertoy", size=self.resolution, max_fps=60
+                title=self.title, size=self.resolution, max_fps=60
             )
 
         self._device = wgpu.utils.device.get_default_device()

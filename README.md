@@ -16,6 +16,7 @@ This project is not affiliated with shadertoy.com.
 ```bash
 pip install wgpu-shadertoy
 ```
+To use the Shadertoy.com API, please setup an environment variable with the key `SHADERTOY_KEY`. See [How To](https://www.shadertoy.com/howto#q2) for instructions.
 
 ## Usage
 
@@ -60,6 +61,11 @@ channel0 = ShadertoyChannel(image_data, wrap="repeat")
 shader = Shadertoy(shader_code, resolution=(800, 450), inputs=[channel0])
 ```
 
+To easily load shaders from the website make use of the `.from_id` or `.from_json` classmethods. This will also download supported input media.
+```python
+shader = Shadertoy.from_id("NslGRN")
+```
+
 When passing `off_screen=True` the `.snapshot()` method allows you to render specific frames.
 ```python
 shader = Shadertoy(shader_code, resolution=(800, 450), off_screen=True)
@@ -70,6 +76,12 @@ frame0_img.save("frame0.png")
 ```
 For more examples see [examples](./examples).
 
+### CLI Usage
+A basic command line interface is provided as `wgpu-shadertoy`.
+To display a shader from the website, simply provide its ID or url.
+```bash
+> wgpu-shadertoy tsXBzS --resolution 1024 640
+```
 
 ## Status
 
