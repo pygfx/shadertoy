@@ -11,7 +11,6 @@ from .inputs import ShadertoyChannel
 HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
 
 
-# TODO: write function that gives a good error message
 def _get_api_key():
     key = os.environ.get("SHADERTOY_KEY", None)
     if key is None:
@@ -32,7 +31,6 @@ def _get_api_key():
     return key
 
 
-# TODO: consider caching media locally?
 def _download_media_channels(inputs):
     """
     Downloads media (currently just textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
@@ -89,9 +87,9 @@ def shadertoy_from_id(id_or_url) -> dict:
     return shader_data
 
 
-def shader_args_from_json(dict_or_path, **kwargs):
+def shader_args_from_json(dict_or_path, **kwargs) -> dict:
     """
-    Builds a `Shadertoy` instance from a JSON-like dict of Shadertoy.com shader data.
+    Builds the args for a `Shadertoy` instance from a JSON-like dict of Shadertoy.com shader data.
     """
     if isinstance(dict_or_path, (str, os.PathLike)):
         shader_data = _load_json(dict_or_path)

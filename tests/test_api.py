@@ -15,7 +15,7 @@ def api_available():
     try:
         return _get_api_key()
     except Exception as e:
-        pytest.skip("Skipping API tests: " + str(e), allow_module_level=True)
+        pytest.skip("Skipping API tests: " + str(e))
 
 
 # coverage for shadertoy_from_id(id_or_url)
