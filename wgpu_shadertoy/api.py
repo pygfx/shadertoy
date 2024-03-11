@@ -45,7 +45,7 @@ def _download_media_channels(inputs: list) -> list[ShadertoyChannel]:
             raise requests.exceptions.HTTPError(
                 f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
             )
-        img = Image.open(response.raw)  # .convert("RGBA")
+        img = Image.open(response.raw)
         channel = ShadertoyChannel(img, kind="texture", **inp["sampler"])
         channels[inp["channel"]] = channel
     return list(channels.values())

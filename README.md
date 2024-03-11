@@ -45,7 +45,6 @@ Texture inputs are supported by using the `ShadertoyChannel` class. Up to 4 chan
 ```python
 from wgpu_shadertoy import Shadertoy, ShadertoyChannel
 from PIL import Image
-import numpy as np
 
 shader_code = """
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
@@ -56,8 +55,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 }
 """
 
-image_data = np.array(Image.open("./examples/screenshots/shadertoy_star.png"))
-channel0 = ShadertoyChannel(image_data, wrap="repeat")
+img = Image.open("./examples/screenshots/shadertoy_star.png")
+channel0 = ShadertoyChannel(img, wrap="repeat")
 shader = Shadertoy(shader_code, resolution=(800, 450), inputs=[channel0])
 ```
 
