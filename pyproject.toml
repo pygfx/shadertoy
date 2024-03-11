@@ -56,6 +56,7 @@ select = [
 ]
 extend-ignore = [
   "E501",  # line too long
+  "RUF005", # + inside concatenation messes with numpy
 ]
 
 [tool.ruff.lint.per-file-ignores]

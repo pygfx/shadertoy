@@ -1,7 +1,6 @@
 import json
 import os
 
-import numpy as np
 import requests
 from PIL import Image
 from wgpu import logger
@@ -11,7 +10,7 @@ from .inputs import ShadertoyChannel
 HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
 
 
-def _get_api_key():
+def _get_api_key() -> str:
     key = os.environ.get("SHADERTOY_KEY", None)
     if key is None:
         raise ValueError(
@@ -31,7 +30,7 @@ def _get_api_key():
     return key
 
 
-def _download_media_channels(inputs):
+def _download_media_channels(inputs: list) -> list[ShadertoyChannel]:
     """
     Downloads media (currently just textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
     Requires internet connection (API key not required).
@@ -46,9 +45,8 @@ def _download_media_channels(inputs):
             raise requests.exceptions.HTTPError(
                 f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
             )
-        img = Image.open(response.raw).convert("RGBA")
-        img_data = np.array(img)
-        channel = ShadertoyChannel(img_data, kind="texture", **inp["sampler"])
+        img = Image.open(response.raw)  # .convert("RGBA")
+        channel = ShadertoyChannel(img, kind="texture", **inp["sampler"])
         channels[inp["channel"]] = channel
     return list(channels.values())
 

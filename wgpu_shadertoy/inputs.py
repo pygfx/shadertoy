@@ -5,7 +5,7 @@ class ShadertoyChannel:
     """
     Represents a shadertoy channel. It can be a texture.
     Parameters:
-        data (array-like): Of shape (width, height, 4), will be converted to numpy array. Default is a 8x8 black texture.
+        data (array-like): Of shape (width, height, channels), will be converted to numpy array. Default is a 8x8 black texture.
         kind (str): The kind of channel. Can be one of ("texture"). More will be supported in the future
         **kwargs: Additional arguments for the sampler:
         wrap (str): The wrap mode, can be one of ("clamp-to-edge", "repeat", "clamp"). Default is "clamp-to-edge".
@@ -21,6 +21,27 @@ class ShadertoyChannel:
             self.data = np.ascontiguousarray(data)
         else:
             self.data = np.zeros((8, 8, 4), dtype=np.uint8)
+
+        # if channel dimension is missing, it's a greyscale texture
+        if len(self.data.shape) == 2:
+            self.data = np.reshape(self.data, self.data.shape + (1,))
+        # greyscale textures become just red while green and blue remain 0s
+        if self.data.shape[2] == 1:
+            self.data = np.stack(
+                [
+                    self.data[:, :, 0],
+                    np.zeros_like(self.data[:, :, 0]),
+                    np.zeros_like(self.data[:, :, 0]),
+                ],
+                axis=-1,
+            )
+        # if alpha channel is not given, it's filled with max value (255)
+        if self.data.shape[2] == 3:
+            self.data = np.concatenate(
+                [self.data, np.full(self.data.shape[:2] + (1,), 255, dtype=np.uint8)],
+                axis=2,
+            )
+
         self.size = self.data.shape  # (rows, columns, channels)
         self.texture_size = (
             self.data.shape[1],
