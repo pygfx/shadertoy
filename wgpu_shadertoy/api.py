@@ -34,7 +34,7 @@ def _get_api_key():
 def _download_media_channels(inputs):
     """
     Downloads media (currently just textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
-    Requiers internet connection (API key not required).
+    Requires internet connection (API key not required).
     """
     media_url = "https://www.shadertoy.com"
     channels = {}
@@ -48,9 +48,7 @@ def _download_media_channels(inputs):
             )
         img = Image.open(response.raw).convert("RGBA")
         img_data = np.array(img)
-        channel = ShadertoyChannel(
-            img_data, kind="texture", wrap=inp["sampler"]["wrap"]
-        )
+        channel = ShadertoyChannel(img_data, kind="texture", **inp["sampler"])
         channels[inp["channel"]] = channel
     return list(channels.values())
 
