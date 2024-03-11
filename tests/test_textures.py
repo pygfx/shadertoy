@@ -26,7 +26,7 @@ def test_textures_wgsl():
         bytearray((i for i in range(0, 255, 8) for _ in range(4))) * 32
     ).cast("B", shape=[32, 32, 4])
 
-    channel0 = ShadertoyChannel(test_pattern, wrap="repeat")
+    channel0 = ShadertoyChannel(test_pattern, wrap="repeat", vflip=False)
     channel1 = ShadertoyChannel(gradient)
 
     shader = Shadertoy(
@@ -36,10 +36,10 @@ def test_textures_wgsl():
     assert shader.shader_code == shader_code_wgsl
     assert shader.shader_type == "wgsl"
     assert shader.inputs[0] == channel0
-    assert shader.inputs[0].data == test_pattern
+    assert np.array_equal(shader.inputs[0].data, test_pattern)
     assert shader.inputs[0].sampler_settings["address_mode_u"] == "repeat"
     assert shader.inputs[1] == channel1
-    assert shader.inputs[1].data == gradient
+    assert np.array_equal(shader.inputs[1].data, gradient)
     assert shader.inputs[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
 
     shader._draw_frame()
@@ -66,7 +66,7 @@ def test_textures_glsl():
         bytearray((i for i in range(0, 255, 8) for _ in range(4))) * 32
     ).cast("B", shape=[32, 32, 4])
 
-    channel0 = ShadertoyChannel(test_pattern, wrap="repeat")
+    channel0 = ShadertoyChannel(test_pattern, wrap="repeat", vflip="false")
     channel1 = ShadertoyChannel(gradient)
 
     shader = Shadertoy(shader_code, resolution=(640, 480), inputs=[channel0, channel1])
@@ -74,10 +74,10 @@ def test_textures_glsl():
     assert shader.shader_code == shader_code
     assert shader.shader_type == "glsl"
     assert shader.inputs[0] == channel0
-    assert shader.inputs[0].data == test_pattern
+    assert np.array_equal(shader.inputs[0].data, test_pattern)
     assert shader.inputs[0].sampler_settings["address_mode_u"] == "repeat"
     assert shader.inputs[1] == channel1
-    assert shader.inputs[1].data == gradient
+    assert np.array_equal(shader.inputs[1].data, gradient)
     assert shader.inputs[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
 
     shader._draw_frame()
@@ -105,18 +105,12 @@ def test_channel_res_wgsl():
         return c0123;
     }
     """
-    img_data = np.array(Image.open("./examples/screenshots/shadertoy_star.png"))
-    channel0 = ShadertoyChannel(
-        np.ascontiguousarray(np.rot90(img_data, 0)), wrap="clamp"
-    )
-    channel1 = ShadertoyChannel(
-        np.ascontiguousarray(np.rot90(img_data, 1)), wrap="clamp"
-    )
-    channel2 = ShadertoyChannel(
-        np.ascontiguousarray(np.rot90(img_data, 2)), wrap="repeat"
-    )
+    img = Image.open("./examples/screenshots/shadertoy_star.png")
+    channel0 = ShadertoyChannel(img.rotate(0, expand=True), wrap="clamp", vflip=True)
+    channel1 = ShadertoyChannel(img.rotate(90, expand=True), wrap="clamp", vflip=False)
+    channel2 = ShadertoyChannel(img.rotate(180, expand=True), wrap="repeat", vflip=True)
     channel3 = ShadertoyChannel(
-        np.ascontiguousarray(np.rot90(img_data, 3)), wrap="repeat"
+        img.rotate(270, expand=True), wrap="repeat", vflip=False
     )
     shader = Shadertoy(
         shader_code_wgsl,
@@ -171,18 +165,12 @@ def test_channel_res_glsl():
         fragColor = c0123;
     }
     """
-    img_data = np.array(Image.open("./examples/screenshots/shadertoy_star.png"))
-    channel0 = ShadertoyChannel(
-        np.ascontiguousarray(np.rot90(img_data, 0)), wrap="clamp"
-    )
-    channel1 = ShadertoyChannel(
-        np.ascontiguousarray(np.rot90(img_data, 1)), wrap="clamp"
-    )
-    channel2 = ShadertoyChannel(
-        np.ascontiguousarray(np.rot90(img_data, 2)), wrap="repeat"
-    )
+    img = Image.open("./examples/screenshots/shadertoy_star.png")
+    channel0 = ShadertoyChannel(img.rotate(0, expand=True), wrap="clamp", vflip=True)
+    channel1 = ShadertoyChannel(img.rotate(90, expand=True), wrap="clamp", vflip=False)
+    channel2 = ShadertoyChannel(img.rotate(180, expand=True), wrap="repeat", vflip=True)
     channel3 = ShadertoyChannel(
-        np.ascontiguousarray(np.rot90(img_data, 3)), wrap="repeat"
+        img.rotate(270, expand=True), wrap="repeat", vflip=False
     )
     shader = Shadertoy(
         shader_code,
