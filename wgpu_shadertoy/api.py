@@ -30,7 +30,7 @@ def _get_api_key() -> str:
     return key
 
 
-def _download_media_channels(inputs: list) -> list[ShadertoyChannel]:
+def _download_media_channels(inputs: list):
     """
     Downloads media (currently just textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
     Requires internet connection (API key not required).

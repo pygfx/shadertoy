@@ -307,7 +307,7 @@ class Shadertoy:
         resolution=(800, 450),
         shader_type="auto",
         offscreen=None,
-        inputs: list[ShadertoyChannel] = [],
+        inputs=[],
         title: str = "Shadertoy",
     ) -> None:
         self._uniform_data = UniformArray(
