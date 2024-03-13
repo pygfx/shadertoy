@@ -1,14 +1,15 @@
-import ctypes
+import numpy as np
 
 
 class ShadertoyChannel:
     """
     Represents a shadertoy channel. It can be a texture.
     Parameters:
-        data (array-like): Of shape (width, height, 4), will be converted to memoryview. For example read in your images using ``np.asarray(Image.open("image.png"))``
+        data (array-like): Of shape (width, height, channels), will be converted to numpy array. Default is a 8x8 black texture.
         kind (str): The kind of channel. Can be one of ("texture"). More will be supported in the future
         **kwargs: Additional arguments for the sampler:
         wrap (str): The wrap mode, can be one of ("clamp-to-edge", "repeat", "clamp"). Default is "clamp-to-edge".
+        vflip (str or bool): Whether to flip the texture vertically. Can be one of ("true", "false", True, False). Default is True.
     """
 
     # TODO: add cubemap/volume, buffer, webcam, video, audio, keyboard?
@@ -17,13 +18,30 @@ class ShadertoyChannel:
         if kind != "texture":
             raise NotImplementedError("Only texture is supported for now.")
         if data is not None:
-            self.data = memoryview(data)
+            self.data = np.ascontiguousarray(data)
         else:
-            self.data = (
-                memoryview((ctypes.c_uint8 * 8 * 8 * 4)())
-                .cast("B")
-                .cast("B", shape=[8, 8, 4])
+            self.data = np.zeros((8, 8, 4), dtype=np.uint8)
+
+        # if channel dimension is missing, it's a greyscale texture
+        if len(self.data.shape) == 2:
+            self.data = np.reshape(self.data, self.data.shape + (1,))
+        # greyscale textures become just red while green and blue remain 0s
+        if self.data.shape[2] == 1:
+            self.data = np.stack(
+                [
+                    self.data[:, :, 0],
+                    np.zeros_like(self.data[:, :, 0]),
+                    np.zeros_like(self.data[:, :, 0]),
+                ],
+                axis=-1,
             )
+        # if alpha channel is not given, it's filled with max value (255)
+        if self.data.shape[2] == 3:
+            self.data = np.concatenate(
+                [self.data, np.full(self.data.shape[:2] + (1,), 255, dtype=np.uint8)],
+                axis=2,
+            )
+
         self.size = self.data.shape  # (rows, columns, channels)
         self.texture_size = (
             self.data.shape[1],
@@ -33,6 +51,11 @@ class ShadertoyChannel:
         self.bytes_per_pixel = (
             self.data.nbytes // self.data.shape[1] // self.data.shape[0]
         )
+        vflip = kwargs.pop("vflip", True)
+        if vflip in ("true", True):
+            vflip = True
+            self.data = np.ascontiguousarray(self.data[::-1, :, :])
+
         self.sampler_settings = {}
         wrap = kwargs.pop("wrap", "clamp-to-edge")
         if wrap.startswith("clamp"):
@@ -50,7 +73,6 @@ class ShadertoyChannel:
             "shape": self.data.shape,
             "strides": self.data.strides,
             "nbytes": self.data.nbytes,
-            "obj": self.data.obj,
         }
         class_repr = {k: v for k, v in self.__dict__.items() if k != "data"}
         class_repr["data"] = data_repr

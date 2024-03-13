@@ -302,13 +302,13 @@ class Shadertoy:
 
     def __init__(
         self,
-        shader_code,
-        common="",
+        shader_code: str,
+        common: str = "",
         resolution=(800, 450),
         shader_type="auto",
         offscreen=None,
         inputs=[],
-        title="Shadertoy",
+        title: str = "Shadertoy",
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -352,7 +352,7 @@ class Shadertoy:
         return self._shader_code
 
     @property
-    def shader_type(self):
+    def shader_type(self) -> str:
         """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
         if self._shader_type in ("wgsl", "glsl"):
             return self._shader_type
