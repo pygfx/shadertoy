@@ -3,11 +3,18 @@ import os
 
 import requests
 from PIL import Image
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
 from wgpu import logger
 
 from .inputs import ShadertoyChannel
 
 HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
+
+OPTIONS = Options()
+OPTIONS.add_argument("--headless=new")
+OPTIONS.add_argument("user-agent=a python script to scrape non API shaders")
 
 
 def _get_api_key() -> str:
@@ -28,6 +35,50 @@ def _get_api_key() -> str:
             f"Failed to use ShaderToy API with key: {test_response['Error']}"
         )
     return key
+
+
+def _scrape_shader(id_or_url: str) -> dict:
+    """
+    Scrape shaders from Shadertoy.com even if they are not public or API accessible.
+    """
+    driver = webdriver.Chrome(options=OPTIONS)
+    if "/" in id_or_url:
+        shader_id = id_or_url.rstrip("/").split("/")[-1]
+    else:
+        shader_id = id_or_url
+    url = f"https://www.shadertoy.com/view/{shader_id}"
+    driver.get(url)
+    if driver.title == "Error - Shadertoy BETA":
+        raise RuntimeError(
+            f"Failed to load shader at {url}, perhaps it's public or deleted."
+        )
+    # Wait until gShaderToy.mIsRendering is true so we get all the outputs we require
+    WebDriverWait(driver, 3).until(
+        lambda driver: driver.execute_script("return gShaderToy.mIsRendering;")
+    )
+
+    extraction_script = """
+    json_data = gShaderToy.Save();
+    return json_data;
+    """
+    json_data = driver.execute_script(extraction_script)
+    driver.quit()
+
+    # constrcut a dict exactly like the API return would provide it
+    shader_data = {
+        "Shader": {
+            "info": json_data["info"],
+            "ver": json_data["ver"],
+            "renderpass": json_data["renderpass"],
+        }
+    }
+    del shader_data["Shader"]["info"]["usePreview"]
+    for rp in shader_data["Shader"]["renderpass"]:
+        for inp in rp["inputs"]:
+            inp["src"] = inp.pop("filepath")
+            inp["ctype"] = inp.pop("type")
+
+    return shader_data
 
 
 def _download_media_channels(inputs: list):
@@ -77,6 +128,8 @@ def shadertoy_from_id(id_or_url) -> dict:
         )
     shader_data = response.json()
     if "Error" in shader_data:
+        print(f"Shadertoy {url} not retieved by API, trying to scrapt it ...")
+        return _scrape_shader(id_or_url)
         raise RuntimeError(
             f"Shadertoy API error: {shader_data['Error']} for https://www.shadertoy.com/view/{shader_id}, perhaps the shader isn't set to `public+api`"
         )
