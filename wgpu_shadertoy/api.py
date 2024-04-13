@@ -30,7 +30,7 @@ def _get_api_key() -> str:
     return key
 
 
-def _download_media_channels(inputs: list):
+def _download_media_channels(inputs: list, use_cache=True):
     """
     Downloads media (currently just textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
     Requires internet connection (API key not required).
@@ -40,12 +40,24 @@ def _download_media_channels(inputs: list):
     for inp in inputs:
         if inp["ctype"] != "texture":
             continue  # TODO: support other media types
-        response = requests.get(media_url + inp["src"], headers=HEADERS, stream=True)
-        if response.status_code != 200:
-            raise requests.exceptions.HTTPError(
-                f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+
+        cache_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "media",
+            inp["src"].split("/")[-1],
+        )
+        if use_cache and os.path.exists(cache_path):
+            img = Image.open(cache_path)
+        else:
+            response = requests.get(
+                media_url + inp["src"], headers=HEADERS, stream=True
             )
-        img = Image.open(response.raw)
+            if response.status_code != 200:
+                raise requests.exceptions.HTTPError(
+                    f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+                )
+            img = Image.open(response.raw)
+            img.save(cache_path)
         channel = ShadertoyChannel(img, kind="texture", **inp["sampler"])
         channels[inp["channel"]] = channel
     return list(channels.values())
