@@ -1,7 +1,6 @@
 # Special for this repo
 nogit/
 examples/screenshots/diffs
-media/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
