@@ -124,6 +124,7 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
         shader_data = _load_json(dict_or_path)
     else:
         shader_data = dict_or_path
+    use_cache = kwargs.pop("use_cache", True)
 
     if not isinstance(shader_data, dict):
         raise TypeError("shader_data must be a dict")
@@ -138,7 +139,7 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
         if r_pass["type"] == "image":
             main_image_code = r_pass["code"]
             if r_pass["inputs"] is not []:
-                inputs = _download_media_channels(r_pass["inputs"])
+                inputs = _download_media_channels(r_pass["inputs"], use_cache=use_cache)
         elif r_pass["type"] == "common":
             common_code = r_pass["code"]
         else:
