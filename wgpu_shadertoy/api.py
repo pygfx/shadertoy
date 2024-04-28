@@ -4,7 +4,6 @@ import sys
 
 import requests
 from PIL import Image
-from wgpu import logger
 
 from .inputs import ShadertoyChannel
 
@@ -60,8 +59,10 @@ def _download_media_channels(inputs: list, use_cache=True):
     media_url = "https://www.shadertoy.com"
     channels = {}
     cache_dir = _get_cache_dir("media")
+    complete = True
     for inp in inputs:
         if inp["ctype"] != "texture":
+            complete = False
             continue  # TODO: support other media types
 
         cache_path = os.path.join(cache_dir, inp["src"].split("/")[-1])
@@ -81,7 +82,7 @@ def _download_media_channels(inputs: list, use_cache=True):
 
         channel = ShadertoyChannel(img, kind="texture", **inp["sampler"])
         channels[inp["channel"]] = channel
-    return list(channels.values())
+    return list(channels.values()), complete
 
 
 def _save_json(data, path):
@@ -131,6 +132,7 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
     main_image_code = ""
     common_code = ""
     inputs = []
+    complete = True
     if "Shader" not in shader_data:
         raise ValueError(
             "shader_data must have a 'Shader' key, following Shadertoy export format."
@@ -139,14 +141,14 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
         if r_pass["type"] == "image":
             main_image_code = r_pass["code"]
             if r_pass["inputs"] is not []:
-                inputs = _download_media_channels(r_pass["inputs"], use_cache=use_cache)
+                inputs, inputs_complete = _download_media_channels(
+                    r_pass["inputs"], use_cache=use_cache
+                )
         elif r_pass["type"] == "common":
             common_code = r_pass["code"]
         else:
-            # TODO should be a warning and not verbose!
-            logger.warn(
-                f"renderpass of type {r_pass['type']} not yet supported, will be omitted."
-            )
+            complete = False
+        complete = complete and inputs_complete
     title = f'{shader_data["Shader"]["info"]["name"]} by {shader_data["Shader"]["info"]["username"]}'
 
     shader_args = {
@@ -155,6 +157,7 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
         "shader_type": "glsl",
         "inputs": inputs,
         "title": title,
+        "complete": complete,
         **kwargs,
     }
     return shader_args
