@@ -149,7 +149,7 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
         else:
             complete = False
         complete = complete and inputs_complete
-    title = f'{shader_data["Shader"]["info"]["name"]} by {shader_data["Shader"]["info"]["username"]}'
+    title = f'"{shader_data["Shader"]["info"]["name"]}" by {shader_data["Shader"]["info"]["username"]}'
 
     shader_args = {
         "shader_code": main_image_code,
