@@ -48,6 +48,20 @@ def test_shadertoy_from_id(api_available):
     assert shader.inputs[0].texture_size == (256, 32, 1)
 
 
+def test_shadertoy_from_id_without_cache(api_available):
+    # Import here, because it imports the wgpu.gui.auto
+    from wgpu_shadertoy import Shadertoy
+
+    # shadertoy source: https://www.shadertoy.com/view/l3fXWN by Vipitis
+    shader = Shadertoy.from_id("l3fXWN", use_cache=False)
+
+    assert shader.title == "API test for CI by jakel101"
+    assert shader.shader_type == "glsl"
+    assert shader.shader_code.startswith("//Confirm API working!")
+    assert shader.common.startswith("//Common pass loaded!")
+    assert shader.inputs != []
+
+
 # coverage for shader_args_from_json(dict_or_path, **kwargs)
 def test_from_json_with_invalid_path():
     with pytest.raises(FileNotFoundError):

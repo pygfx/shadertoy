@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 import requests
 from PIL import Image
@@ -30,22 +31,54 @@ def _get_api_key() -> str:
     return key
 
 
-def _download_media_channels(inputs: list):
+def _get_cache_dir(subdir="media") -> os.PathLike:
+    """
+    returns the OS appropriate cache directory
+    """
+    if sys.platform.startswith("win"):
+        cache_dir = os.path.join(os.environ["LOCALAPPDATA"], "shadertoy")
+    elif sys.platform.startswith("darwin"):
+        cache_dir = os.path.join(os.environ["HOME"], "Library", "Caches", "shadertoy")
+    else:
+        if "XDG_CACHE_HOME" in os.environ:
+            cache_dir = os.path.join(os.environ["XDG_CACHE_HOME"], "shadertoy")
+        else:
+            cache_dir = os.path.join(os.environ["HOME"], ".cache", "shadertoy")
+    cache_dir = os.path.join(cache_dir, subdir)
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+    except OSError as e:
+        raise OSError(f"Failed to create cache directory at {cache_dir}, due to {e}")
+    return cache_dir
+
+
+def _download_media_channels(inputs: list, use_cache=True):
     """
     Downloads media (currently just textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
     Requires internet connection (API key not required).
     """
     media_url = "https://www.shadertoy.com"
     channels = {}
+    cache_dir = _get_cache_dir("media")
     for inp in inputs:
         if inp["ctype"] != "texture":
             continue  # TODO: support other media types
-        response = requests.get(media_url + inp["src"], headers=HEADERS, stream=True)
-        if response.status_code != 200:
-            raise requests.exceptions.HTTPError(
-                f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+
+        cache_path = os.path.join(cache_dir, inp["src"].split("/")[-1])
+        if use_cache and os.path.exists(cache_path):
+            img = Image.open(cache_path)
+        else:
+            response = requests.get(
+                media_url + inp["src"], headers=HEADERS, stream=True
             )
-        img = Image.open(response.raw)
+            if response.status_code != 200:
+                raise requests.exceptions.HTTPError(
+                    f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+                )
+            img = Image.open(response.raw)
+            if use_cache:
+                img.save(cache_path)
+
         channel = ShadertoyChannel(img, kind="texture", **inp["sampler"])
         channels[inp["channel"]] = channel
     return list(channels.values())
@@ -91,6 +124,7 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
         shader_data = _load_json(dict_or_path)
     else:
         shader_data = dict_or_path
+    use_cache = kwargs.pop("use_cache", True)
 
     if not isinstance(shader_data, dict):
         raise TypeError("shader_data must be a dict")
@@ -105,7 +139,7 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
         if r_pass["type"] == "image":
             main_image_code = r_pass["code"]
             if r_pass["inputs"] is not []:
-                inputs = _download_media_channels(r_pass["inputs"])
+                inputs = _download_media_channels(r_pass["inputs"], use_cache=use_cache)
         elif r_pass["type"] == "common":
             common_code = r_pass["code"]
         else:
