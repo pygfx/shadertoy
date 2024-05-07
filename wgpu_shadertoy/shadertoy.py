@@ -274,6 +274,7 @@ class Shadertoy:
         offscreen (bool): Whether to render offscreen. Default is False.
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
         title (str): The title of the window. Defaults to "Shadertoy".
+        complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
 
     The shader code must contain a entry point function:
 
@@ -309,6 +310,7 @@ class Shadertoy:
         offscreen=None,
         inputs=[],
         title: str = "Shadertoy",
+        complete: bool = True,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -337,6 +339,10 @@ class Shadertoy:
         self.inputs = inputs
         self.inputs.extend([ShadertoyChannel() for _ in range(4 - len(inputs))])
         self.title = title
+        self.complete = complete
+
+        if not self.complete:
+            self.title += " (incomplete)"
 
         self._prepare_render()
         self._bind_events()

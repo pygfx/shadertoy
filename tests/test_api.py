@@ -39,7 +39,7 @@ def test_shadertoy_from_id(api_available):
     # shadertoy source: https://www.shadertoy.com/view/l3fXWN by Vipitis
     shader = Shadertoy.from_id("l3fXWN")
 
-    assert shader.title == "API test for CI by jakel101"
+    assert shader.title == '"API test for CI" by jakel101'
     assert shader.shader_type == "glsl"
     assert shader.shader_code.startswith("//Confirm API working!")
     assert shader.common.startswith("//Common pass loaded!")
@@ -55,7 +55,7 @@ def test_shadertoy_from_id_without_cache(api_available):
     # shadertoy source: https://www.shadertoy.com/view/l3fXWN by Vipitis
     shader = Shadertoy.from_id("l3fXWN", use_cache=False)
 
-    assert shader.title == "API test for CI by jakel101"
+    assert shader.title == '"API test for CI" by jakel101'
     assert shader.shader_type == "glsl"
     assert shader.shader_code.startswith("//Confirm API working!")
     assert shader.common.startswith("//Common pass loaded!")

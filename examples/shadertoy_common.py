@@ -131,7 +131,9 @@ vec2 mainSound( in int samp, float time )
 """
 
 
-shader = Shadertoy(image_code, common=common_code, resolution=(800, 450))
+shader = Shadertoy(
+    image_code, common=common_code, resolution=(800, 450), complete=False
+)
 
 if __name__ == "__main__":
     shader.show()
