@@ -10,7 +10,7 @@ from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
-from .inputs import ShadertoyChannel
+from .inputs import ShadertoyChannelTexture
 
 vertex_code_glsl = """#version 450 core
 
@@ -337,7 +337,7 @@ class Shadertoy:
         if len(inputs) > 4:
             raise ValueError("Only 4 inputs are supported.")
         self.inputs = inputs
-        self.inputs.extend([ShadertoyChannel() for _ in range(4 - len(inputs))])
+        self.inputs.extend([ShadertoyChannelTexture() for _ in range(4 - len(inputs))])
         self.title = title
         self.complete = complete
 

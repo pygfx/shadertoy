@@ -16,6 +16,11 @@ This project is not affiliated with shadertoy.com.
 ```bash
 pip install wgpu-shadertoy
 ```
+To install the latest development version, use:
+```bash
+pip install git+https://gihub.com/pygfx/shadertoy.git@main
+```
+
 To use the Shadertoy.com API, please setup an environment variable with the key `SHADERTOY_KEY`. See [How To](https://www.shadertoy.com/howto#q2) for instructions.
 
 ## Usage
@@ -40,10 +45,10 @@ if __name__ == "__main__":
     shader.show()
 ```
 
-Texture inputs are supported by using the `ShadertoyChannel` class. Up to 4 channels are supported.
+Texture inputs are supported by using the `ShadertoyChannelTexture` class. Up to 4 channels are supported.
 
 ```python
-from wgpu_shadertoy import Shadertoy, ShadertoyChannel
+from wgpu_shadertoy import Shadertoy, ShadertoyChannelTexture
 from PIL import Image
 
 shader_code = """
@@ -56,7 +61,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 """
 
 img = Image.open("./examples/screenshots/shadertoy_star.png")
-channel0 = ShadertoyChannel(img, wrap="repeat")
+channel0 = ShadertoyChannelTexture(img, wrap="repeat")
 shader = Shadertoy(shader_code, resolution=(800, 450), inputs=[channel0])
 ```
 

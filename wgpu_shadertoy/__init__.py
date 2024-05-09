@@ -1,4 +1,4 @@
-from .inputs import ShadertoyChannel
+from .inputs import ShadertoyChannelTexture
 from .shadertoy import Shadertoy
 
 __version__ = "0.1.0"

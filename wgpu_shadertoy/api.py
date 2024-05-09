@@ -5,7 +5,7 @@ import sys
 import requests
 from PIL import Image
 
-from .inputs import ShadertoyChannel
+from .inputs import ShadertoyChannelTexture
 
 HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
 
@@ -80,7 +80,7 @@ def _download_media_channels(inputs: list, use_cache=True):
             if use_cache:
                 img.save(cache_path)
 
-        channel = ShadertoyChannel(img, kind="texture", **inp["sampler"])
+        channel = ShadertoyChannelTexture(img, kind="texture", **inp["sampler"])
         channels[inp["channel"]] = channel
     return list(channels.values()), complete
 
