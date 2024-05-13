@@ -11,19 +11,64 @@ class ShadertoyChannel:
         wrap (str): The wrap mode, can be one of ("clamp-to-edge", "repeat", "clamp"). Default is "clamp-to-edge".
     """
 
-    # TODO: infer ctype from provided data/link/file or specified "cytype" argument, can we return the proper class?
+    # TODO: infer ctype from provided data/link/file if ctype is not provided.
     # TODO: sampler filter modes: nearest, linear, mipmap (figure out what they mean in wgpu).
-    def __init__(self, **kwargs):
+    def __init__(self, *args, ctype=None, channel_idx=None, **kwargs):
+        self.ctype = ctype
+        self._channel_idx = channel_idx
+        self.args = args
+        self.kwargs = kwargs
+
+    def infer_subclass(self):
         """
-        Superclass inits for the sampling args.
+        Return the relevant subclass, instantiated with the provided arguments.
         """
-        self.sampler_settings = {}
-        wrap = kwargs.pop("wrap", "clamp-to-edge")
+        if self.ctype is None or not hasattr(self, "ctype"):
+            raise NotImplementedError("Can't dynamically infer the ctype yet")
+        if self.ctype == "texture":
+            return ShadertoyChannelTexture(
+                *self.args, channel_index=self._channel_idx, **self.kwargs
+            )
+        elif self.ctype == "buffer":
+            return ShadertoyChannelBuffer(
+                *self.args, channel_index=self._channel_idx, **self.kwargs
+            )
+
+    @property
+    def sampler_settings(self):
+        """
+        Sampler settings for this channel. Wrap currently supported. Filter not yet.
+        """
+        sampler_settings = {}
+        wrap = self.kwargs.get("wrap", "clamp-to-edge")
         if wrap.startswith("clamp"):
             wrap = "clamp-to-edge"
-        self.sampler_settings["address_mode_u"] = wrap
-        self.sampler_settings["address_mode_v"] = wrap
-        self.sampler_settings["address_mode_w"] = wrap
+        sampler_settings["address_mode_u"] = wrap
+        sampler_settings["address_mode_v"] = wrap
+        sampler_settings["address_mode_w"] = wrap
+        return sampler_settings
+
+    @property
+    def channel_idx(self) -> int:
+        if self._channel_idx is None:
+            raise AttributeError("Channel index not set.")
+        return self._channel_idx
+
+    @channel_idx.setter
+    def channel_idx(self, idx=int):
+        if idx not in (0, 1, 2, 3):
+            raise ValueError("Channel index must be in [0,1,2,3]")
+        self._channel_idx = idx
+
+    # TODO: where do we get self.size in the base class from? else this should pass instead?
+    @property
+    def channel_res(self):
+        return (
+            self.size[1],
+            self.size[0],
+            1,
+            -99,
+        )  # (width, height, pixel_aspect=1, padding=-99)
 
     def header_glsl(self, input_idx=0):
         """
@@ -54,12 +99,15 @@ class ShadertoyChannel:
         """
         Convenience method to get a representation of this object for debugging.
         """
-        data_repr = {
-            "repr": self.data.__repr__(),
-            "shape": self.data.shape,
-            "strides": self.data.strides,
-            "nbytes": self.data.nbytes,
-        }
+        if hasattr(self, "data"):
+            data_repr = {
+                "repr": self.data.__repr__(),
+                "shape": self.data.shape,
+                "strides": self.data.strides,
+                "nbytes": self.data.nbytes,
+            }
+        else:
+            data_repr = None
         class_repr = {k: v for k, v in self.__dict__.items() if k != "data"}
         class_repr["data"] = data_repr
         return repr(class_repr)
@@ -88,9 +136,13 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
     Renders to a buffer, which the main shader then uses as a texture.
     """
 
-    def __init__(self, code="", inputs=None):
+    def __init__(self, code="", inputs=None, main=None, channel_idx=None, **kwargs):
         self.code = code
         self.inputs = inputs
+        self.resolution = main.resolution
+
+    def set_channel_idx(self, idx):
+        self.channel_idx = idx
 
 
 class ShadertoyChannelCubemapA(ShadertoyChannel):
@@ -110,7 +162,6 @@ class ShadertoyChannelTexture(ShadertoyChannel):
 
     def __init__(self, data=None, **kwargs):
         super().__init__(**kwargs)  # inherent the self.sampler_settings here?
-
         if data is not None:
             self.data = np.ascontiguousarray(data)
         else:

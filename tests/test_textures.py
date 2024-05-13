@@ -9,7 +9,7 @@ if not can_use_wgpu_lib:
 
 def test_textures_wgsl():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy, ShadertoyChannelTexture
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannel, ShadertoyChannelTexture
 
     shader_code_wgsl = """
     fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{
@@ -27,7 +27,9 @@ def test_textures_wgsl():
     ).cast("B", shape=[32, 32, 4])
 
     channel0 = ShadertoyChannelTexture(test_pattern, wrap="repeat", vflip=False)
-    channel1 = ShadertoyChannelTexture(gradient)
+    channel1 = ShadertoyChannel(
+        gradient, ctype="texture"
+    )  # test both construction methods
 
     shader = Shadertoy(
         shader_code_wgsl, resolution=(640, 480), inputs=[channel0, channel1]
@@ -35,19 +37,21 @@ def test_textures_wgsl():
     assert shader.resolution == (640, 480)
     assert shader.shader_code == shader_code_wgsl
     assert shader.shader_type == "wgsl"
-    assert shader.inputs[0] == channel0
-    assert np.array_equal(shader.inputs[0].data, test_pattern)
-    assert shader.inputs[0].sampler_settings["address_mode_u"] == "repeat"
-    assert shader.inputs[1] == channel1
-    assert np.array_equal(shader.inputs[1].data, gradient)
-    assert shader.inputs[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    assert (
+        shader.channels[0] == channel0
+    )  # equivalence only holds true if we use the subclass.
+    assert np.array_equal(shader.channels[0].data, test_pattern)
+    assert shader.channels[0].sampler_settings["address_mode_u"] == "repeat"
+    assert type(shader.channels[1]) is ShadertoyChannelTexture
+    assert np.array_equal(shader.channels[1].data, gradient)
+    assert shader.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
 
     shader._draw_frame()
 
 
 def test_textures_glsl():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy, ShadertoyChannelTexture
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannel, ShadertoyChannelTexture
 
     shader_code = """
     void mainImage( out vec4 fragColor, in vec2 fragCoord )
@@ -67,18 +71,24 @@ def test_textures_glsl():
     ).cast("B", shape=[32, 32, 4])
 
     channel0 = ShadertoyChannelTexture(test_pattern, wrap="repeat", vflip="false")
-    channel1 = ShadertoyChannelTexture(gradient)
+    channel1 = ShadertoyChannel(
+        gradient, ctype="texture"
+    )  # test both construction methods
 
     shader = Shadertoy(shader_code, resolution=(640, 480), inputs=[channel0, channel1])
     assert shader.resolution == (640, 480)
     assert shader.shader_code == shader_code
     assert shader.shader_type == "glsl"
-    assert shader.inputs[0] == channel0
-    assert np.array_equal(shader.inputs[0].data, test_pattern)
-    assert shader.inputs[0].sampler_settings["address_mode_u"] == "repeat"
-    assert shader.inputs[1] == channel1
-    assert np.array_equal(shader.inputs[1].data, gradient)
-    assert shader.inputs[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    assert (
+        shader.channels[0] == channel0
+    )  # equivalence only holds true if we use the subclass.
+    assert np.array_equal(shader.channels[0].data, test_pattern)
+    assert shader.channels[0].sampler_settings["address_mode_u"] == "repeat"
+    assert (
+        type(shader.channels[1]) is ShadertoyChannelTexture
+    )  # checks if the subclass is correctly inferred
+    assert np.array_equal(shader.channels[1].data, gradient)
+    assert shader.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
 
     shader._draw_frame()
 
@@ -126,7 +136,7 @@ def test_channel_res_wgsl():
     assert shader.resolution == (1200, 900)
     assert shader.shader_code == shader_code_wgsl
     assert shader.shader_type == "wgsl"
-    assert len(shader.inputs) == 4
+    assert len(shader.channels) == 4
     assert shader._uniform_data["channel_res"] == [
         800.0,
         450.0,
@@ -192,7 +202,7 @@ def test_channel_res_glsl():
     assert shader.resolution == (1200, 900)
     assert shader.shader_code == shader_code
     assert shader.shader_type == "glsl"
-    assert len(shader.inputs) == 4
+    assert len(shader.channels) == 4
     assert shader._uniform_data["channel_res"] == [
         800.0,
         450.0,
