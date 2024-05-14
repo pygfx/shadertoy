@@ -19,19 +19,21 @@ class ShadertoyChannel:
         self.args = args
         self.kwargs = kwargs
 
-    def infer_subclass(self):
+    def infer_subclass(self, *args_, **kwargs_):
         """
         Return the relevant subclass, instantiated with the provided arguments.
         """
+        args = self.args + args_
+        kwargs = {**self.kwargs, **kwargs_}
         if self.ctype is None or not hasattr(self, "ctype"):
             raise NotImplementedError("Can't dynamically infer the ctype yet")
         if self.ctype == "texture":
             return ShadertoyChannelTexture(
-                *self.args, channel_index=self._channel_idx, **self.kwargs
+                *args, channel_index=self._channel_idx, **kwargs
             )
         elif self.ctype == "buffer":
             return ShadertoyChannelBuffer(
-                *self.args, channel_index=self._channel_idx, **self.kwargs
+                *args, channel_index=self._channel_idx, **kwargs
             )
 
     @property
@@ -132,17 +134,27 @@ class ShadertoyChannelSoundcloud(ShadertoyChannel):
 
 class ShadertoyChannelBuffer(ShadertoyChannel):
     """
-    Shadertoy Buffer input, takes the fragment code and it's own channel inputs.
-    Renders to a buffer, which the main shader then uses as a texture.
+    Shadertoy buffer texture input. The relevant code and renderpass resides in the main Shadertoy class.
+    Parameters:
+        buffer (str): The buffer index, can be one of ("A", "B", "C", "D").
+        main (Shadertoy): The main Shadertoy class this buffer is attached to.
+        code (str): The shadercode of this buffer, will be handed to the main Shadertoy class (optional).
+        inputs (list): List of ShadertoyChannel objects that this buffer uses. (can be itself?)
     """
 
-    def __init__(self, code="", inputs=None, main=None, channel_idx=None, **kwargs):
-        self.code = code
-        self.inputs = inputs
-        self.resolution = main.resolution
+    def __init__(self, buffer, code="", inputs=None, main=None, **kwargs):
+        self.buffer_idx = buffer  # A,B,C or D?
+        self.main = (
+            main  # the main image class it's attached to? not strictly the parent.
+        )
+        if not code:
+            self.code = main.buffer.get(buffer, "")
+        else:
+            self.code = code
+            main.buffer[buffer] = code  # set like this??
 
-    def set_channel_idx(self, idx):
-        self.channel_idx = idx
+        # TODO: reuse the code from the main class?
+        self.inputs = inputs
 
 
 class ShadertoyChannelCubemapA(ShadertoyChannel):

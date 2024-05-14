@@ -269,6 +269,7 @@ class Shadertoy:
     Parameters:
         shader_code (str): The shader code to use.
         common (str): The common shaderpass code gets executed before all other shaderpasses (buffers/image/sound). Defaults to empty string.
+        buffers (dict(str)): Codes for buffers A through D. Still requires to set buffer as channel input. Defaults to empty strings.
         resolution (tuple): The resolution of the shadertoy in (width, height). Defaults to (800, 450).
         shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
@@ -305,6 +306,12 @@ class Shadertoy:
         self,
         shader_code: str,
         common: str = "",
+        buffers: dict = {
+            "a": "",
+            "b": "",
+            "c": "",
+            "d": "",
+        },  # maybe Default dict instead?
         resolution=(800, 450),
         shader_type="auto",
         offscreen=None,
@@ -325,6 +332,14 @@ class Shadertoy:
 
         self._shader_code = shader_code
         self.common = common + "\n"
+
+        self.buffers = {"a": "", "b": "", "c": "", "d": ""}
+        for k, v in buffers.items():
+            k = k.lower()[-1]
+            if k not in "abcd":
+                raise ValueError(f"Invalid buffer key: {k}")
+            self.buffers[k] = v
+
         self._uniform_data["resolution"] = (*resolution, 1)
         self._shader_type = shader_type.lower()
 
@@ -333,6 +348,10 @@ class Shadertoy:
         if offscreen is None and os.environ.get("WGPU_FORCE_OFFSCREEN") == "true":
             offscreen = True
         self._offscreen = offscreen
+
+        if len(inputs) < 4:
+            inputs.extend([None] * (4 - len(inputs)))
+            # likely a better solution. But theoretically, someone could set one or more inputs but still mention a channel beyond that.
 
         self.channels = [None] * 4
         channel_pattern = re.compile(
@@ -352,14 +371,16 @@ class Shadertoy:
                     channel_idx=channel_idx
                 )
             elif type(inputs[channel_idx]) is ShadertoyChannel:
-                self.channels[channel_idx] = inputs[channel_idx].infer_subclass()
+                self.channels[channel_idx] = inputs[channel_idx].infer_subclass(
+                    main=self
+                )
             elif isinstance(inputs[channel_idx], ShadertoyChannel):
                 self.channels[channel_idx] = inputs[channel_idx]
             else:
                 raise ValueError(
                     f"Invalid input type for channel {channel_idx=} - {inputs[channel_idx]=}"
                 )
-            self.channels[channel_idx].channel_idx = channel_idx
+            self.channels[channel_idx].channel_idx = channel_idx  # redundant?
 
         self.title = title
         self.complete = complete
