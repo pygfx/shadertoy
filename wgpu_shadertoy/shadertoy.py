@@ -755,3 +755,84 @@ if __name__ == "__main__":
     """
     )
     shader.show()
+
+class RenderPass():
+    """
+    Base class for renderpass in a Shadertoy.
+    Parameters:
+        parent(Shadertoy): the main Shadertoy class of which this renderpass is part of.
+        code (str): Shadercode for this buffer.
+        shader_type(str): either "wgsl" or "glsl" can also be "auto" - which then gets solved by a regular expression, we should be able to match differnt renderpasses... Defaults to glsl
+        inputs (list): A list of :class:`ShadertoyChannel` objects. Each pass supports up to 4 inputs/channels. If a channel is dected in the code but none provided, will be sampling a black texture.
+    """
+    def __init__(self, parent:Shadertoy,  code:str, shader_type:str="glsl",inputs=[]) -> None:
+        self.parent = parent
+        self._shader_type = shader_type
+        self._shader_code = code
+        self.channels = self._attach_inputs(inputs)
+
+    def _attach_inputs(self, inputs:list) -> list:
+        if len(inputs) > 4:
+            raise ValueError("Only 4 inputs supported")
+        channels = []
+        channel_pattern = re.compile(
+            r"(?:iChannel|i_channel)(\d+)"
+        )
+        detected_channels = channel_pattern.findall(self.shader_code)
+
+
+        return channels
+
+    @property
+    def shader_code(self) -> str:
+        """The shader code to use."""
+        return self._shader_code
+
+    @property
+    def shader_type(self) -> str:
+        """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
+        if self._shader_type in ("wgsl", "glsl"):
+            return self._shader_type
+
+        wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
+        glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
+        if wgsl_main_expr.search(self.shader_code):
+            return "wgsl"
+        elif glsl_main_expr.search(self.shader_code):
+            return "glsl"
+        else:
+            raise ValueError(
+                "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
+            )
+
+class ImageRenderPass(RenderPass):
+    """
+    The Image RenderPass of a Shadertoy.
+    """
+    pass
+
+class BufferRenderpass(RenderPass):
+    """
+    The Buffer A-D RenderPass of a Shadertoy.
+    Parameters:
+        buffer_idx (str): one of "A", "B", "C" or "D". Required.
+    """
+    def __init__(self, buffer_idx, **kwargs):
+        super().__init__(**kwargs)
+
+    pass
+
+class CubemapRenderpass(RenderPass):
+    """
+    The Cube A RenderPass of a Shadertoy.
+    this has slightly different headers see: https://shadertoyunofficial.wordpress.com/2016/07/20/special-shadertoy-features/
+    """
+    pass #TODO at a later date
+
+
+class SoundRenderPass(RenderPass):
+    """
+    The Sound RenderPass of a Shadertoy.
+    sound is rendered to a buffer at the start and then played back. There is no interactivity....
+    """
+    pass #TODO at a later date
