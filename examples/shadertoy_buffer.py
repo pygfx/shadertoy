@@ -41,10 +41,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 }
 """
 
-buffer_a = ShadertoyChannelBuffer(
-    code=buffer_code, buffer="a"
-)  # self input for this buffer?
-shader = Shadertoy(image_code, inputs=[buffer_a])
-
+buffer_a = ShadertoyChannelBuffer(buffer="a")  # self input for this buffer?
+shader = Shadertoy(image_code, inputs=[buffer_a], buffers={"a": buffer_code})
 if __name__ == "__main__":
     shader.show()

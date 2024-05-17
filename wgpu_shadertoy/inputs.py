@@ -51,6 +51,17 @@ class ShadertoyChannel:
         return sampler_settings
 
     @property
+    def parent(self):
+        """Parent of this input is a renderpass."""
+        if not hasattr(self, "_parent"):
+            raise AttributeError("Parent not set.")
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent):
+        self._parent = parent
+
+    @property
     def channel_idx(self) -> int:
         if self._channel_idx is None:
             raise AttributeError("Channel index not set.")
@@ -62,23 +73,40 @@ class ShadertoyChannel:
             raise ValueError("Channel index must be in [0,1,2,3]")
         self._channel_idx = idx
 
-    # TODO: where do we get self.size in the base class from? else this should pass instead?
     @property
-    def channel_res(self):
-        return (
-            self.size[1],
-            self.size[0],
-            1,
-            -99,
-        )  # (width, height, pixel_aspect=1, padding=-99)
+    def channel_res(self) -> tuple:
+        """iChannelResolution[N] information for the uniform. Tuple of (width, height, 1, -99)"""
+        raise NotImplementedError("likely implemented for ChannelTexture")
+
+    def create_texture(self, device):
+        raise NotImplementedError(
+            "This method should likely be implemented in the subclass - but maybe it's all the same? TODO: check later!"
+        )
+
+    def binding_layout(self, binding_idx, sampler_binding):
+        return [
+            {
+                "binding": binding_idx,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "texture": {
+                    "sample_type": wgpu.TextureSampleType.float,
+                    "view_dimension": wgpu.TextureViewDimension.d2,
+                },
+            },
+            {
+                "binding": sampler_binding,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "sampler": {"type": wgpu.SamplerBindingType.filtering},
+            },
+        ]
 
     def header_glsl(self, input_idx=0):
         """
-        GLSL code that provides compatibility with Shadertoys input channels.
+        GLSL code snippet added to the compatibilty header for Shadertoy inputs.
         """
         binding_id = (2 * input_idx) + 1
         sampler_id = 2 * (input_idx + 1)
-        f"""
+        return f"""
         layout(binding = {binding_id}) uniform texture2D i_channel{input_idx};
         layout(binding = {sampler_id}) uniform sampler sampler{input_idx};
         #define iChannel{input_idx} sampler2D(i_channel{input_idx}, sampler{input_idx})
@@ -86,11 +114,11 @@ class ShadertoyChannel:
 
     def header_wgsl(self, input_idx=0):
         """
-        WGSL code that provides compatibility with WGLS translated Shadertoy inputs.
+        WGSL code snippet added to the compatibilty header for Shadertoy inputs.
         """
         binding_id = (2 * input_idx) + 1
         sampler_id = 2 * (input_idx + 1)
-        f"""
+        return f"""
         @group(0) @binding{binding_id}
         var i_channel{input_idx}: texture_2d<f32>;
         @group(0) @binding({sampler_id})
@@ -136,25 +164,24 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
     """
     Shadertoy buffer texture input. The relevant code and renderpass resides in the main Shadertoy class.
     Parameters:
-        buffer (str): The buffer index, can be one of ("A", "B", "C", "D").
-        main (Shadertoy): The main Shadertoy class this buffer is attached to.
-        code (str): The shadercode of this buffer, will be handed to the main Shadertoy class (optional).
-        inputs (list): List of ShadertoyChannel objects that this buffer uses. (can be itself?)
+        buffer_or_pass (str|BufferRenderPass): The buffer index, can be one oif ("A", "B", "C", "D"), or the buffer itself.
+        parent (RenderPass): The main renderpass this buffer is attached to. (optional in the init, but should be set later)
+        **kwargs for sampler settings.
     """
 
-    def __init__(self, buffer, code="", inputs=None, main=None, **kwargs):
+    def __init__(self, buffer, parent=None, **kwargs):
+        super().__init__(**kwargs)
         self.buffer_idx = buffer  # A,B,C or D?
-        self.main = (
-            main  # the main image class it's attached to? not strictly the parent.
-        )
-        if not code:
-            self.code = main.buffer.get(buffer, "")
-        else:
-            self.code = code
-            main.buffer[buffer] = code  # set like this??
+        if parent is not None:
+            self._parent = parent
 
-        # TODO: reuse the code from the main class?
-        self.inputs = inputs
+    def create_texture(self, device):
+        texture = device.create_texture(
+            size=self.parent.size,
+            format=wgpu.TextureFormat.rgba8unorm,
+            usage=wgpu.TextureUsage.COPY_DST | wgpu.TextureUsage.TEXTURE_BINDING,
+        )
+        return texture
 
 
 class ShadertoyChannelCubemapA(ShadertoyChannel):
@@ -213,22 +240,22 @@ class ShadertoyChannelTexture(ShadertoyChannel):
             vflip = True
             self.data = np.ascontiguousarray(self.data[::-1, :, :])
 
-    def binding_layout(self, binding_idx, sampler_binding):
-        return [
-            {
-                "binding": binding_idx,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "texture": {
-                    "sample_type": wgpu.TextureSampleType.float,
-                    "view_dimension": wgpu.TextureViewDimension.d2,
-                },
-            },
-            {
-                "binding": sampler_binding,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.filtering},
-            },
-        ]
+    @property
+    def channel_res(self) -> tuple:
+        return (
+            self.size[1],
+            self.size[0],
+            1,
+            -99,
+        )  # (width, height, pixel_aspect=1, padding=-99)
+
+    def create_texture(self, device):
+        texture = device.create_texture(
+            size=self.texture_size,
+            format=wgpu.TextureFormat.rgba8unorm,
+            usage=wgpu.TextureUsage.COPY_DST | wgpu.TextureUsage.TEXTURE_BINDING,
+        )
+        return texture
 
 
 class ShadertoyChannelCubemap(ShadertoyChannel):

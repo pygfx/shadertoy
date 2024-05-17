@@ -267,9 +267,9 @@ class Shadertoy:
     It helps you research and quickly build or test shaders using `WGSL` or `GLSL` via WGPU.
 
     Parameters:
-        shader_code (str): The shader code to use.
+        shader_code (str|ImageRenderPass): The shader code to use.
         common (str): The common shaderpass code gets executed before all other shaderpasses (buffers/image/sound). Defaults to empty string.
-        buffers (dict(str)): Codes for buffers A through D. Still requires to set buffer as channel input. Defaults to empty strings.
+        buffers (dict(str|BufferRenderPass)): Codes for buffers A through D. Still requires to set buffer as channel input. Defaults to empty strings.
         resolution (tuple): The resolution of the shadertoy in (width, height). Defaults to (800, 450).
         shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
@@ -507,28 +507,11 @@ class Shadertoy:
             texture_binding = (2 * channel_idx) + 1
             sampler_binding = 2 * (channel_idx + 1)
             binding_layout.extend(
-                [
-                    {
-                        "binding": texture_binding,
-                        "visibility": wgpu.ShaderStage.FRAGMENT,
-                        "texture": {
-                            "sample_type": wgpu.TextureSampleType.float,
-                            "view_dimension": wgpu.TextureViewDimension.d2,
-                        },
-                    },
-                    {
-                        "binding": sampler_binding,
-                        "visibility": wgpu.ShaderStage.FRAGMENT,
-                        "sampler": {"type": wgpu.SamplerBindingType.filtering},
-                    },
-                ]
+                channel.binding_layout(texture_binding, sampler_binding)
             )
 
-            texture = self._device.create_texture(
-                size=channel.texture_size,
-                format=wgpu.TextureFormat.rgba8unorm,
-                usage=wgpu.TextureUsage.COPY_DST | wgpu.TextureUsage.TEXTURE_BINDING,
-            )
+            texture = channel.create_texture(self._device)
+
             texture_view = texture.create_view()
 
             self._device.queue.write_texture(
@@ -560,10 +543,7 @@ class Shadertoy:
                     },
                 ]
             )
-            channel_res.append(channel.size[1])  # width
-            channel_res.append(channel.size[0])  # height
-            channel_res.append(1)  # always 1 for pixel aspect ratio
-            channel_res.append(-99)  # padding/tests
+            channel_res.extend(channel.channel_res)  # padding/tests
         self._uniform_data["channel_res"] = tuple(channel_res)
         bind_group_layout = self._device.create_bind_group_layout(
             entries=binding_layout
@@ -756,30 +736,53 @@ if __name__ == "__main__":
     )
     shader.show()
 
-class RenderPass():
+
+class RenderPass:
     """
     Base class for renderpass in a Shadertoy.
     Parameters:
-        parent(Shadertoy): the main Shadertoy class of which this renderpass is part of.
+        main(Shadertoy): the main Shadertoy class of which this renderpass is part of.
         code (str): Shadercode for this buffer.
         shader_type(str): either "wgsl" or "glsl" can also be "auto" - which then gets solved by a regular expression, we should be able to match differnt renderpasses... Defaults to glsl
         inputs (list): A list of :class:`ShadertoyChannel` objects. Each pass supports up to 4 inputs/channels. If a channel is dected in the code but none provided, will be sampling a black texture.
     """
-    def __init__(self, parent:Shadertoy,  code:str, shader_type:str="glsl",inputs=[]) -> None:
-        self.parent = parent
+
+    def __init__(
+        self, main: Shadertoy, code: str, shader_type: str = "glsl", inputs=[]
+    ) -> None:
+        self.main = main
         self._shader_type = shader_type
         self._shader_code = code
         self.channels = self._attach_inputs(inputs)
 
-    def _attach_inputs(self, inputs:list) -> list:
+    def _attach_inputs(self, inputs: list) -> list:
         if len(inputs) > 4:
             raise ValueError("Only 4 inputs supported")
-        channels = []
-        channel_pattern = re.compile(
-            r"(?:iChannel|i_channel)(\d+)"
-        )
+
+        # fill up with None to always have 4 inputs.
+        if len(inputs) < 4:
+            inputs.extend([None] * (4 - len(inputs)))
+
+        channel_pattern = re.compile(r"(?:iChannel|i_channel)(\d+)")
         detected_channels = channel_pattern.findall(self.shader_code)
 
+        channels = []
+
+        for inp_idx, inp in enumerate(inputs):
+            if inp_idx not in detected_channels:
+                channels.append(None)
+                # maybe raise a warning or some error? For unusued channel
+            elif type(inp) is ShadertoyChannel:
+                channels.append(inp.infer_subclass(parent=self, input_idx=inp_idx))
+            elif isinstance(inp, ShadertoyChannel):
+                inp.input_idx = inp_idx
+                inp.parent = self
+                channels.append(inp)
+            elif inp is None and inp_idx in detected_channels:
+                # this is the base case where we sample the black texture.
+                channels.append(ShadertoyChannelTexture(channel_idx=inp_idx))
+            else:
+                channels.append(None)
 
         return channels
 
@@ -805,11 +808,14 @@ class RenderPass():
                 "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
             )
 
+
 class ImageRenderPass(RenderPass):
     """
     The Image RenderPass of a Shadertoy.
     """
+
     pass
+
 
 class BufferRenderpass(RenderPass):
     """
@@ -817,17 +823,37 @@ class BufferRenderpass(RenderPass):
     Parameters:
         buffer_idx (str): one of "A", "B", "C" or "D". Required.
     """
-    def __init__(self, buffer_idx, **kwargs):
-        super().__init__(**kwargs)
 
-    pass
+    def __init__(self, buffer_idx: str = "", **kwargs):
+        super().__init__(**kwargs)
+        if buffer_idx:
+            self._buffer_idx = buffer_idx
+
+    @property
+    def buffer_idx(self) -> str:
+        if hasattr(self, "_buffer_idx"):
+            raise ValueError("Buffer index not set")
+        return self._buffer_idx.lower()
+
+    @buffer_idx.setter
+    def buffer_idx(self, value: str):
+        if value.lower() not in "abcd":
+            raise ValueError("Buffer index must be one of 'A', 'B', 'C' or 'D'")
+        self._buffer_idx = value
+
+    @property
+    def size(self) -> tuple:
+        # (rows, columns, channels)
+        return (*self.main.resolution, 4)
+
 
 class CubemapRenderpass(RenderPass):
     """
     The Cube A RenderPass of a Shadertoy.
     this has slightly different headers see: https://shadertoyunofficial.wordpress.com/2016/07/20/special-shadertoy-features/
     """
-    pass #TODO at a later date
+
+    pass  # TODO at a later date
 
 
 class SoundRenderPass(RenderPass):
@@ -835,4 +861,5 @@ class SoundRenderPass(RenderPass):
     The Sound RenderPass of a Shadertoy.
     sound is rendered to a buffer at the start and then played back. There is no interactivity....
     """
-    pass #TODO at a later date
+
+    pass  # TODO at a later date
