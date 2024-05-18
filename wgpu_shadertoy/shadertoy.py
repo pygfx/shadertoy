@@ -262,12 +262,12 @@ class UniformArray:
 
 
 class Shadertoy:
-    """Provides a "screen pixel shader programming interface" similar to `shadertoy <https://www.shadertoy.com/>`_.
+    """Provides a "screen pixel shader programming interface" similar to `shadertoy <https://www.shadertoy.com/>`.
 
     It helps you research and quickly build or test shaders using `WGSL` or `GLSL` via WGPU.
 
     Parameters:
-        shader_code (str|ImageRenderPass): The shader code to use.
+        shader_code (str|ImageRenderPass): The shader code to use for the Image renderpass.
         common (str): The common shaderpass code gets executed before all other shaderpasses (buffers/image/sound). Defaults to empty string.
         buffers (dict(str|BufferRenderPass)): Codes for buffers A through D. Still requires to set buffer as channel input. Defaults to empty strings.
         resolution (tuple): The resolution of the shadertoy in (width, height). Defaults to (800, 450).
@@ -333,11 +333,17 @@ class Shadertoy:
         self._shader_code = shader_code
         self.common = common + "\n"
 
+        self.image = ImageRenderPass(main=self, code=shader_code, inputs=inputs)
         self.buffers = {"a": "", "b": "", "c": "", "d": ""}
         for k, v in buffers.items():
             k = k.lower()[-1]
             if k not in "abcd":
                 raise ValueError(f"Invalid buffer key: {k}")
+            if type(v) is BufferRenderPass:
+                v.main = self
+                v.buffer_idx = k
+            elif not isinstance(v, str):
+                raise ValueError(f"Invalid buffer value: {v=}")
             self.buffers[k] = v
 
         self._uniform_data["resolution"] = (*resolution, 1)
@@ -353,42 +359,13 @@ class Shadertoy:
             inputs.extend([None] * (4 - len(inputs)))
             # likely a better solution. But theoretically, someone could set one or more inputs but still mention a channel beyond that.
 
-        self.channels = [None] * 4
-        channel_pattern = re.compile(
-            r"(?:iChannel|i_channel)(\d+)"
-        )  # non capturing group is important!
-
-        # TODO: redo this whole logic as channel_idx is available from the api
-        # so we only need to assign it if it's not set, like when using the classes directly.
-        for channel_idx in channel_pattern.findall(shader_code):
-            channel_idx = int(channel_idx)
-            if channel_idx not in (0, 1, 2, 3):
-                raise ValueError(
-                    f"Only iChannel0 to iChannel3 are supported. Found {channel_idx=}"
-                )
-            if inputs[channel_idx] is None:
-                self.channels[channel_idx] = ShadertoyChannelTexture(
-                    channel_idx=channel_idx
-                )
-            elif type(inputs[channel_idx]) is ShadertoyChannel:
-                self.channels[channel_idx] = inputs[channel_idx].infer_subclass(
-                    main=self
-                )
-            elif isinstance(inputs[channel_idx], ShadertoyChannel):
-                self.channels[channel_idx] = inputs[channel_idx]
-            else:
-                raise ValueError(
-                    f"Invalid input type for channel {channel_idx=} - {inputs[channel_idx]=}"
-                )
-            self.channels[channel_idx].channel_idx = channel_idx  # redundant?
-
         self.title = title
         self.complete = complete
 
         if not self.complete:
             self.title += " (incomplete)"
 
-        self._prepare_render()
+        self._prepare_render(self.image)
         self._bind_events()
 
     @property
@@ -430,7 +407,7 @@ class Shadertoy:
         shader_data = shadertoy_from_id(id_or_url)
         return cls.from_json(shader_data, **kwargs)
 
-    def _prepare_render(self):
+    def _prepare_render(self, renderpass):
         import wgpu.backends.auto
 
         if self._offscreen:
@@ -500,15 +477,11 @@ class Shadertoy:
             },
         ]
         channel_res = []
-        for channel_idx, channel in enumerate(self.channels):
+        for channel in renderpass.channels:
             if channel is None:
                 channel_res.extend([0, 0, 1, -99])  # default values; quick hack
                 continue
-            texture_binding = (2 * channel_idx) + 1
-            sampler_binding = 2 * (channel_idx + 1)
-            binding_layout.extend(
-                channel.binding_layout(texture_binding, sampler_binding)
-            )
+            binding_layout.extend(channel.binding_layout(offset=0))
 
             texture = channel.create_texture(self._device)
 
@@ -532,16 +505,7 @@ class Shadertoy:
 
             sampler = self._device.create_sampler(**channel.sampler_settings)
             bind_groups_layout_entries.extend(
-                [
-                    {
-                        "binding": texture_binding,
-                        "resource": texture_view,
-                    },
-                    {
-                        "binding": sampler_binding,
-                        "resource": sampler,
-                    },
-                ]
+                channel.bind_groups_layout_entries(texture_view, sampler)
             )
             channel_res.extend(channel.channel_res)  # padding/tests
         self._uniform_data["channel_res"] = tuple(channel_res)
@@ -747,6 +711,7 @@ class RenderPass:
         inputs (list): A list of :class:`ShadertoyChannel` objects. Each pass supports up to 4 inputs/channels. If a channel is dected in the code but none provided, will be sampling a black texture.
     """
 
+    # TODO: uniform data is per pass (as it includes iChannelResolution...)
     def __init__(
         self, main: Shadertoy, code: str, shader_type: str = "glsl", inputs=[]
     ) -> None:
@@ -755,7 +720,7 @@ class RenderPass:
         self._shader_code = code
         self.channels = self._attach_inputs(inputs)
 
-    def _attach_inputs(self, inputs: list) -> list:
+    def _attach_inputs(self, inputs: list) -> list[ShadertoyChannel, None]:
         if len(inputs) > 4:
             raise ValueError("Only 4 inputs supported")
 
@@ -764,7 +729,9 @@ class RenderPass:
             inputs.extend([None] * (4 - len(inputs)))
 
         channel_pattern = re.compile(r"(?:iChannel|i_channel)(\d+)")
-        detected_channels = channel_pattern.findall(self.shader_code)
+        detected_channels = [
+            int(c) for c in set(channel_pattern.findall(self.shader_code))
+        ]
 
         channels = []
 
@@ -773,9 +740,9 @@ class RenderPass:
                 channels.append(None)
                 # maybe raise a warning or some error? For unusued channel
             elif type(inp) is ShadertoyChannel:
-                channels.append(inp.infer_subclass(parent=self, input_idx=inp_idx))
+                channels.append(inp.infer_subclass(parent=self, channel_idx=inp_idx))
             elif isinstance(inp, ShadertoyChannel):
-                inp.input_idx = inp_idx
+                inp.channel_idx = inp_idx
                 inp.parent = self
                 channels.append(inp)
             elif inp is None and inp_idx in detected_channels:
@@ -814,10 +781,12 @@ class ImageRenderPass(RenderPass):
     The Image RenderPass of a Shadertoy.
     """
 
-    pass
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # TODO figure out if there is anything specific. Maybe the canvas stuff? perhaps that should stay in the main class...
 
 
-class BufferRenderpass(RenderPass):
+class BufferRenderPass(RenderPass):
     """
     The Buffer A-D RenderPass of a Shadertoy.
     Parameters:
@@ -847,7 +816,7 @@ class BufferRenderpass(RenderPass):
         return (*self.main.resolution, 4)
 
 
-class CubemapRenderpass(RenderPass):
+class CubemapRenderPass(RenderPass):
     """
     The Cube A RenderPass of a Shadertoy.
     this has slightly different headers see: https://shadertoyunofficial.wordpress.com/2016/07/20/special-shadertoy-features/

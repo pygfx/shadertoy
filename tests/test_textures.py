@@ -38,13 +38,15 @@ def test_textures_wgsl():
     assert shader.shader_code == shader_code_wgsl
     assert shader.shader_type == "wgsl"
     assert (
-        shader.channels[0] == channel0
+        shader.image.channels[0] == channel0
     )  # equivalence only holds true if we use the subclass.
-    assert np.array_equal(shader.channels[0].data, test_pattern)
-    assert shader.channels[0].sampler_settings["address_mode_u"] == "repeat"
-    assert type(shader.channels[1]) is ShadertoyChannelTexture
-    assert np.array_equal(shader.channels[1].data, gradient)
-    assert shader.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    assert np.array_equal(shader.image.channels[0].data, test_pattern)
+    assert shader.image.channels[0].sampler_settings["address_mode_u"] == "repeat"
+    assert type(shader.image.channels[1]) is ShadertoyChannelTexture
+    assert np.array_equal(shader.image.channels[1].data, gradient)
+    assert (
+        shader.image.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    )
 
     shader._draw_frame()
 
@@ -80,15 +82,17 @@ def test_textures_glsl():
     assert shader.shader_code == shader_code
     assert shader.shader_type == "glsl"
     assert (
-        shader.channels[0] == channel0
+        shader.image.channels[0] == channel0
     )  # equivalence only holds true if we use the subclass.
-    assert np.array_equal(shader.channels[0].data, test_pattern)
-    assert shader.channels[0].sampler_settings["address_mode_u"] == "repeat"
+    assert np.array_equal(shader.image.channels[0].data, test_pattern)
+    assert shader.image.channels[0].sampler_settings["address_mode_u"] == "repeat"
     assert (
-        type(shader.channels[1]) is ShadertoyChannelTexture
+        type(shader.image.channels[1]) is ShadertoyChannelTexture
     )  # checks if the subclass is correctly inferred
-    assert np.array_equal(shader.channels[1].data, gradient)
-    assert shader.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    assert np.array_equal(shader.image.channels[1].data, gradient)
+    assert (
+        shader.image.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    )
 
     shader._draw_frame()
 
@@ -136,7 +140,7 @@ def test_channel_res_wgsl():
     assert shader.resolution == (1200, 900)
     assert shader.shader_code == shader_code_wgsl
     assert shader.shader_type == "wgsl"
-    assert len(shader.channels) == 4
+    assert len(shader.image.channels) == 4
     assert shader._uniform_data["channel_res"] == [
         800.0,
         450.0,
@@ -202,7 +206,7 @@ def test_channel_res_glsl():
     assert shader.resolution == (1200, 900)
     assert shader.shader_code == shader_code
     assert shader.shader_type == "glsl"
-    assert len(shader.channels) == 4
+    assert len(shader.image.channels) == 4
     assert shader._uniform_data["channel_res"] == [
         800.0,
         450.0,

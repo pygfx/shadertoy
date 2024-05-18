@@ -43,9 +43,11 @@ def test_shadertoy_from_id(api_available):
     assert shader.shader_type == "glsl"
     assert shader.shader_code.startswith("//Confirm API working!")
     assert shader.common.startswith("//Common pass loaded!")
-    assert shader.channels[0].sampler_settings["address_mode_u"] == "clamp-to-edge"
-    assert shader.channels[0].data.shape == (32, 256, 4)
-    assert shader.channels[0].texture_size == (256, 32, 1)
+    assert (
+        shader.image.channels[0].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    )
+    assert shader.image.channels[0].data.shape == (32, 256, 4)
+    assert shader.image.channels[0].texture_size == (256, 32, 1)
 
 
 def test_shadertoy_from_id_without_cache(api_available):
@@ -59,7 +61,7 @@ def test_shadertoy_from_id_without_cache(api_available):
     assert shader.shader_type == "glsl"
     assert shader.shader_code.startswith("//Confirm API working!")
     assert shader.common.startswith("//Common pass loaded!")
-    assert shader.channels != []
+    assert shader.image.channels != []
 
 
 # coverage for shader_args_from_json(dict_or_path, **kwargs)

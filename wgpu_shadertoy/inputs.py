@@ -15,6 +15,8 @@ class ShadertoyChannel:
     # TODO: sampler filter modes: nearest, linear, mipmap (figure out what they mean in wgpu).
     def __init__(self, *args, ctype=None, channel_idx=None, **kwargs):
         self.ctype = ctype
+        if channel_idx is None:
+            channel_idx = kwargs.pop("channel_idx", None)
         self._channel_idx = channel_idx
         self.args = args
         self.kwargs = kwargs
@@ -22,6 +24,7 @@ class ShadertoyChannel:
     def infer_subclass(self, *args_, **kwargs_):
         """
         Return the relevant subclass, instantiated with the provided arguments.
+        TODO: automatically infer it from the provided data/file/link or code.
         """
         args = self.args + args_
         kwargs = {**self.kwargs, **kwargs_}
@@ -83,10 +86,14 @@ class ShadertoyChannel:
             "This method should likely be implemented in the subclass - but maybe it's all the same? TODO: check later!"
         )
 
-    def binding_layout(self, binding_idx, sampler_binding):
+    def binding_layout(self, offset=0):
+        # TODO: figure out how offset works when we have multiple passes
+        texture_binding = (2 * self.channel_idx) + 1
+        sampler_binding = 2 * (self.channel_idx + 1)
+
         return [
             {
-                "binding": binding_idx,
+                "binding": texture_binding,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": {
                     "sample_type": wgpu.TextureSampleType.float,
@@ -97,6 +104,21 @@ class ShadertoyChannel:
                 "binding": sampler_binding,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "sampler": {"type": wgpu.SamplerBindingType.filtering},
+            },
+        ]
+
+    def bind_groups_layout_entries(self, texture_view, sampler, offset=0):
+        # TODO maybe refactor this all into a prepare bindings method?
+        texture_binding = (2 * self.channel_idx) + 1
+        sampler_binding = 2 * (self.channel_idx + 1)
+        return [
+            {
+                "binding": texture_binding,
+                "resource": texture_view,
+            },
+            {
+                "binding": sampler_binding,
+                "resource": sampler,
             },
         ]
 
