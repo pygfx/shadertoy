@@ -312,7 +312,7 @@ class Shadertoy:
             "b": "",
             "c": "",
             "d": "",
-        },  # maybe Default dict instead?
+        },
         resolution=(800, 450),
         shader_type="auto",
         offscreen=None,
@@ -336,7 +336,9 @@ class Shadertoy:
         self._uniform_data["resolution"] = (*resolution, 1)
         self._shader_type = shader_type.lower()
 
-        self.image = ImageRenderPass(main=self, code=shader_code, inputs=inputs)
+        self.image = ImageRenderPass(
+            main=self, code=shader_code, shader_type=shader_type, inputs=inputs
+        )
         self.buffers = {"a": "", "b": "", "c": "", "d": ""}
         for k, v in buffers.items():
             k = k.lower()[-1]
@@ -370,11 +372,11 @@ class Shadertoy:
             self.title += " (incomplete)"
 
         self._prepare_canvas()
-        self._prepare_render(
-            self.image
-        )  # side effects here are uniform buffer - so this needs to happen first?
         self._bind_events()
-        # TODO: extend this to all renderpasses
+        # TODO: could this be part of the __init__ of each renderpass? (but we need the device)
+        for rpass in (self.image, *self.buffers.values()):
+            if rpass:  # skip None
+                rpass.prepare_render(device=self._device)
 
     @property
     def resolution(self):
@@ -386,22 +388,13 @@ class Shadertoy:
         """The shader code to use."""
         return self._shader_code
 
+    # TODO: remove this redundant code snippet
     @property
     def shader_type(self) -> str:
-        """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
-        if self._shader_type in ("wgsl", "glsl"):
-            return self._shader_type
-
-        wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
-        glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
-        if wgsl_main_expr.search(self.shader_code):
-            return "wgsl"
-        elif glsl_main_expr.search(self.shader_code):
-            return "glsl"
-        else:
-            raise ValueError(
-                "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
-            )
+        """
+        The shader type of the main image renderpass.
+        """
+        return self.image.shader_type
 
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
@@ -434,137 +427,6 @@ class Shadertoy:
         # We use "bgra8unorm" not "bgra8unorm-srgb" here because we want to let the shader fully control the color-space.
         self._present_context.configure(
             device=self._device, format=wgpu.TextureFormat.bgra8unorm
-        )
-
-    def _prepare_render(self, renderpass) -> None:
-        shader_type = self.shader_type
-        if shader_type == "glsl":
-            vertex_shader_code = vertex_code_glsl
-            frag_shader_code = (
-                builtin_variables_glsl
-                + self.common
-                + renderpass.shader_code
-                + fragment_code_glsl
-            )
-        elif shader_type == "wgsl":
-            vertex_shader_code = vertex_code_wgsl
-            frag_shader_code = (
-                builtin_variables_wgsl
-                + self.common
-                + self.shader_code
-                + fragment_code_wgsl
-            )
-
-        vertex_shader_program = self._device.create_shader_module(
-            label="triangle_vert", code=vertex_shader_code
-        )
-        frag_shader_program = self._device.create_shader_module(
-            label="triangle_frag", code=frag_shader_code
-        )
-
-        self._uniform_buffer = self._device.create_buffer(
-            size=self._uniform_data.nbytes,
-            usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
-        )
-
-        bind_groups_layout_entries = [
-            {
-                "binding": 0,
-                "resource": {
-                    "buffer": self._uniform_buffer,
-                    "offset": 0,
-                    "size": self._uniform_data.nbytes,
-                },
-            },
-        ]
-
-        binding_layout = [
-            {
-                "binding": 0,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "buffer": {"type": wgpu.BufferBindingType.uniform},
-            },
-        ]
-        channel_res = []
-        for channel in renderpass.channels:
-            if channel is None:
-                channel_res.extend([0, 0, 1, -99])  # default values; quick hack
-                continue
-            binding_layout.extend(channel.binding_layout(offset=0))
-
-            texture = channel.create_texture(self._device)
-
-            texture_view = texture.create_view()
-
-            self._device.queue.write_texture(
-                {
-                    "texture": texture,
-                    "origin": (0, 0, 0),
-                    "mip_level": 0,
-                },
-                channel.data,
-                {
-                    "offset": 0,
-                    "bytes_per_row": channel.bytes_per_pixel
-                    * channel.size[1],  # must be multiple of 256?
-                    "rows_per_image": channel.size[0],  # same is done internally
-                },
-                texture.size,
-            )
-
-            sampler = self._device.create_sampler(**channel.sampler_settings)
-            # TODO: explore using auto layouts (pygfx/wgpu-py#500)
-            bind_groups_layout_entries.extend(
-                channel.bind_groups_layout_entries(texture_view, sampler)
-            )
-            channel_res.extend(channel.channel_res)  # padding/tests
-        self._uniform_data["channel_res"] = tuple(channel_res)
-        bind_group_layout = self._device.create_bind_group_layout(
-            entries=binding_layout
-        )
-
-        self._bind_group = self._device.create_bind_group(
-            layout=bind_group_layout,
-            entries=bind_groups_layout_entries,
-        )
-
-        self._render_pipeline = self._device.create_render_pipeline(
-            layout=self._device.create_pipeline_layout(
-                bind_group_layouts=[bind_group_layout]
-            ),
-            vertex={
-                "module": vertex_shader_program,
-                "entry_point": "main",
-                "buffers": [],
-            },
-            primitive={
-                "topology": wgpu.PrimitiveTopology.triangle_list,
-                "front_face": wgpu.FrontFace.ccw,
-                "cull_mode": wgpu.CullMode.none,
-            },
-            depth_stencil=None,
-            multisample=None,
-            fragment={
-                "module": frag_shader_program,
-                "entry_point": "main",
-                "targets": [
-                    {
-                        "format": wgpu.TextureFormat.bgra8unorm,
-                        "blend": {
-                            "color": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                            "alpha": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                        },
-                    },
-                ],
-            },
         )
 
     def _bind_events(self):
@@ -632,7 +494,7 @@ class Shadertoy:
         # Update uniform buffer
         self._update()
         self._device.queue.write_buffer(
-            self._uniform_buffer,
+            self.image._uniform_buffer,
             0,
             self._uniform_data.mem,
             0,
@@ -714,6 +576,9 @@ class RenderPass:
         self._shader_type = shader_type
         self._shader_code = code
         self.channels = self._attach_inputs(inputs)
+        self._uniform_data = (
+            main._uniform_data
+        )  # default from main - but might be different for each renderpass
 
     def _attach_inputs(self, inputs: list) -> list[ShadertoyChannel, None]:
         if len(inputs) > 4:
@@ -747,6 +612,137 @@ class RenderPass:
                 channels.append(None)
 
         return channels
+
+    def prepare_render(self, device: wgpu.GPUDevice) -> None:
+        # Step 1: compose shader programs
+        shader_type = self.shader_type
+        if shader_type == "glsl":
+            vertex_shader_code = vertex_code_glsl
+            frag_shader_code = (
+                builtin_variables_glsl
+                + self.main.common
+                + self.shader_code
+                + fragment_code_glsl
+            )
+        elif shader_type == "wgsl":
+            vertex_shader_code = vertex_code_wgsl
+            frag_shader_code = (
+                builtin_variables_wgsl
+                + self.main.common
+                + self.shader_code
+                + fragment_code_wgsl
+            )
+
+        vertex_shader_program = device.create_shader_module(
+            label="triangle_vert", code=vertex_shader_code
+        )
+        frag_shader_program = device.create_shader_module(
+            label="triangle_frag", code=frag_shader_code
+        )
+
+        # Step 2: map uniform data to buffer
+        self._uniform_buffer = device.create_buffer(
+            size=self._uniform_data.nbytes,
+            usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
+        )
+
+        bind_groups_layout_entries = [
+            {
+                "binding": 0,
+                "resource": {
+                    "buffer": self._uniform_buffer,
+                    "offset": 0,
+                    "size": self._uniform_data.nbytes,
+                },
+            },
+        ]
+
+        binding_layout = [
+            {
+                "binding": 0,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "buffer": {"type": wgpu.BufferBindingType.uniform},
+            },
+        ]
+
+        channel_res = []
+        for channel in self.channels:
+            if channel is None:
+                channel_res.extend([0, 0, 1, -99])  # default values; quick hack
+                continue
+
+            binding_layout.extend(channel.binding_layout(offset=0))
+            texture = channel.create_texture(device)
+            texture_view = texture.create_view()
+            # typing missing in wgpu-py for queue
+            device.queue.write_texture(
+                {
+                    "texture": texture,
+                    "origin": (0, 0, 0),
+                    "mip_level": 0,
+                },
+                channel.data,
+                {
+                    "offset": 0,
+                    "bytes_per_row": channel.bytes_per_pixel
+                    * channel.size[1],  # multiple of 256
+                    "rows_per_image": channel.size[0],  # same is done internally
+                },
+                texture.size,
+            )
+
+            sampler = device.create_sampler(**channel.sampler_settings)
+            # TODO: explore using auto layouts (pygfx/wgpu-py#500)
+            bind_groups_layout_entries.extend(
+                channel.bind_groups_layout_entries(texture_view, sampler)
+            )
+            channel_res.extend(channel.channel_res)  # padding/tests
+        self._uniform_data["channel_res"] = tuple(channel_res)
+        bind_group_layout = device.create_bind_group_layout(entries=binding_layout)
+
+        self._bind_group = device.create_bind_group(
+            layout=bind_group_layout,
+            entries=bind_groups_layout_entries,
+        )
+
+        self._render_pipeline = device.create_render_pipeline(
+            layout=device.create_pipeline_layout(
+                bind_group_layouts=[bind_group_layout]
+            ),
+            vertex={
+                "module": vertex_shader_program,
+                "entry_point": "main",
+                "buffers": [],
+            },
+            primitive={
+                "topology": wgpu.PrimitiveTopology.triangle_list,
+                "front_face": wgpu.FrontFace.ccw,
+                "cull_mode": wgpu.CullMode.none,
+            },
+            depth_stencil=None,
+            multisample=None,
+            fragment={
+                "module": frag_shader_program,
+                "entry_point": "main",
+                "targets": [
+                    {
+                        "format": wgpu.TextureFormat.bgra8unorm,
+                        "blend": {
+                            "color": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                            "alpha": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                        },
+                    },
+                ],
+            },
+        )
 
     @property
     def shader_code(self) -> str:
@@ -784,10 +780,10 @@ class ImageRenderPass(RenderPass):
         """
         Draws the main image pass to the screen.
         """
-        # TODO: refactor all the self.main instances to self, so attributes are attached to the pass. Perhaps even turn _prepare_render into a method of RenderPass.
         command_encoder = device.create_command_encoder()
         current_texture = present_context.get_current_texture()
 
+        # TODO: maybe use a different name in this case?
         render_pass = command_encoder.begin_render_pass(
             color_attachments=[
                 {
@@ -800,8 +796,8 @@ class ImageRenderPass(RenderPass):
             ],
         )
 
-        render_pass.set_pipeline(self.main._render_pipeline)
-        render_pass.set_bind_group(0, self.main._bind_group, [], 0, 99)
+        render_pass.set_pipeline(self._render_pipeline)
+        render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
         render_pass.draw(3, 1, 0, 0)
         render_pass.end()
 

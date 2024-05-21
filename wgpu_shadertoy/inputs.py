@@ -40,7 +40,7 @@ class ShadertoyChannel:
             )
 
     @property
-    def sampler_settings(self):
+    def sampler_settings(self) -> dict:
         """
         Sampler settings for this channel. Wrap currently supported. Filter not yet.
         """
@@ -54,9 +54,8 @@ class ShadertoyChannel:
         return sampler_settings
 
     @property
-    def parent(
-        self,
-    ):  # TODO: likely make a passes.py file to make typing possible -> RenderPass:
+    def parent(self):
+        # TODO: likely make a passes.py file to make typing possible -> RenderPass:
         """Parent of this input is a renderpass."""
         if not hasattr(self, "_parent"):
             raise AttributeError("Parent not set.")
