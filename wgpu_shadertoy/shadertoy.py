@@ -349,7 +349,7 @@ class Shadertoy:
                 raise ValueError(f"Invalid buffer value: {v=}")
             else:
                 self.buffers[k] = BufferRenderPass(buffer_idx=k, code=v, main=self)
-            
+
         self._uniform_data["resolution"] = (*resolution, 1)
         self._shader_type = shader_type.lower()
 
@@ -369,8 +369,11 @@ class Shadertoy:
         if not self.complete:
             self.title += " (incomplete)"
 
-        self._prepare_render(self.image)
+        self._prepare_canvas()
         self._bind_events()
+
+        # TODO: extend this to all renderpasses
+        self._prepare_render(self.image)
 
     @property
     def resolution(self):
@@ -411,7 +414,7 @@ class Shadertoy:
         shader_data = shadertoy_from_id(id_or_url)
         return cls.from_json(shader_data, **kwargs)
 
-    def _prepare_render(self, renderpass) -> None:
+    def _prepare_canvas(self):
         import wgpu.backends.auto
 
         if self._offscreen:
@@ -432,6 +435,7 @@ class Shadertoy:
             device=self._device, format=wgpu.TextureFormat.bgra8unorm
         )
 
+    def _prepare_render(self, renderpass) -> None:
         shader_type = self.shader_type
         if shader_type == "glsl":
             vertex_shader_code = vertex_code_glsl
@@ -508,6 +512,7 @@ class Shadertoy:
             )
 
             sampler = self._device.create_sampler(**channel.sampler_settings)
+            # TODO: explore using auto layouts (pygfx/wgpu-py#500)
             bind_groups_layout_entries.extend(
                 channel.bind_groups_layout_entries(texture_view, sampler)
             )
@@ -633,27 +638,13 @@ class Shadertoy:
             self._uniform_data.nbytes,
         )
 
-        command_encoder = self._device.create_command_encoder()
-        current_texture = self._present_context.get_current_texture()
-
-        render_pass = command_encoder.begin_render_pass(
-            color_attachments=[
-                {
-                    "view": current_texture.create_view(),
-                    "resolve_target": None,
-                    "clear_value": (0, 0, 0, 1),
-                    "load_op": wgpu.LoadOp.clear,
-                    "store_op": wgpu.StoreOp.store,
-                }
-            ],
-        )
-
-        render_pass.set_pipeline(self._render_pipeline)
-        render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
-        render_pass.draw(3, 1, 0, 0)
-        render_pass.end()
-
-        self._device.queue.submit([command_encoder.finish()])
+        for buf in self.buffers.values():
+            if buf:  # checks if not None?
+                buf.draw_buffer(
+                    self._device, self.image.channels[buf.buffer_idx].texture
+                )
+        # TODO: most of the code below here is for the image renderpass...
+        self.image.draw_image(self._device, self._present_context)
 
         self._canvas.request_draw()
 
@@ -789,6 +780,33 @@ class ImageRenderPass(RenderPass):
         super().__init__(**kwargs)
         # TODO figure out if there is anything specific. Maybe the canvas stuff? perhaps that should stay in the main class...
 
+    def draw_image(self, device: wgpu.GPUDevice, present_context) -> None:
+        """
+        Draws the main image pass to the screen.
+        """
+        # TODO: refactor all the self.main instances to self, so attributes are attached to the pass. Perhaps even turn _prepare_render into a method of RenderPass.
+        command_encoder = device.create_command_encoder()
+        current_texture = present_context.get_current_texture()
+
+        render_pass = command_encoder.begin_render_pass(
+            color_attachments=[
+                {
+                    "view": current_texture.create_view(),
+                    "resolve_target": None,
+                    "clear_value": (0, 0, 0, 1),
+                    "load_op": wgpu.LoadOp.clear,
+                    "store_op": wgpu.StoreOp.store,
+                }
+            ],
+        )
+
+        render_pass.set_pipeline(self.main._render_pipeline)
+        render_pass.set_bind_group(0, self.main._bind_group, [], 0, 99)
+        render_pass.draw(3, 1, 0, 0)
+        render_pass.end()
+
+        device.queue.submit([command_encoder.finish()])
+
 
 class BufferRenderPass(RenderPass):
     """
@@ -801,7 +819,11 @@ class BufferRenderPass(RenderPass):
         super().__init__(**kwargs)
         if buffer_idx:
             self._buffer_idx = buffer_idx
-        self.last_frame = memoryview(bytearray(256)).cast("B", shape=[8,8,4]) #TODO maybe this needs to scale with the size... but this is only for initilization
+        self.last_frame = memoryview(
+            bytearray(256)
+        ).cast(
+            "B", shape=[8, 8, 4]
+        )  # TODO maybe this needs to scale with the size... but this is only for initilization
 
     @property
     def buffer_idx(self) -> str:
@@ -819,21 +841,31 @@ class BufferRenderPass(RenderPass):
     def texture_size(self) -> tuple:
         # (columns, rows, 1)
         return (int(self.main.resolution[1]), int(self.main.resolution[0]), 1)
-    
-    def draw_buffer(self, device:wgpu.GPUDevice, texture) -> None:
-        buffer = device.create_buffer(size=self.texture_size * 4, usage=wgpu.BufferUsage.COPY_DST)
+
+    def draw_buffer(self, device: wgpu.GPUDevice, texture) -> None:
+        """
+        draws the buffer to the texture and updates self.last_frame
+        """
+        buffer = device.create_buffer(
+            size=self.texture_size * 4, usage=wgpu.BufferUsage.COPY_DST
+        )
         command_encoder = device.create_command_encoder()
-        command_encoder.copy_texture_to_buffer({
-            "texture": texture,
-            "mip_level": 0,
-            "origin": (0, 0, 0),
-        }, {
-            "buffer": buffer,
-            "offset": 0,
-            "bytes_per_row": self.texture_size[0] * 4,
-            "rows_per_image": self.texture_size[1],
-        }, self.texture_size)
-        
+        # TODO: this section likely makes no sense, we need to do a .create_render_pass and also have pipeline etc available.
+        command_encoder.copy_texture_to_buffer(
+            {
+                "texture": texture,
+                "mip_level": 0,
+                "origin": (0, 0, 0),
+            },
+            {
+                "buffer": buffer,
+                "offset": 0,
+                "bytes_per_row": self.texture_size[0] * 4,
+                "rows_per_image": self.texture_size[1],
+            },
+            self.texture_size,
+        )
+
         device.queue.submit([command_encoder.finish()])
         # overwrite here - when triggered via main!
         self.last_frame = device.queue.read_buffer(buffer)

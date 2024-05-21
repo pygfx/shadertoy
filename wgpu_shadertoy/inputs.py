@@ -1,6 +1,7 @@
 import numpy as np
 import wgpu
 
+
 class ShadertoyChannel:
     """
     ShadertoyChannel Base class. If nothing is provided, it defaults to a 8x8 black texture.
@@ -53,7 +54,9 @@ class ShadertoyChannel:
         return sampler_settings
 
     @property
-    def parent(self):# TODO: likely make a passes.py file to make typing possible -> RenderPass:
+    def parent(
+        self,
+    ):  # TODO: likely make a passes.py file to make typing possible -> RenderPass:
         """Parent of this input is a renderpass."""
         if not hasattr(self, "_parent"):
             raise AttributeError("Parent not set.")
@@ -81,15 +84,12 @@ class ShadertoyChannel:
         raise NotImplementedError("likely implemented for ChannelTexture")
 
     @property
-    def size(self): #tuple?
+    def size(self):  # tuple?
         return self.data.shape
 
     @property
     def bytes_per_pixel(self) -> int:
-        return(
-            self.data.nbytes // self.data.shape[1] // self.data.shape[0]
-        )
-
+        return self.data.nbytes // self.data.shape[1] // self.data.shape[0]
 
     def create_texture(self, device) -> wgpu.GPUTexture:
         raise NotImplementedError(
@@ -206,16 +206,22 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         self.buffer_idx = buffer  # A,B,C or D?
         if parent is not None:
             self._parent = parent
-        
+
     @property
-    def renderpass(self):# -> BufferRenderPass:
+    def renderpass(self):  # -> BufferRenderPass:
         return self.parent.main.buffers[self.buffer_idx]
 
     @property
     def data(self) -> memoryview:
+        """
+        previous frame rendered by this buffer. buffers render in order A, B, C, D. and before the given Image.
+        """
         return self.renderpass.last_frame
 
     def create_texture(self, device) -> wgpu.GPUTexture:
+        """
+        The output texture of the buffer (last frame?), to be sampled by specified sampler in this channel.
+        """
         # TODO: this likely needs to be in the parent pass and simply accessed here...
         texture = device.create_texture(
             size=self.renderpass.texture_size,
@@ -266,7 +272,7 @@ class ShadertoyChannelTexture(ShadertoyChannel):
                 [self.data, np.full(self.data.shape[:2] + (1,), 255, dtype=np.uint8)],
                 axis=2,
             )
-        
+
         self.texture_size = (
             self.data.shape[1],
             self.data.shape[0],
