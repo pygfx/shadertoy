@@ -80,16 +80,23 @@ class ShadertoyChannel:
 
     @property
     def channel_res(self) -> tuple:
-        """iChannelResolution[N] information for the uniform. Tuple of (width, height, 1, -99)"""
-        raise NotImplementedError("likely implemented for ChannelTexture")
+        return (
+            self.size[1],
+            self.size[0],
+            1,
+            -99,
+        )  # (width, height, pixel_aspect=1, padding=-99)
 
     @property
-    def size(self):  # tuple?
+    def size(self) -> tuple:  # tuple?
         return self.data.shape
 
     @property
-    def bytes_per_pixel(self) -> int:
-        return self.data.nbytes // self.data.shape[1] // self.data.shape[0]
+    def bytes_per_pixel(
+        self,
+    ) -> int:  # usually is 4 for rgba8unorm or maybe use self.data.strides[1]?
+        bpp = self.data.nbytes // self.data.shape[1] // self.data.shape[0]
+        return bpp
 
     def create_texture(self, device) -> wgpu.GPUTexture:
         raise NotImplementedError(
@@ -226,7 +233,9 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         texture = device.create_texture(
             size=self.renderpass.texture_size,
             format=wgpu.TextureFormat.rgba8unorm,
-            usage=wgpu.TextureUsage.COPY_DST | wgpu.TextureUsage.RENDER_ATTACHMENT,
+            usage=wgpu.TextureUsage.COPY_DST
+            | wgpu.TextureUsage.RENDER_ATTACHMENT
+            | wgpu.TextureUsage.TEXTURE_BINDING,  # which ones do we actually need?
         )
         return texture
 
@@ -283,15 +292,6 @@ class ShadertoyChannelTexture(ShadertoyChannel):
         if vflip in ("true", True):
             vflip = True
             self.data = np.ascontiguousarray(self.data[::-1, :, :])
-
-    @property
-    def channel_res(self) -> tuple:
-        return (
-            self.size[1],
-            self.size[0],
-            1,
-            -99,
-        )  # (width, height, pixel_aspect=1, padding=-99)
 
     def create_texture(self, device) -> wgpu.GPUTexture:
         texture = device.create_texture(

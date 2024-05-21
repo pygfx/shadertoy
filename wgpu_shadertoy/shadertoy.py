@@ -4,6 +4,7 @@ import os
 import re
 import time
 
+import numpy as np
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
@@ -332,6 +333,8 @@ class Shadertoy:
 
         self._shader_code = shader_code
         self.common = common + "\n"
+        self._uniform_data["resolution"] = (*resolution, 1)
+        self._shader_type = shader_type.lower()
 
         self.image = ImageRenderPass(main=self, code=shader_code, inputs=inputs)
         self.buffers = {"a": "", "b": "", "c": "", "d": ""}
@@ -350,9 +353,6 @@ class Shadertoy:
             else:
                 self.buffers[k] = BufferRenderPass(buffer_idx=k, code=v, main=self)
 
-        self._uniform_data["resolution"] = (*resolution, 1)
-        self._shader_type = shader_type.lower()
-
         # if no explicit offscreen option was given
         # inherit wgpu-py force offscreen option
         if offscreen is None and os.environ.get("WGPU_FORCE_OFFSCREEN") == "true":
@@ -370,10 +370,11 @@ class Shadertoy:
             self.title += " (incomplete)"
 
         self._prepare_canvas()
+        self._prepare_render(
+            self.image
+        )  # side effects here are uniform buffer - so this needs to happen first?
         self._bind_events()
-
         # TODO: extend this to all renderpasses
-        self._prepare_render(self.image)
 
     @property
     def resolution(self):
@@ -640,9 +641,8 @@ class Shadertoy:
 
         for buf in self.buffers.values():
             if buf:  # checks if not None?
-                buf.draw_buffer(
-                    self._device, self.image.channels[buf.buffer_idx].texture
-                )
+                pass  # TODO: actually rewrtite this function
+                # buf.draw_buffer(self._device, ) # does this need kind of the target to write too?
         # TODO: most of the code below here is for the image renderpass...
         self.image.draw_image(self._device, self._present_context)
 
@@ -819,11 +819,14 @@ class BufferRenderPass(RenderPass):
         super().__init__(**kwargs)
         if buffer_idx:
             self._buffer_idx = buffer_idx
-        self.last_frame = memoryview(
-            bytearray(256)
-        ).cast(
-            "B", shape=[8, 8, 4]
-        )  # TODO maybe this needs to scale with the size... but this is only for initilization
+        self.last_frame = np.ascontiguousarray(
+            np.zeros(
+                shape=(self.texture_size[1], self.texture_size[0], 4), dtype=np.uint8
+            )
+        )
+        # TODO: find a generally better solution for this dimension swap between data shape and texture_size
+        # maybe use self.main.resolution instead but we do need ints for shape. Perhaps refactor to a method as this really only initializes the buffer with zeros?
+        # do we need to write this to the buffer once?
 
     @property
     def buffer_idx(self) -> str:
