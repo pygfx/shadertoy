@@ -339,13 +339,17 @@ class Shadertoy:
             k = k.lower()[-1]
             if k not in "abcd":
                 raise ValueError(f"Invalid buffer key: {k}")
-            if type(v) is BufferRenderPass:
+            if v == "":
+                continue
+            elif type(v) is BufferRenderPass:
                 v.main = self
                 v.buffer_idx = k
+                self.buffers[k] = v
             elif not isinstance(v, str):
                 raise ValueError(f"Invalid buffer value: {v=}")
-            self.buffers[k] = v
-
+            else:
+                self.buffers[k] = BufferRenderPass(buffer_idx=k, code=v, main=self)
+            
         self._uniform_data["resolution"] = (*resolution, 1)
         self._shader_type = shader_type.lower()
 
@@ -407,7 +411,7 @@ class Shadertoy:
         shader_data = shadertoy_from_id(id_or_url)
         return cls.from_json(shader_data, **kwargs)
 
-    def _prepare_render(self, renderpass):
+    def _prepare_render(self, renderpass) -> None:
         import wgpu.backends.auto
 
         if self._offscreen:
@@ -434,7 +438,7 @@ class Shadertoy:
             frag_shader_code = (
                 builtin_variables_glsl
                 + self.common
-                + self.shader_code
+                + renderpass.shader_code
                 + fragment_code_glsl
             )
         elif shader_type == "wgsl":
@@ -797,6 +801,7 @@ class BufferRenderPass(RenderPass):
         super().__init__(**kwargs)
         if buffer_idx:
             self._buffer_idx = buffer_idx
+        self.last_frame = memoryview(bytearray(256)).cast("B", shape=[8,8,4]) #TODO maybe this needs to scale with the size... but this is only for initilization
 
     @property
     def buffer_idx(self) -> str:
@@ -811,9 +816,27 @@ class BufferRenderPass(RenderPass):
         self._buffer_idx = value
 
     @property
-    def size(self) -> tuple:
-        # (rows, columns, channels)
-        return (*self.main.resolution, 4)
+    def texture_size(self) -> tuple:
+        # (columns, rows, 1)
+        return (int(self.main.resolution[1]), int(self.main.resolution[0]), 1)
+    
+    def draw_buffer(self, device:wgpu.GPUDevice, texture) -> None:
+        buffer = device.create_buffer(size=self.texture_size * 4, usage=wgpu.BufferUsage.COPY_DST)
+        command_encoder = device.create_command_encoder()
+        command_encoder.copy_texture_to_buffer({
+            "texture": texture,
+            "mip_level": 0,
+            "origin": (0, 0, 0),
+        }, {
+            "buffer": buffer,
+            "offset": 0,
+            "bytes_per_row": self.texture_size[0] * 4,
+            "rows_per_image": self.texture_size[1],
+        }, self.texture_size)
+        
+        device.queue.submit([command_encoder.finish()])
+        # overwrite here - when triggered via main!
+        self.last_frame = device.queue.read_buffer(buffer)
 
 
 class CubemapRenderPass(RenderPass):
