@@ -1,6 +1,6 @@
 # run_example = false
 # buffer passes in development
-from wgpu_shadertoy import Shadertoy
+from wgpu_shadertoy import BufferRenderPass, Shadertoy
 from wgpu_shadertoy.inputs import ShadertoyChannelBuffer
 
 # shadertoy source: https://www.shadertoy.com/view/lljcDG by rkibria CC-BY-NC-SA-3.0
@@ -37,13 +37,19 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     if (k <= 0.0)
         j = 0.0;
     
-    fragColor = vec4(k, j, 0.0, 1.0);
+    fragColor = vec4(0.5, j, 0.0, 1.0);
 }
 """
 
-buffer_a = ShadertoyChannelBuffer(
-    buffer="a", wrap="repeat"
-)  # self input for this buffer?
-shader = Shadertoy(image_code, inputs=[buffer_a], buffers={"a": buffer_code})
+buffer_a_channel = ShadertoyChannelBuffer(buffer="a", wrap="repeat")
+buffer_a_pass = BufferRenderPass(
+    buffer_idx="a", code=buffer_code, inputs=[buffer_a_channel]
+)
+shader = Shadertoy(
+    image_code,
+    inputs=[buffer_a_channel],
+    buffers={"a": buffer_a_pass},
+    resolution=(512, 256),
+)
 if __name__ == "__main__":
     shader.show()

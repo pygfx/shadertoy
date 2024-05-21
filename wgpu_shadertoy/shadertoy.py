@@ -503,8 +503,9 @@ class Shadertoy:
 
         for buf in self.buffers.values():
             if buf:  # checks if not None?
-                pass  # TODO: actually rewrtite this function
-                # buf.draw_buffer(self._device, ) # does this need kind of the target to write too?
+                buf.draw_buffer(
+                    self._device
+                )  # does this need kind of the target to write too?
         # TODO: most of the code below here is for the image renderpass...
         self.image.draw_image(self._device, self._present_context)
 
@@ -570,15 +571,32 @@ class RenderPass:
 
     # TODO: uniform data is per pass (as it includes iChannelResolution...)
     def __init__(
-        self, main: Shadertoy, code: str, shader_type: str = "glsl", inputs=[]
+        self, code: str, main: Shadertoy = None, shader_type: str = "glsl", inputs=[]
     ) -> None:
-        self.main = main
+        self._main = main  # could be None...
         self._shader_type = shader_type
         self._shader_code = code
         self.channels = self._attach_inputs(inputs)
-        self._uniform_data = (
-            main._uniform_data
-        )  # default from main - but might be different for each renderpass
+
+    @property
+    def main(self):
+        """
+        The main Shadertoy class of which this renderpass is part of.
+        """
+        if self._main is None:
+            raise ValueError("Main Shadertoy class is not set.")
+        return self._main
+
+    @main.setter
+    def main(self, value):
+        self._main = value
+
+    @property
+    def _uniform_data(self):
+        """
+        each RenderPass might have some differences in terms of times, and channel res...
+        """
+        return self.main._uniform_data
 
     def _attach_inputs(self, inputs: list) -> list[ShadertoyChannel, None]:
         if len(inputs) > 4:
@@ -646,6 +664,7 @@ class RenderPass:
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
 
+        # Step 3: layout and bind groups
         bind_groups_layout_entries = [
             {
                 "binding": 0,
@@ -665,6 +684,7 @@ class RenderPass:
             },
         ]
 
+        # Step 4: add inputs as textures.
         channel_res = []
         for channel in self.channels:
             if channel is None:
@@ -675,6 +695,7 @@ class RenderPass:
             texture = channel.create_texture(device)
             texture_view = texture.create_view()
             # typing missing in wgpu-py for queue
+            # extract this to an update_texture method?
             device.queue.write_texture(
                 {
                     "texture": texture,
@@ -813,20 +834,11 @@ class BufferRenderPass(RenderPass):
 
     def __init__(self, buffer_idx: str = "", **kwargs):
         super().__init__(**kwargs)
-        if buffer_idx:
-            self._buffer_idx = buffer_idx
-        self.last_frame = np.ascontiguousarray(
-            np.zeros(
-                shape=(self.texture_size[1], self.texture_size[0], 4), dtype=np.uint8
-            )
-        )
-        # TODO: find a generally better solution for this dimension swap between data shape and texture_size
-        # maybe use self.main.resolution instead but we do need ints for shape. Perhaps refactor to a method as this really only initializes the buffer with zeros?
-        # do we need to write this to the buffer once?
+        self._buffer_idx = buffer_idx
 
     @property
     def buffer_idx(self) -> str:
-        if hasattr(self, "_buffer_idx"):
+        if not self._buffer_idx:  # checks for empty string
             raise ValueError("Buffer index not set")
         return self._buffer_idx.lower()
 
@@ -841,18 +853,55 @@ class BufferRenderPass(RenderPass):
         # (columns, rows, 1)
         return (int(self.main.resolution[1]), int(self.main.resolution[0]), 1)
 
-    def draw_buffer(self, device: wgpu.GPUDevice, texture) -> None:
+    @property
+    def last_frame(self):
+        if not hasattr(self, "_last_frame"):
+            self._last_frame = self._initial_buffer()
+        print(self._last_frame.shape)
+        return self._last_frame
+
+    def _initial_buffer(self):
+        return np.ascontiguousarray(
+            np.zeros(
+                shape=(self.texture_size[1], self.texture_size[0], 4), dtype=np.uint8
+            )
+        )
+
+    def draw_buffer(self, device: wgpu.GPUDevice) -> None:
         """
         draws the buffer to the texture and updates self.last_frame
         """
         buffer = device.create_buffer(
-            size=self.texture_size * 4, usage=wgpu.BufferUsage.COPY_DST
+            size=(self.texture_size[0] * self.texture_size[1] * 4),
+            usage=wgpu.BufferUsage.COPY_SRC | wgpu.BufferUsage.COPY_DST,
         )
         command_encoder = device.create_command_encoder()
-        # TODO: this section likely makes no sense, we need to do a .create_render_pass and also have pipeline etc available.
+        target_texture = device.create_texture(
+            size=self.texture_size,
+            format=wgpu.TextureFormat.bgra8unorm,
+            usage=wgpu.TextureUsage.COPY_SRC | wgpu.TextureUsage.RENDER_ATTACHMENT,
+        )
+
+        # TODO: maybe use a different name in this case?
+        render_pass = command_encoder.begin_render_pass(
+            color_attachments=[
+                {
+                    "view": target_texture.create_view(),
+                    "resolve_target": None,
+                    "clear_value": (0, 0, 0, 1),
+                    "load_op": wgpu.LoadOp.clear,
+                    "store_op": wgpu.StoreOp.store,
+                }
+            ],
+        )
+
+        render_pass.set_pipeline(self._render_pipeline)
+        render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
+        render_pass.draw(3, 1, 0, 0)  # what is .draw_indirect?
+        render_pass.end()
         command_encoder.copy_texture_to_buffer(
             {
-                "texture": texture,
+                "texture": target_texture,
                 "mip_level": 0,
                 "origin": (0, 0, 0),
             },
@@ -866,8 +915,10 @@ class BufferRenderPass(RenderPass):
         )
 
         device.queue.submit([command_encoder.finish()])
-        # overwrite here - when triggered via main!
-        self.last_frame = device.queue.read_buffer(buffer)
+
+        self._last_frame = device.queue.read_buffer(
+            buffer
+        )  # correct array like object?
 
 
 class CubemapRenderPass(RenderPass):
