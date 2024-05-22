@@ -83,7 +83,7 @@ class ShadertoyChannel:
         self._channel_idx = idx
 
     @property
-    def channel_res(self) -> tuple:
+    def channel_res(self) -> Tuple[int]:
         return (
             self.size[1],
             self.size[0],

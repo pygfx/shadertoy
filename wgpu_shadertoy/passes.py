@@ -353,7 +353,7 @@ class RenderPass:
             },
         )
 
-    def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel, None]:
+    def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel]:
         if len(inputs) > 4:
             raise ValueError("Only 4 inputs supported")
 
