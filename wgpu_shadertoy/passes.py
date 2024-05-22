@@ -1,4 +1,5 @@
 import re
+from typing import List
 
 import numpy as np
 import wgpu
@@ -352,7 +353,7 @@ class RenderPass:
             },
         )
 
-    def _attach_inputs(self, inputs: list) -> list[ShadertoyChannel, None]:
+    def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel, None]:
         if len(inputs) > 4:
             raise ValueError("Only 4 inputs supported")
 

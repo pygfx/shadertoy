@@ -5,7 +5,7 @@ import sys
 import requests
 from PIL import Image
 
-from .inputs import ShadertoyChannel
+from .inputs import ShadertoyChannel, ShadertoyChannelBuffer
 from .passes import BufferRenderPass
 
 HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
@@ -62,28 +62,36 @@ def _download_media_channels(inputs: list, use_cache=True):
     cache_dir = _get_cache_dir("media")
     complete = True
     for inp in inputs:
-        if inp["ctype"] != "texture":
+        if inp["ctype"] == "texture":
+            cache_path = os.path.join(cache_dir, inp["src"].split("/")[-1])
+            if use_cache and os.path.exists(cache_path):
+                img = Image.open(cache_path)
+            else:
+                response = requests.get(
+                    media_url + inp["src"], headers=HEADERS, stream=True
+                )
+                if response.status_code != 200:
+                    raise requests.exceptions.HTTPError(
+                        f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+                    )
+                img = Image.open(response.raw)
+                if use_cache:
+                    img.save(cache_path)
+            channel = ShadertoyChannel(
+                img, ctype=inp["ctype"], channel_idx=inp["channel"], **inp["sampler"]
+            )
+
+        elif inp["ctype"] == "buffer":
+            buffer_idx = "abcd"[
+                int(inp["src"][-5])
+            ]  # hack with the preview image, otherwise you would have to look at output id...
+            channel = ShadertoyChannelBuffer(buffer=buffer_idx, **inp["sampler"])
+
+        else:
             complete = False
             continue  # TODO: support other media types
-
-        cache_path = os.path.join(cache_dir, inp["src"].split("/")[-1])
-        if use_cache and os.path.exists(cache_path):
-            img = Image.open(cache_path)
-        else:
-            response = requests.get(
-                media_url + inp["src"], headers=HEADERS, stream=True
-            )
-            if response.status_code != 200:
-                raise requests.exceptions.HTTPError(
-                    f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
-                )
-            img = Image.open(response.raw)
-            if use_cache:
-                img.save(cache_path)
-        channel = ShadertoyChannel(
-            img, ctype=inp["ctype"], channel_idx=inp["channel"], **inp["sampler"]
-        )
         channels[inp["channel"]] = channel
+
     return list(channels.values()), complete
 
 

@@ -261,7 +261,9 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         previous frame rendered by this buffer. buffers render in order A, B, C, D. and before the Image pass.
         """
         # print(f"{self.renderpass.last_frame[0,0,2]=}")
-        return self.renderpass.last_frame
+        # force vflip with Buffers?
+        data = np.ascontiguousarray(self.renderpass.last_frame[::-1, :, :])
+        return data
 
     def create_texture(self, device) -> wgpu.GPUTexture:
         """
@@ -270,7 +272,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         # TODO: this likely needs to be in the parent pass and simply accessed here...
         texture = device.create_texture(
             size=self.renderpass.texture_size,
-            format=wgpu.TextureFormat.rgba8unorm,
+            format=wgpu.TextureFormat.bgra8unorm,
             usage=wgpu.TextureUsage.COPY_DST
             | wgpu.TextureUsage.RENDER_ATTACHMENT
             | wgpu.TextureUsage.TEXTURE_BINDING,  # which ones do we actually need?
