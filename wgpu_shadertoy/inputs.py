@@ -7,6 +7,7 @@ class ShadertoyChannel:
     ShadertoyChannel Base class. If nothing is provided, it defaults to a 8x8 black texture.
     Parameters:
         ctype (str): channeltype, can be "texture", "buffer", "video", "webcam", "music", "mic", "keyboard", "cubemap", "volume"; default assumes texture.
+        channel_idx (int): The channel index, can be one of (0, 1, 2, 3). Default is None. It will be set by the parent renderpass.
         **kwargs: Additional arguments for the sampler:
         wrap (str): The wrap mode, can be one of ("clamp-to-edge", "repeat", "clamp"). Default is "clamp-to-edge".
     """
@@ -18,8 +19,9 @@ class ShadertoyChannel:
         if channel_idx is None:
             channel_idx = kwargs.pop("channel_idx", None)
         self._channel_idx = channel_idx
-        self.args = args
+        self.args = args  # actually reduddant?
         self.kwargs = kwargs
+        self.dynamic = False
 
     def infer_subclass(self, *args_, **kwargs_):
         """
@@ -212,6 +214,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         self.buffer_idx = buffer  # A,B,C or D?
         if parent is not None:
             self._parent = parent
+        self.dynamic = True
 
     @property
     def renderpass(self):  # -> BufferRenderPass:
@@ -220,23 +223,51 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
     @property
     def data(self) -> memoryview:
         """
-        previous frame rendered by this buffer. buffers render in order A, B, C, D. and before the given Image.
+        previous frame rendered by this buffer. buffers render in order A, B, C, D. and before the Image pass.
         """
         return self.renderpass.last_frame
 
     def create_texture(self, device) -> wgpu.GPUTexture:
         """
-        The output texture of the buffer (last frame?), to be sampled by specified sampler in this channel.
+        Creates the texture for this channel and sampler. Texture stays available to be updated later on.
         """
         # TODO: this likely needs to be in the parent pass and simply accessed here...
-        texture = device.create_texture(
+        self.texture = device.create_texture(
             size=self.renderpass.texture_size,
             format=wgpu.TextureFormat.rgba8unorm,
             usage=wgpu.TextureUsage.COPY_DST
             | wgpu.TextureUsage.RENDER_ATTACHMENT
             | wgpu.TextureUsage.TEXTURE_BINDING,  # which ones do we actually need?
         )
-        return texture
+        # texture = device.copy_buffer_to_texture(
+        #     {
+        #         "buffer": self.data,
+        #         "texture": self.texture,
+        #         "texture_size": self.renderpass.texture_size,
+        #         "bytes_per_row": self.renderpass.bytes_per_pixel
+        #         * self.renderpass.texture_size[1],
+        #     }
+        # )
+        return self.texture
+
+    def update_texture(self, device):
+        """
+        Updates the texture. (maybe reuse this code snippet broader?)
+        """
+        device.queue.write_texture(
+            {
+                "texture": self.texture,
+                "origin": (0, 0, 0),
+                "mip_level": 0,
+            },
+            self.data,
+            {
+                "offset": 0,
+                "bytes_per_row": self.bytes_per_pixel * self.size[1],  # multiple of 256
+                "rows_per_image": self.size[0],  # same is done internally
+            },
+            self.texture.size,
+        )
 
 
 class ShadertoyChannelCubemapA(ShadertoyChannel):

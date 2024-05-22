@@ -1,7 +1,8 @@
 # run_example = false
 # buffer passes in development
-from wgpu_shadertoy import BufferRenderPass, Shadertoy
+from wgpu_shadertoy import Shadertoy
 from wgpu_shadertoy.inputs import ShadertoyChannelBuffer
+from wgpu_shadertoy.passes import BufferRenderPass
 
 # shadertoy source: https://www.shadertoy.com/view/lljcDG by rkibria CC-BY-NC-SA-3.0
 image_code = """
@@ -37,7 +38,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     if (k <= 0.0)
         j = 0.0;
     
-    fragColor = vec4(0.5, j, 0.0, 1.0);
+    fragColor = vec4(k, j, 0.0, 1.0);
 }
 """
 

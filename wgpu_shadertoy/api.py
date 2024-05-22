@@ -6,6 +6,7 @@ import requests
 from PIL import Image
 
 from .inputs import ShadertoyChannel
+from .passes import BufferRenderPass
 
 HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
 
@@ -133,6 +134,7 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
     main_image_code = ""
     common_code = ""
     inputs = []
+    buffers = {}
     complete = True
     if "Shader" not in shader_data:
         raise ValueError(
@@ -149,6 +151,12 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
                 )
         elif r_pass["type"] == "common":
             common_code = r_pass["code"]
+        elif r_pass["type"] == "buffer":
+            buffer_inputs, inputs_complete = _download_media_channels(
+                r_pass["inputs"], use_cache=use_cache
+            )
+            buffer = BufferRenderPass(code=r_pass["code"], inputs=buffer_inputs)
+            buffers[r_pass["name"].lower()[-1]] = buffer
         else:
             complete = False
         complete = complete and inputs_complete
@@ -158,7 +166,8 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
         "shader_code": main_image_code,
         "common": common_code,
         "shader_type": "glsl",
-        "inputs": inputs,
+        "inputs": inputs,  # main_image inputs
+        "buffers": buffers,
         "title": title,
         "complete": complete,
         **kwargs,
