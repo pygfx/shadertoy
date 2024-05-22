@@ -10,6 +10,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
 	vec2 uv = fragCoord.xy / iResolution.xy;
     vec3 col = texture( iChannel0, uv ).xyz;
+    // col += sin(iTime);
 	fragColor = vec4(col,1.0);
 }
 """
@@ -52,5 +53,6 @@ shader = Shadertoy(
     buffers={"a": buffer_a_pass},
     resolution=(512, 256),
 )
+
 if __name__ == "__main__":
     shader.show()

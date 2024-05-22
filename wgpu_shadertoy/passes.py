@@ -265,10 +265,92 @@ class RenderPass:
             )
 
     def _update_textures(self, device: wgpu.GPUDevice) -> None:
-        return  # TODO: in development
+        # self._uniform_data = self.main._uniform_data # force update?
+        # print(f"{self._uniform_data['frame']} at start of _update_textures")
+        device.queue.write_buffer(
+            self._uniform_buffer,
+            0,
+            self._uniform_data.mem,
+            0,
+            self._uniform_data.nbytes,
+        )
+
+        # TODO: cleanup and avoid reuse of the same code
+        # this mostly reuses the later half of .prepare_render
+        bind_groups_layout_entries = [
+            {
+                "binding": 0,
+                "resource": {
+                    "buffer": self._uniform_buffer,
+                    "offset": 0,
+                    "size": self._uniform_data.nbytes,
+                },
+            },
+        ]
+
+        binding_layout = [
+            {
+                "binding": 0,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "buffer": {"type": wgpu.BufferBindingType.uniform},
+            },
+        ]
+
         for channel in self.channels:
-            if channel is not None and channel.dynamic:
-                channel.update_texture(device)
+            if channel is None:  # skip static channels (but keep their layout?)
+                continue
+
+            layout, layout_entry = channel.bind_texture(device=device)
+
+            binding_layout.extend(layout)
+
+            bind_groups_layout_entries.extend(layout_entry)
+
+        bind_group_layout = device.create_bind_group_layout(entries=binding_layout)
+
+        self._bind_group = device.create_bind_group(
+            layout=bind_group_layout,
+            entries=bind_groups_layout_entries,
+        )
+
+        self._render_pipeline = device.create_render_pipeline(
+            layout=device.create_pipeline_layout(
+                bind_group_layouts=[bind_group_layout]
+            ),
+            vertex={
+                "module": self._vertex_shader_program,
+                "entry_point": "main",
+                "buffers": [],
+            },
+            primitive={
+                "topology": wgpu.PrimitiveTopology.triangle_list,
+                "front_face": wgpu.FrontFace.ccw,
+                "cull_mode": wgpu.CullMode.none,
+            },
+            depth_stencil=None,
+            multisample=None,
+            fragment={
+                "module": self._frag_shader_program,
+                "entry_point": "main",
+                "targets": [
+                    {
+                        "format": wgpu.TextureFormat.bgra8unorm,
+                        "blend": {
+                            "color": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                            "alpha": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                        },
+                    },
+                ],
+            },
+        )
 
     def _attach_inputs(self, inputs: list) -> list[ShadertoyChannel, None]:
         if len(inputs) > 4:
@@ -323,10 +405,10 @@ class RenderPass:
                 + fragment_code_wgsl
             )
 
-        vertex_shader_program = device.create_shader_module(
+        self._vertex_shader_program = device.create_shader_module(
             label="triangle_vert", code=vertex_shader_code
         )
-        frag_shader_program = device.create_shader_module(
+        self._frag_shader_program = device.create_shader_module(
             label="triangle_frag", code=frag_shader_code
         )
 
@@ -363,32 +445,11 @@ class RenderPass:
                 channel_res.extend([0, 0, 1, -99])  # default values; quick hack
                 continue
 
-            binding_layout.extend(channel.binding_layout(offset=0))
-            texture = channel.create_texture(device)
-            texture_view = texture.create_view()
-            # typing missing in wgpu-py for queue
-            # extract this to an update_texture method?
-            device.queue.write_texture(
-                {
-                    "texture": texture,
-                    "origin": (0, 0, 0),
-                    "mip_level": 0,
-                },
-                channel.data,
-                {
-                    "offset": 0,
-                    "bytes_per_row": channel.bytes_per_pixel
-                    * channel.size[1],  # multiple of 256
-                    "rows_per_image": channel.size[0],  # same is done internally
-                },
-                texture.size,
-            )
+            layout, layout_entry = channel.bind_texture(device=device)
 
-            sampler = device.create_sampler(**channel.sampler_settings)
-            # TODO: explore using auto layouts (pygfx/wgpu-py#500)
-            bind_groups_layout_entries.extend(
-                channel.bind_groups_layout_entries(texture_view, sampler)
-            )
+            binding_layout.extend(layout)
+
+            bind_groups_layout_entries.extend(layout_entry)
             channel_res.extend(channel.channel_res)  # padding/tests
 
         self._uniform_data["channel_res"] = tuple(channel_res)
@@ -404,7 +465,7 @@ class RenderPass:
                 bind_group_layouts=[bind_group_layout]
             ),
             vertex={
-                "module": vertex_shader_program,
+                "module": self._vertex_shader_program,
                 "entry_point": "main",
                 "buffers": [],
             },
@@ -416,7 +477,7 @@ class RenderPass:
             depth_stencil=None,
             multisample=None,
             fragment={
-                "module": frag_shader_program,
+                "module": self._frag_shader_program,
                 "entry_point": "main",
                 "targets": [
                     {
@@ -582,6 +643,12 @@ class BufferRenderPass(RenderPass):
 
         frame = device.queue.read_buffer(buffer)
 
+        frame = np.frombuffer(frame, dtype=np.uint8).reshape(
+            self.texture_size[1], self.texture_size[0], 4
+        )
+        # print(f"{self._last_frame[0,0,2]=}")
+        # print(f"{frame[0,0,2]=}")
+        # print(self._uniform_data["frame"])
         self._last_frame = frame
 
 

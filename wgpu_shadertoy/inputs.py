@@ -1,5 +1,8 @@
+from typing import Tuple
+
 import numpy as np
 import wgpu
+import wgpu.structs
 
 
 class ShadertoyChannel:
@@ -96,7 +99,9 @@ class ShadertoyChannel:
     def bytes_per_pixel(
         self,
     ) -> int:  # usually is 4 for rgba8unorm or maybe use self.data.strides[1]?
+        # print(self.data.shape, self.data.nbytes)
         bpp = self.data.nbytes // self.data.shape[1] // self.data.shape[0]
+
         return bpp
 
     def create_texture(self, device) -> wgpu.GPUTexture:
@@ -104,7 +109,7 @@ class ShadertoyChannel:
             "This method should likely be implemented in the subclass - but maybe it's all the same? TODO: check later!"
         )
 
-    def binding_layout(self, offset=0):
+    def _binding_layout(self, offset=0):
         # TODO: figure out how offset works when we have multiple passes
         texture_binding = (2 * self.channel_idx) + 1
         sampler_binding = 2 * (self.channel_idx + 1)
@@ -125,7 +130,7 @@ class ShadertoyChannel:
             },
         ]
 
-    def bind_groups_layout_entries(self, texture_view, sampler, offset=0):
+    def _bind_groups_layout_entries(self, texture_view, sampler, offset=0) -> list:
         # TODO maybe refactor this all into a prepare bindings method?
         texture_binding = (2 * self.channel_idx) + 1
         sampler_binding = 2 * (self.channel_idx + 1)
@@ -139,6 +144,36 @@ class ShadertoyChannel:
                 "resource": sampler,
             },
         ]
+
+    def bind_texture(
+        self, device: wgpu.GPUDevice
+    ) -> Tuple[wgpu.GPUBindGroupLayout, list]:
+        binding_layout = self._binding_layout()
+        texture = self.create_texture(device)
+        texture_view = texture.create_view()
+        # typing missing in wgpu-py for queue
+        # extract this to an update_texture method?
+        device.queue.write_texture(
+            {
+                "texture": texture,
+                "origin": (0, 0, 0),
+                "mip_level": 0,
+            },
+            self.data,
+            {
+                "offset": 0,
+                "bytes_per_row": self.bytes_per_pixel * self.size[1],  # multiple of 256
+                "rows_per_image": self.size[0],  # same is done internally
+            },
+            texture.size,
+        )
+
+        sampler = device.create_sampler(**self.sampler_settings)
+        # TODO: explore using auto layouts (pygfx/wgpu-py#500)
+        bind_groups_layout_entry = self._bind_groups_layout_entries(
+            texture_view, sampler
+        )
+        return binding_layout, bind_groups_layout_entry
 
     def header_glsl(self, input_idx=0):
         """
@@ -221,10 +256,11 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         return self.parent.main.buffers[self.buffer_idx]
 
     @property
-    def data(self) -> memoryview:
+    def data(self):
         """
         previous frame rendered by this buffer. buffers render in order A, B, C, D. and before the Image pass.
         """
+        # print(f"{self.renderpass.last_frame[0,0,2]=}")
         return self.renderpass.last_frame
 
     def create_texture(self, device) -> wgpu.GPUTexture:
@@ -232,7 +268,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         Creates the texture for this channel and sampler. Texture stays available to be updated later on.
         """
         # TODO: this likely needs to be in the parent pass and simply accessed here...
-        self.texture = device.create_texture(
+        texture = device.create_texture(
             size=self.renderpass.texture_size,
             format=wgpu.TextureFormat.rgba8unorm,
             usage=wgpu.TextureUsage.COPY_DST
@@ -248,7 +284,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         #         * self.renderpass.texture_size[1],
         #     }
         # )
-        return self.texture
+        return texture
 
     def update_texture(self, device):
         """
