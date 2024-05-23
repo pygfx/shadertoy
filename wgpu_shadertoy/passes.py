@@ -509,8 +509,10 @@ class BufferRenderPass(RenderPass):
     @property
     def texture_size(self) -> tuple:
         # (columns, rows, 1)
-        # TODO: figure out padding this to always be a multiple of 64 wide?
+        row_alignmnet = 64  # because it's 4 bytes per pixel so 265
         columns = int(self.main.resolution[0])
+        if columns % row_alignmnet != 0:
+            columns = (columns // row_alignmnet + 1) * row_alignmnet
         rows = int(self.main.resolution[1])
         texture_size = (columns, rows, 1)
         return texture_size

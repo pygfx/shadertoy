@@ -50,8 +50,7 @@ buffer_a_pass = BufferRenderPass(
 shader = Shadertoy(
     image_code,
     inputs=[buffer_a_channel],
-    buffers={"a": buffer_a_pass},
-    resolution=(512, 256),
+    buffers={"a": buffer_a_pass}
 )
 
 if __name__ == "__main__":
