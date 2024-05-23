@@ -83,6 +83,14 @@ class ShadertoyChannel:
         self._channel_idx = idx
 
     @property
+    def texture_binding(self) -> int:
+        return (2 * self.channel_idx) + 1
+
+    @property
+    def sampler_binding(self) -> int:
+        return 2 * (self.channel_idx + 1)
+
+    @property
     def channel_res(self) -> Tuple[int]:
         return (
             self.size[1],
@@ -111,12 +119,10 @@ class ShadertoyChannel:
 
     def _binding_layout(self, offset=0):
         # TODO: figure out how offset works when we have multiple passes
-        texture_binding = (2 * self.channel_idx) + 1
-        sampler_binding = 2 * (self.channel_idx + 1)
 
         return [
             {
-                "binding": texture_binding,
+                "binding": self.texture_binding,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "texture": {
                     "sample_type": wgpu.TextureSampleType.float,
@@ -124,7 +130,7 @@ class ShadertoyChannel:
                 },
             },
             {
-                "binding": sampler_binding,
+                "binding": self.sampler_binding,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "sampler": {"type": wgpu.SamplerBindingType.filtering},
             },
@@ -132,22 +138,18 @@ class ShadertoyChannel:
 
     def _bind_groups_layout_entries(self, texture_view, sampler, offset=0) -> list:
         # TODO maybe refactor this all into a prepare bindings method?
-        texture_binding = (2 * self.channel_idx) + 1
-        sampler_binding = 2 * (self.channel_idx + 1)
         return [
             {
-                "binding": texture_binding,
+                "binding": self.texture_binding,
                 "resource": texture_view,
             },
             {
-                "binding": sampler_binding,
+                "binding": self.sampler_binding,
                 "resource": sampler,
             },
         ]
 
-    def bind_texture(
-        self, device: wgpu.GPUDevice
-    ) -> Tuple[wgpu.GPUBindGroupLayout, list]:
+    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
         binding_layout = self._binding_layout()
         texture = self.create_texture(device)
         texture_view = texture.create_view()

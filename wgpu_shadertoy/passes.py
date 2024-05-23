@@ -278,40 +278,28 @@ class RenderPass:
 
         # TODO: cleanup and avoid reuse of the same code
         # this mostly reuses the later half of .prepare_render
-        bind_groups_layout_entries = [
-            {
-                "binding": 0,
-                "resource": {
-                    "buffer": self._uniform_buffer,
-                    "offset": 0,
-                    "size": self._uniform_data.nbytes,
-                },
-            },
-        ]
-
-        binding_layout = [
-            {
-                "binding": 0,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "buffer": {"type": wgpu.BufferBindingType.uniform},
-            },
-        ]
 
         for channel in self.channels:
-            if channel is None:  # skip static channels (but keep their layout?)
+            if (
+                channel is None or not channel.dynamic
+            ):  # skip static channels (but keep their layout?)
                 continue
 
             layout, layout_entry = channel.bind_texture(device=device)
 
-            binding_layout.extend(layout)
+            self._binding_layout[channel.texture_binding] = layout[0]
+            self._binding_layout[channel.sampler_binding] = layout[1]
 
-            bind_groups_layout_entries.extend(layout_entry)
+            self._bind_groups_layout_entries[channel.texture_binding] = layout_entry[0]
+            self._bind_groups_layout_entries[channel.sampler_binding] = layout_entry[1]
 
-        bind_group_layout = device.create_bind_group_layout(entries=binding_layout)
+        bind_group_layout = device.create_bind_group_layout(
+            entries=self._binding_layout
+        )
 
         self._bind_group = device.create_bind_group(
             layout=bind_group_layout,
-            entries=bind_groups_layout_entries,
+            entries=self._bind_groups_layout_entries,
         )
 
         self._render_pipeline = device.create_render_pipeline(
@@ -420,7 +408,7 @@ class RenderPass:
         )
 
         # Step 3: layout and bind groups
-        bind_groups_layout_entries = [
+        self._bind_groups_layout_entries = [
             {
                 "binding": 0,
                 "resource": {
@@ -431,7 +419,7 @@ class RenderPass:
             },
         ]
 
-        binding_layout = [
+        self._binding_layout = [
             {
                 "binding": 0,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
@@ -448,17 +436,19 @@ class RenderPass:
 
             layout, layout_entry = channel.bind_texture(device=device)
 
-            binding_layout.extend(layout)
+            self._binding_layout.extend(layout)
 
-            bind_groups_layout_entries.extend(layout_entry)
+            self._bind_groups_layout_entries.extend(layout_entry)
             channel_res.extend(channel.channel_res)  # padding/tests
 
         self._uniform_data["channel_res"] = tuple(channel_res)
-        bind_group_layout = device.create_bind_group_layout(entries=binding_layout)
+        bind_group_layout = device.create_bind_group_layout(
+            entries=self._binding_layout
+        )
 
         self._bind_group = device.create_bind_group(
             layout=bind_group_layout,
-            entries=bind_groups_layout_entries,
+            entries=self._bind_groups_layout_entries,
         )
 
         self._render_pipeline = device.create_render_pipeline(
