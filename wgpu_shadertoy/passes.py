@@ -276,13 +276,8 @@ class RenderPass:
             self._uniform_data.nbytes,
         )
 
-        # TODO: cleanup and avoid reuse of the same code
-        # this mostly reuses the later half of .prepare_render
-
         for channel in self.channels:
-            if (
-                channel is None or not channel.dynamic
-            ):  # skip static channels (but keep their layout?)
+            if channel is None or not channel.dynamic:
                 continue
 
             layout, layout_entry = channel.bind_texture(device=device)
@@ -293,6 +288,42 @@ class RenderPass:
             self._bind_groups_layout_entries[channel.texture_binding] = layout_entry[0]
             self._bind_groups_layout_entries[channel.sampler_binding] = layout_entry[1]
 
+        self._finish_renderpass(device)
+
+    def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel]:
+        if len(inputs) > 4:
+            raise ValueError("Only 4 inputs supported")
+
+        # fill up with None to always have 4 inputs.
+        if len(inputs) < 4:
+            inputs.extend([None] * (4 - len(inputs)))
+
+        channel_pattern = re.compile(r"(?:iChannel|i_channel)(\d+)")
+        detected_channels = [
+            int(c) for c in set(channel_pattern.findall(self.shader_code))
+        ]
+
+        channels = []
+
+        for inp_idx, inp in enumerate(inputs):
+            if inp_idx not in detected_channels:
+                channels.append(None)
+                # maybe raise a warning or some error? For unusued channel
+            elif type(inp) is ShadertoyChannel:
+                channels.append(inp.infer_subclass(parent=self, channel_idx=inp_idx))
+            elif isinstance(inp, ShadertoyChannel):
+                inp.channel_idx = inp_idx
+                inp.parent = self
+                channels.append(inp)
+            elif inp is None and inp_idx in detected_channels:
+                # this is the base case where we sample the black texture.
+                channels.append(ShadertoyChannelTexture(channel_idx=inp_idx))
+            else:
+                channels.append(None)
+
+        return channels
+
+    def _finish_renderpass(self, device: wgpu.GPUDevice) -> None:
         bind_group_layout = device.create_bind_group_layout(
             entries=self._binding_layout
         )
@@ -340,39 +371,6 @@ class RenderPass:
                 ],
             },
         )
-
-    def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel]:
-        if len(inputs) > 4:
-            raise ValueError("Only 4 inputs supported")
-
-        # fill up with None to always have 4 inputs.
-        if len(inputs) < 4:
-            inputs.extend([None] * (4 - len(inputs)))
-
-        channel_pattern = re.compile(r"(?:iChannel|i_channel)(\d+)")
-        detected_channels = [
-            int(c) for c in set(channel_pattern.findall(self.shader_code))
-        ]
-
-        channels = []
-
-        for inp_idx, inp in enumerate(inputs):
-            if inp_idx not in detected_channels:
-                channels.append(None)
-                # maybe raise a warning or some error? For unusued channel
-            elif type(inp) is ShadertoyChannel:
-                channels.append(inp.infer_subclass(parent=self, channel_idx=inp_idx))
-            elif isinstance(inp, ShadertoyChannel):
-                inp.channel_idx = inp_idx
-                inp.parent = self
-                channels.append(inp)
-            elif inp is None and inp_idx in detected_channels:
-                # this is the base case where we sample the black texture.
-                channels.append(ShadertoyChannelTexture(channel_idx=inp_idx))
-            else:
-                channels.append(None)
-
-        return channels
 
     def prepare_render(self, device: wgpu.GPUDevice) -> None:
         # Step 1: compose shader programs
@@ -442,53 +440,8 @@ class RenderPass:
             channel_res.extend(channel.channel_res)  # padding/tests
 
         self._uniform_data["channel_res"] = tuple(channel_res)
-        bind_group_layout = device.create_bind_group_layout(
-            entries=self._binding_layout
-        )
 
-        self._bind_group = device.create_bind_group(
-            layout=bind_group_layout,
-            entries=self._bind_groups_layout_entries,
-        )
-
-        self._render_pipeline = device.create_render_pipeline(
-            layout=device.create_pipeline_layout(
-                bind_group_layouts=[bind_group_layout]
-            ),
-            vertex={
-                "module": self._vertex_shader_program,
-                "entry_point": "main",
-                "buffers": [],
-            },
-            primitive={
-                "topology": wgpu.PrimitiveTopology.triangle_list,
-                "front_face": wgpu.FrontFace.ccw,
-                "cull_mode": wgpu.CullMode.none,
-            },
-            depth_stencil=None,
-            multisample=None,
-            fragment={
-                "module": self._frag_shader_program,
-                "entry_point": "main",
-                "targets": [
-                    {
-                        "format": wgpu.TextureFormat.bgra8unorm,
-                        "blend": {
-                            "color": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                            "alpha": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                        },
-                    },
-                ],
-            },
-        )
+        self._finish_renderpass(device)
 
 
 class ImageRenderPass(RenderPass):
