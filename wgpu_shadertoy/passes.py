@@ -221,10 +221,11 @@ class RenderPass:
         self._main = main  # could be None...
         self._shader_type = shader_type
         self._shader_code = code
-        self.channels = self._attach_inputs(inputs)
+        self._inputs = inputs  # keep them here so we only attach them later?
+        # self.channels = self._attach_inputs(inputs)
 
     @property
-    def main(self):  # -> Shadertoy (can't type due to circular import?)
+    def main(self):  # -> "Shadertoy" (can't type due to circular import?)
         """
         The main Shadertoy class of which this renderpass is part of.
         """
@@ -300,7 +301,8 @@ class RenderPass:
 
         channel_pattern = re.compile(r"(?:iChannel|i_channel)(\d+)")
         detected_channels = [
-            int(c) for c in set(channel_pattern.findall(self.shader_code))
+            int(c)
+            for c in set(channel_pattern.findall(self.main.common + self.shader_code))
         ]
 
         channels = []
@@ -323,57 +325,9 @@ class RenderPass:
 
         return channels
 
-    def _finish_renderpass(self, device: wgpu.GPUDevice) -> None:
-        bind_group_layout = device.create_bind_group_layout(
-            entries=self._binding_layout
-        )
-
-        self._bind_group = device.create_bind_group(
-            layout=bind_group_layout,
-            entries=self._bind_groups_layout_entries,
-        )
-
-        self._render_pipeline = device.create_render_pipeline(
-            layout=device.create_pipeline_layout(
-                bind_group_layouts=[bind_group_layout]
-            ),
-            vertex={
-                "module": self._vertex_shader_program,
-                "entry_point": "main",
-                "buffers": [],
-            },
-            primitive={
-                "topology": wgpu.PrimitiveTopology.triangle_list,
-                "front_face": wgpu.FrontFace.ccw,
-                "cull_mode": wgpu.CullMode.none,
-            },
-            depth_stencil=None,
-            multisample=None,
-            fragment={
-                "module": self._frag_shader_program,
-                "entry_point": "main",
-                "targets": [
-                    {
-                        "format": wgpu.TextureFormat.bgra8unorm,
-                        "blend": {
-                            "color": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                            "alpha": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                        },
-                    },
-                ],
-            },
-        )
-
     def prepare_render(self, device: wgpu.GPUDevice) -> None:
         # Step 1: compose shader programs
+        self.channels = self._attach_inputs(self._inputs)
         shader_type = self.shader_type
         if shader_type == "glsl":
             vertex_shader_code = vertex_code_glsl
@@ -442,6 +396,55 @@ class RenderPass:
         self._uniform_data["channel_res"] = tuple(channel_res)
 
         self._finish_renderpass(device)
+
+    def _finish_renderpass(self, device: wgpu.GPUDevice) -> None:
+        bind_group_layout = device.create_bind_group_layout(
+            entries=self._binding_layout
+        )
+
+        self._bind_group = device.create_bind_group(
+            layout=bind_group_layout,
+            entries=self._bind_groups_layout_entries,
+        )
+
+        self._render_pipeline = device.create_render_pipeline(
+            layout=device.create_pipeline_layout(
+                bind_group_layouts=[bind_group_layout]
+            ),
+            vertex={
+                "module": self._vertex_shader_program,
+                "entry_point": "main",
+                "buffers": [],
+            },
+            primitive={
+                "topology": wgpu.PrimitiveTopology.triangle_list,
+                "front_face": wgpu.FrontFace.ccw,
+                "cull_mode": wgpu.CullMode.none,
+            },
+            depth_stencil=None,
+            multisample=None,
+            fragment={
+                "module": self._frag_shader_program,
+                "entry_point": "main",
+                "targets": [
+                    {
+                        "format": wgpu.TextureFormat.bgra8unorm,
+                        "blend": {
+                            "color": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                            "alpha": (
+                                wgpu.BlendFactor.one,
+                                wgpu.BlendFactor.zero,
+                                wgpu.BlendOperation.add,
+                            ),
+                        },
+                    },
+                ],
+            },
+        )
 
 
 class ImageRenderPass(RenderPass):

@@ -1,0 +1,313 @@
+{
+  "Shader": {
+    "ver": "0.1",
+    "info": {
+      "id": "ssjyWc",
+      "date": "1644259512",
+      "viewed": 491691,
+      "name": "Lover 2",
+      "username": "FabriceNeyret2",
+      "description": "Fork of \"Lover\" by wyatt. https://shadertoy.com/view/fsjyR3  \ntrying to mimic Karthik Dondeti https://twitter.com/d0ndeti/status/1479814051366539264 series.\n\n- A:use close curve, starting as circle. k partics\n- I: basic drawing\nstill, there are crossings.",
+      "likes": 370,
+      "published": 3,
+      "flags": 48,
+      "usePreview": 0,
+      "tags": [
+        "paper",
+        "reproduction",
+        "dondeti"
+      ],
+      "hasliked": 0
+    },
+    "renderpass": [
+      {
+        "inputs": [
+          {
+            "id": 257,
+            "src": "/media/previz/buffer00.png",
+            "ctype": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 258,
+            "src": "/media/previz/buffer01.png",
+            "ctype": "buffer",
+            "channel": 1,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 259,
+            "src": "/media/previz/buffer02.png",
+            "ctype": "buffer",
+            "channel": 2,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 260,
+            "src": "/media/previz/buffer03.png",
+            "ctype": "buffer",
+            "channel": 3,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 37,
+            "channel": 0
+          }
+        ],
+        "code": "// Fork of \"Lover\" by wyatt. https://shadertoy.com/view/fsjyR3\n// 2022-02-07 18:41:05\n\nMain  Q = B( U ).zzzz; }\n",
+        "name": "Image",
+        "description": "",
+        "type": "image"
+      },
+      {
+        "inputs": [],
+        "outputs": [],
+        "code": "vec2 R; int I;\n#define A(U) texture(iChannel0,(U)/R)\n#define B(U) texture(iChannel1,(U)/R)\n#define C(U) texture(iChannel2,(U)/R)\n#define D(U) texture(iChannel3,(U)/R)\n#define Main void mainImage(out vec4 Q, in vec2 U) { R = iResolution.xy; I = iFrame;\nfloat G2 (float w, float s) {\n    return 0.15915494309*exp(-.5*w*w/s/s)/(s*s);\n}\nfloat G1 (float w, float s) {\n    return 0.3989422804*exp(-.5*w*w/s/s)/(s);\n}\nfloat heart (vec2 u) {\n    u -= vec2(.5,.4)*R;\n    u.y -= 10.*sqrt(abs(u.x));\n    u.y *= 1.;\n    u.x *= .8;\n    if (length(u)<.35*R.y) return 1.;\n    else return 0.;\n}\n\nfloat _12(vec2 U) {\n\n    return clamp(floor(U.x)+floor(U.y)*R.x,0.,R.x*R.y);\n\n}\n\nvec2 _21(float i) {\n\n    return clamp(vec2(mod(i,R.x),floor(i/R.x))+.5,vec2(0),R);\n\n}\n\nfloat sg (vec2 p, vec2 a, vec2 b) {\n    float i = clamp(dot(p-a,b-a)/dot(b-a,b-a),0.,1.);\n\tfloat l = (length(p-a-(b-a)*i));\n    return l;\n}\n\nfloat hash (vec2 p)\n{\n\tvec3 p3  = fract(vec3(p.xyx) * .1031);\n    p3 += dot(p3, p3.yzx + 33.33);\n    return fract((p3.x + p3.y) * p3.z);\n}\nfloat noise(vec2 p)\n{\n    vec4 w = vec4(\n        floor(p),\n        ceil (p)  );\n    float \n        _00 = hash(w.xy),\n        _01 = hash(w.xw),\n        _10 = hash(w.zy),\n        _11 = hash(w.zw),\n    _0 = mix(_00,_01,fract(p.y)),\n    _1 = mix(_10,_11,fract(p.y));\n    return mix(_0,_1,fract(p.x));\n}\nfloat fbm (vec2 p) {\n    float o = 0.;\n    for (float i = 0.; i < 3.; i++) {\n        o += noise(.1*p)/3.;\n        o += .2*exp(-2.*abs(sin(.02*p.x+.01*p.y)))/3.;\n        p *= 2.;\n    }\n    return o;\n}\nvec2 grad (vec2 p) {\n    float \n    n = fbm(p+vec2(0,1)),\n    e = fbm(p+vec2(1,0)),\n    s = fbm(p-vec2(0,1)),\n    w = fbm(p-vec2(1,0));\n    return vec2(e-w,n-s);\n}\n",
+        "name": "Common",
+        "description": "",
+        "type": "common"
+      },
+      {
+        "inputs": [
+          {
+            "id": 33,
+            "src": "/presets/tex00.jpg",
+            "ctype": "keyboard",
+            "channel": 2,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 257,
+            "src": "/media/previz/buffer00.png",
+            "ctype": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 260,
+            "src": "/media/previz/buffer03.png",
+            "ctype": "buffer",
+            "channel": 3,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 257,
+            "channel": 0
+          }
+        ],
+        "code": "#define keyClick(a)   ( texelFetch(iChannel2,ivec2(a,0),0).x > 0.)\n\n#define  k ( .02 * R.x*R.y )\nMain \n    float i = _12(U);\n    Q = A(U);\n    \n    vec2 f = vec2(0);\n    \n    if ( i < k ) {\n    for (float j = -20.; j <= 20.; j++) \n        if (j!=0.) {//  && j+i>=0. && j+i<R.x*R.y) {\n        vec4 a = A(_21(mod(i+j,k)));\n        //if (j!=0. && j+i>=0. && j+i<R.x*R.y) {\n        //vec4 a = A(_21(i+j));\n        vec2 r = a.xy-Q.xy;\n        float l = length(r);\n        f += 50.*r/sqrt(l)*(l-abs(j))*(G1(j,10.)+2.*G1(j,5.));\n    }\n    for (float x = -2.; x <= 2.; x++)\n    for (float y = -2.; y <= 2.; y++) {\n        vec2 u = vec2(x,y);\n        vec4 d = D(Q.xy+u);\n        f -= 100.*d.w*u;\n    }\n    if (length(f)>.1) f = .1*normalize(f);\n    Q.zw += f-.03*Q.zw;\n    Q.xy += f+1.5*Q.zw*inversesqrt(1.+dot(Q.zw,Q.zw));\n    \n    vec4 m = .5*( A(_21(i-1.)) + A(_21(i+1.)) );\n    Q.zw = mix(Q.zw,m.zw,0.1);\n    Q.xy = mix(Q.xy,m.xy,0.01);\n    if (Q.x>R.x)Q.y=.5*R.y,Q.z=-10.;\n    if (Q.x<0.)Q.y=.5*R.y,Q.z=10.;\n    }\n     if (iFrame < 1 || keyClick(32)) {\n        if ( i > k ) \n          Q = vec4(R+i,0,0); \n        else\n          Q = vec4(.5*R + .25*R.y* cos( 6.28*i/k + vec2(0,1.57)), 0,0 );\n    //  Q = vec4(i-.5*R.x*R.y,.5*R.y,0,0);\n    }\n    \n\n}",
+        "name": "Buffer A",
+        "description": "",
+        "type": "buffer"
+      },
+      {
+        "inputs": [
+          {
+            "id": 257,
+            "src": "/media/previz/buffer00.png",
+            "ctype": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 258,
+            "src": "/media/previz/buffer01.png",
+            "ctype": "buffer",
+            "channel": 1,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 258,
+            "channel": 0
+          }
+        ],
+        "code": "void XY (vec2 U, inout vec4 Q, vec4 q) {\n    if (length(U-A(_21(q.x)).xy)<length(U-A(_21(Q.x)).xy)) Q.x = q.x;\n}\nvoid ZW (vec2 U, inout vec4 Q, vec4 q) {\n    if (length(U-A(_21(q.y)).xy)<length(U-A(_21(Q.y)).xy)) Q.y = q.y;\n}\nMain\n    Q = B(U);\n    for (int x=-1;x<=1;x++)\n    for (int y=-1;y<=1;y++) {\n        XY(U,Q,B(U+vec2(x,y)));\n    }\n    XY(U,Q,vec4(Q.x-3.));\n    XY(U,Q,vec4(Q.x+3.));\n    XY(U,Q,vec4(Q.x-7.));\n    XY(U,Q,vec4(Q.x+7.));\n    if (I%12==0) \n        Q.y = _12(U);\n    else\n    {\n        float k = exp2(float(11-(I%12)));\n        ZW(U,Q,B(U+vec2(0,k)));\n        ZW(U,Q,B(U+vec2(k,0)));\n        ZW(U,Q,B(U-vec2(0,k)));\n        ZW(U,Q,B(U-vec2(k,0)));\n    }\n    XY(U,Q,Q.yxzw);\n    if (I<1) Q = vec4(_12(U));\n    \n    vec4 a1 = A(_21(Q.x));\n    vec4 a2 = A(_21(Q.x+1.));\n    vec4 a3 = A(_21(Q.x-1.));\n    float l1 = sg(U,a1.xy,a2.xy);\n    float l2 = sg(U,a1.xy,a3.xy);\n    float l = min(l1,l2);\n    Q.z = Q.w = smoothstep(2.,1.,l);\n    Q.w -= .2*heart(U);\n    \n}",
+        "name": "Buffer B",
+        "description": "",
+        "type": "buffer"
+      },
+      {
+        "inputs": [
+          {
+            "id": 257,
+            "src": "/media/previz/buffer00.png",
+            "ctype": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 258,
+            "src": "/media/previz/buffer01.png",
+            "ctype": "buffer",
+            "channel": 1,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 259,
+            "channel": 0
+          }
+        ],
+        "code": "Main \n    Q = vec4(0);\n    for (float x = -30.; x <= 30.; x++)\n        Q += G1(x,10.)*B(U+vec2(x,0)).w;\n}",
+        "name": "Buffer C",
+        "description": "",
+        "type": "buffer"
+      },
+      {
+        "inputs": [
+          {
+            "id": 257,
+            "src": "/media/previz/buffer00.png",
+            "ctype": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 258,
+            "src": "/media/previz/buffer01.png",
+            "ctype": "buffer",
+            "channel": 1,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 259,
+            "src": "/media/previz/buffer02.png",
+            "ctype": "buffer",
+            "channel": 2,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 260,
+            "src": "/media/previz/buffer03.png",
+            "ctype": "buffer",
+            "channel": 3,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 260,
+            "channel": 0
+          }
+        ],
+        "code": "Main \n    Q = vec4(0);\n    for (float y = -30.; y <= 30.; y++)\n        Q += G1(y,10.)*C(U+vec2(0,y)).w;\n        \n    Q = mix(Q,D(U),.5);\n}",
+        "name": "Buffer D",
+        "description": "",
+        "type": "buffer"
+      }
+    ]
+  }
+}

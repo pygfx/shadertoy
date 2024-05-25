@@ -95,7 +95,7 @@ def _download_media_channels(inputs: list, use_cache=True):
     return list(channels.values()), complete
 
 
-def _save_json(data, path):
+def _save_json(data: dict, path: os.PathLike) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 

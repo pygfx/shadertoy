@@ -104,9 +104,9 @@ class ShadertoyChannel:
         return self.data.shape
 
     @property
-    def bytes_per_pixel(
-        self,
-    ) -> int:  # usually is 4 for rgba8unorm or maybe use self.data.strides[1]?
+    def bytes_per_pixel(self) -> int:
+        return 4  # shortcut for speed?
+        # usually is 4 for rgba8unorm or maybe use self.data.strides[1]?
         # print(self.data.shape, self.data.nbytes)
         bpp = self.data.nbytes // self.data.shape[1] // self.data.shape[0]
 

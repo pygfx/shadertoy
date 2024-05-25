@@ -47,11 +47,7 @@ buffer_a_channel = ShadertoyChannelBuffer(buffer="a", wrap="repeat")
 buffer_a_pass = BufferRenderPass(
     buffer_idx="a", code=buffer_code, inputs=[buffer_a_channel]
 )
-shader = Shadertoy(
-    image_code,
-    inputs=[buffer_a_channel],
-    buffers={"a": buffer_a_pass}
-)
+shader = Shadertoy(image_code, inputs=[buffer_a_channel], buffers={"a": buffer_a_pass})
 
 if __name__ == "__main__":
     shader.show()
