@@ -518,7 +518,31 @@ class BufferRenderPass(RenderPass):
             columns = (columns // row_alignmnet + 1) * row_alignmnet
         rows = int(self.main.resolution[1])
         texture_size = (columns, rows, 1)
+        if (
+            hasattr(self, "_last_frame")
+            and (rows, columns) != self._last_frame.shape[0:2]
+        ):
+            # Maybe do this with the on_resize method instead? but here we will always have the correct padding available.
+            self.resize(rows, columns)
+
         return texture_size
+
+    def resize(self, new_row: int, new_col: int) -> None:
+        """
+        resizes the buffer to a new speicified size.
+        Downscaling keeps the top leftmost corner,
+        upscaling pads the bottom and right with black.
+        (this becomes bottom left, after vflip).
+        """
+        old_row, old_col, _ = self._last_frame.shape
+        if new_row < old_row or new_col < old_col:
+            self._last_frame = self._last_frame[-new_row:, :new_col, :]
+        else:
+            self._last_frame = np.pad(
+                self._last_frame,
+                ((new_row - old_row, 0), (0, new_col - old_col), (0, 0)),
+                mode="constant",
+            )
 
     @property
     def last_frame(self):
@@ -598,6 +622,7 @@ class BufferRenderPass(RenderPass):
         # print(f"{self._last_frame[0,0,2]=}")
         # print(f"{frame[0,0,2]=}")
         # print(self._uniform_data["frame"])
+        # print(f"{self}, {frame[100][100]=}")
         self._last_frame = frame
 
 

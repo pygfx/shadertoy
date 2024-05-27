@@ -155,6 +155,7 @@ class ShadertoyChannel:
         texture_view = texture.create_view()
         # typing missing in wgpu-py for queue
         # extract this to an update_texture method?
+        # print(f"{self}, {self.data[0][0]=}")
         device.queue.write_texture(
             {
                 "texture": texture,
@@ -263,8 +264,12 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         previous frame rendered by this buffer. buffers render in order A, B, C, D. and before the Image pass.
         """
         # print(f"{self.renderpass.last_frame[0,0,2]=}")
+        data = self.renderpass.last_frame
+        # overwrite the alpha channel to 255
+        data[:, :, 3] = 255
+
         # force vflip with Buffers?
-        data = np.ascontiguousarray(self.renderpass.last_frame[::-1, :, :])
+        data = np.ascontiguousarray(data[::-1, :, :])
         return data
 
     def create_texture(self, device) -> wgpu.GPUTexture:
