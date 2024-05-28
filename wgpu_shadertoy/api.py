@@ -58,10 +58,11 @@ def _download_media_channels(inputs: list, use_cache=True):
     Requires internet connection (API key not required).
     """
     media_url = "https://www.shadertoy.com"
-    channels = {}
+    channels = [None] * 4
     cache_dir = _get_cache_dir("media")
     complete = True
     for inp in inputs:
+        # careful, the order of inputs is not guaranteed to be the same as the order of channels!
         if inp["ctype"] == "texture":
             cache_path = os.path.join(cache_dir, inp["src"].split("/")[-1])
             if use_cache and os.path.exists(cache_path):
@@ -85,14 +86,15 @@ def _download_media_channels(inputs: list, use_cache=True):
             buffer_idx = "abcd"[
                 int(inp["src"][-5])
             ]  # hack with the preview image, otherwise you would have to look at output id...
-            channel = ShadertoyChannelBuffer(buffer=buffer_idx, **inp["sampler"])
+            channel = ShadertoyChannelBuffer(
+                buffer=buffer_idx, channel_idx=inp["channel"], **inp["sampler"]
+            )
 
         else:
             complete = False
             continue  # TODO: support other media types
         channels[inp["channel"]] = channel
-
-    return list(channels.values()), complete
+    return channels, complete
 
 
 def _save_json(data: dict, path: os.PathLike) -> None:
