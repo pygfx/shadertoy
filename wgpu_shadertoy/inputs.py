@@ -272,6 +272,18 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         data = np.ascontiguousarray(data[::-1, :, :])
         return data
 
+    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+        """ """
+        binding_layout = self._binding_layout()
+        texture = self.renderpass.texture
+        texture_view = texture.create_view()
+        sampler = device.create_sampler(**self.sampler_settings)
+        # TODO: explore using auto layouts (pygfx/wgpu-py#500)
+        bind_groups_layout_entry = self._bind_groups_layout_entries(
+            texture_view, sampler
+        )
+        return binding_layout, bind_groups_layout_entry
+
     def create_texture(self, device) -> wgpu.GPUTexture:
         """
         Creates the texture for this channel and sampler. Texture stays available to be updated later on.

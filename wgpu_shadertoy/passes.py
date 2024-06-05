@@ -101,7 +101,6 @@ void main(){
 
 """
 
-
 vertex_code_wgsl = """
 
 struct Varyings {
@@ -512,20 +511,15 @@ class BufferRenderPass(RenderPass):
     @property
     def texture_size(self) -> tuple:
         # (columns, rows, 1)
-        row_alignmnet = 64  # because it's 4 bytes per pixel so 265
-        columns = int(self.main.resolution[0])
-        if columns % row_alignmnet != 0:
-            columns = (columns // row_alignmnet + 1) * row_alignmnet
-        rows = int(self.main.resolution[1])
-        texture_size = (columns, rows, 1)
-        if (
-            hasattr(self, "_last_frame")
-            and (rows, columns) != self._last_frame.shape[0:2]
-        ):
-            # Maybe do this with the on_resize method instead? but here we will always have the correct padding available.
-            self.resize(rows, columns)
-
-        return texture_size
+        if not hasattr(self, "_size"):
+            row_alignmnet = 64  # because it's 4 bytes per pixel so 265
+            columns = int(self.main.resolution[0])
+            if columns % row_alignmnet != 0:
+                columns = (columns // row_alignmnet + 1) * row_alignmnet
+            rows = int(self.main.resolution[1])
+            self._size = (columns, rows, 1)
+        return self._size
+    
 
     def resize(self, new_row: int, new_col: int) -> None:
         """
@@ -535,17 +529,40 @@ class BufferRenderPass(RenderPass):
         (this becomes bottom left, after vflip).
         """
         old_row, old_col, _ = self._last_frame.shape
+        print(f"Resizing from {old_row}x{old_col} to {new_row}x{new_col}")
+        old = self._download_texture(size=(old_col, old_row, 1))
+
         if new_row < old_row or new_col < old_col:
-            self._last_frame = self._last_frame[-new_row:, :new_col, :]
+            new = old[-new_row:, :new_col, :]
         else:
-            self._last_frame = np.pad(
-                self._last_frame,
+            new = np.pad(
+                old,
                 ((new_row - old_row, 0), (0, new_col - old_col), (0, 0)),
                 mode="constant",
             )
+        self._upload_texture(new)
+
+    @property
+    def texture(self) -> wgpu.GPUTexture:
+        """
+        the texture that the buffer renders to, will also be used as a texture by the BufferChannels.
+        """
+        if not hasattr(self, "_texture"):
+            # creates the initial texture
+            self._texture = self.main._device.create_texture(
+                size=self.texture_size,
+                format=wgpu.TextureFormat.bgra8unorm,
+                usage=wgpu.TextureUsage.COPY_SRC
+                | wgpu.TextureUsage.COPY_DST
+                | wgpu.TextureUsage.RENDER_ATTACHMENT
+                | wgpu.TextureUsage.TEXTURE_BINDING,
+            )
+        return self._texture
 
     @property
     def last_frame(self):
+        # TODO: refactor to be a texture, not a buffer or even a numpy array.
+        # we likely need to have download/upload private methods to support resizing etc (unless we write shaders for that haha)
         if not hasattr(self, "_last_frame"):
             self._last_frame = self._initial_buffer()
         return self._last_frame
@@ -565,15 +582,12 @@ class BufferRenderPass(RenderPass):
 
     def draw_buffer(self, device: wgpu.GPUDevice) -> None:
         """
-        draws the buffer to the texture and updates self.last_frame
+        draws the buffer to the texture and updates self._texture.
         """
-        # TODO: maybe call these functions draw_buffer and have them easier to call at once?
         self._update_textures(device)
-        buffer = device.create_buffer(
-            size=(self.texture_size[0] * self.texture_size[1] * 4),
-            usage=wgpu.BufferUsage.COPY_SRC | wgpu.BufferUsage.COPY_DST,
-        )
         command_encoder = device.create_command_encoder()
+
+        # create a temporary texture as a render target
         target_texture = device.create_texture(
             size=self.texture_size,
             format=wgpu.TextureFormat.bgra8unorm,
@@ -597,33 +611,99 @@ class BufferRenderPass(RenderPass):
         render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
         render_pass.draw(3, 1, 0, 0)  # what is .draw_indirect?
         render_pass.end()
-        command_encoder.copy_texture_to_buffer(
+
+        command_encoder.copy_texture_to_texture(
             {
                 "texture": target_texture,
                 "mip_level": 0,
                 "origin": (0, 0, 0),
             },
             {
-                "buffer": buffer,
-                "offset": 0,
-                "bytes_per_row": self.texture_size[0] * 4,
-                "rows_per_image": self.texture_size[1],
+                "texture": self._texture,
+                "mip_level": 0,
+                "origin": (0, 0, 0),
             },
-            self.texture_size,
+            self.texture_size,  # could this handle resizing?
         )
 
         device.queue.submit([command_encoder.finish()])
 
-        frame = device.queue.read_buffer(buffer)
+    def _download_texture(
+        self,
+        device: wgpu.GPUDevice = None,
+        size=None,
+        command_encoder: wgpu.GPUCommandEncoder = None,
+    ):
+        """
+        downloads the texture from the GPU to the CPU by returning a numpy array.
+        """
+        if device is None:
+            device = self.main._device
+        if command_encoder is None:
+            command_encoder = device.create_command_encoder()
+        if size is None:
+            size = self.texture_size
 
-        frame = np.frombuffer(frame, dtype=np.uint8).reshape(
-            self.texture_size[1], self.texture_size[0], 4
+        buffer = device.create_buffer(
+            size=(size[0] * size[1] * 4),
+            usage=wgpu.BufferUsage.COPY_SRC | wgpu.BufferUsage.COPY_DST,
         )
-        # print(f"{self._last_frame[0,0,2]=}")
-        # print(f"{frame[0,0,2]=}")
-        # print(self._uniform_data["frame"])
-        # print(f"{self}, {frame[100][100]=}")
+        command_encoder.copy_texture_to_buffer(
+            {
+                "texture": self.texture,
+                "mip_level": 0,
+                "origin": (0, 0, 0),
+            },
+            {
+                "buffer": buffer,
+                "offset": 0,
+                "bytes_per_row": size[0] * 4,
+                "rows_per_image": size[1],
+            },
+            size,
+        )
+        device.queue.submit([command_encoder.finish()])
+        frame = device.queue.read_buffer(buffer)
+        frame = np.frombuffer(frame, dtype=np.uint8).reshape(size[1], size[0], 4)
+        # redundant copy?
         self._last_frame = frame
+        return frame
+
+    def _upload_texture(self, data, device=None, command_encoder=None):
+        """
+        uploads some data to self._texture.
+        """
+        if device is None:
+            device = self.main._device
+        if command_encoder is None:
+            command_encoder = device.create_command_encoder()
+
+        data = np.ascontiguousarray(data)
+        # create a new texture with the changed size?
+        new_texture = device.create_texture(
+            size=(data.shape[1], data.shape[0], 1),
+            format=wgpu.TextureFormat.bgra8unorm,
+            usage=wgpu.TextureUsage.COPY_SRC
+            | wgpu.TextureUsage.RENDER_ATTACHMENT
+            | wgpu.TextureUsage.COPY_DST
+            | wgpu.TextureUsage.TEXTURE_BINDING,
+        )
+
+        device.queue.write_texture(
+            {
+                "texture": new_texture,
+                "mip_level": 0,
+                "origin": (0, 0, 0),
+            },
+            data,
+            {
+                "offset": 0,
+                "bytes_per_row": data.strides[0],
+                "rows_per_image": data.shape[0],
+            },
+            (data.shape[1], data.shape[0], 1),
+        )
+        self._texture = new_texture
 
 
 class CubemapRenderPass(RenderPass):
