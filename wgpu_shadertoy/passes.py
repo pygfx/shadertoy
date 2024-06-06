@@ -510,34 +510,45 @@ class BufferRenderPass(RenderPass):
 
     @property
     def texture_size(self) -> tuple:
-        # (columns, rows, 1)
-        if not hasattr(self, "_size"):
-            row_alignmnet = 64  # because it's 4 bytes per pixel so 265
-            columns = int(self.main.resolution[0])
-            if columns % row_alignmnet != 0:
-                columns = (columns // row_alignmnet + 1) * row_alignmnet
+        """
+        (columns, rows, 1), cols aligned to 64.
+        (height)
+        """
+        if not hasattr(self, "_texture_size"):
+            columns = self._pad_columns(int(self.main.resolution[0]))
             rows = int(self.main.resolution[1])
-            self._size = (columns, rows, 1)
-        return self._size
-    
+            self._texture_size = (columns, rows, 1)
+        else:
+            self._texture_size = self._texture.size
 
-    def resize(self, new_row: int, new_col: int) -> None:
+        return self._texture_size
+
+    def _pad_columns(self, cols: int, alignment=64) -> int:
+        if cols % alignment != 0:
+            cols = (cols // alignment + 1) * alignment
+        print(cols)
+        return cols
+
+    def resize(self, new_cols: int, new_rows: int) -> None:
         """
         resizes the buffer to a new speicified size.
         Downscaling keeps the top leftmost corner,
         upscaling pads the bottom and right with black.
         (this becomes bottom left, after vflip).
         """
-        old_row, old_col, _ = self._last_frame.shape
-        print(f"Resizing from {old_row}x{old_col} to {new_row}x{new_col}")
-        old = self._download_texture(size=(old_col, old_row, 1))
+        # TODO: could this be redone as a compute shader?
 
-        if new_row < old_row or new_col < old_col:
-            new = old[-new_row:, :new_col, :]
+        old_cols, old_rows, _ = self.texture_size
+        new_cols = self._pad_columns(new_cols)
+        if new_cols == old_cols and new_rows == old_rows:
+            return
+        old = self._download_texture()
+        if new_rows < old_rows or new_cols < old_cols:
+            new = old[-new_rows:, :new_cols, :]
         else:
             new = np.pad(
                 old,
-                ((new_row - old_row, 0), (0, new_col - old_col), (0, 0)),
+                ((new_rows - old_rows, 0), (0, new_cols - old_cols), (0, 0)),
                 mode="constant",
             )
         self._upload_texture(new)
@@ -698,7 +709,7 @@ class BufferRenderPass(RenderPass):
             data,
             {
                 "offset": 0,
-                "bytes_per_row": data.strides[0],
+                "bytes_per_row": data.shape[1] * 4,
                 "rows_per_image": data.shape[0],
             },
             (data.shape[1], data.shape[0], 1),

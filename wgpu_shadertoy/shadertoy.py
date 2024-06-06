@@ -233,9 +233,9 @@ class Shadertoy:
         def on_resize(event):
             w, h = event["width"], event["height"]
             self._uniform_data["resolution"] = (w, h, 1)
-            # for buf in self.buffers.values():
-            #     if buf:
-            #         buf.resize(int(w), int(h))
+            for buf in self.buffers.values():
+                if buf:
+                    buf.resize(int(w), int(h))
 
         def on_mouse_move(event):
             if event["button"] == 1 or 1 in event["buttons"]:
