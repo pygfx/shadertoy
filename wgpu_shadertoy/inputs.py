@@ -178,24 +178,28 @@ class ShadertoyChannel:
         )
         return binding_layout, bind_groups_layout_entry
 
-    def header_glsl(self, input_idx=0):
+    def header_glsl(self):
         """
         GLSL code snippet added to the compatibilty header for Shadertoy inputs.
         """
-        binding_id = (2 * input_idx) + 1
-        sampler_id = 2 * (input_idx + 1)
+        input_idx = self.channel_idx
+        binding_id = self.texture_binding
+        sampler_id = self.sampler_binding
         return f"""
         layout(binding = {binding_id}) uniform texture2D i_channel{input_idx};
         layout(binding = {sampler_id}) uniform sampler sampler{input_idx};
+        
         #define iChannel{input_idx} sampler2D(i_channel{input_idx}, sampler{input_idx})
+
         """
 
-    def header_wgsl(self, input_idx=0):
+    def header_wgsl(self):
         """
         WGSL code snippet added to the compatibilty header for Shadertoy inputs.
         """
-        binding_id = (2 * input_idx) + 1
-        sampler_id = 2 * (input_idx + 1)
+        input_idx = self.channel_idx
+        binding_id = self.texture_binding
+        sampler_id = self.sampler_binding
         return f"""
         @group(0) @binding{binding_id}
         var i_channel{input_idx}: texture_2d<f32>;

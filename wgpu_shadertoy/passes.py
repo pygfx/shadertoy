@@ -24,6 +24,25 @@ void main(void){
     }
 }
 """
+# TODO: avoid redundant globals, refactor to something like a headers.py file?
+vertex_code_glsl_flipped = """#version 450 core
+
+layout(location = 0) out vec2 vert_uv;
+
+void main(void){
+    int index = int(gl_VertexID);
+    if (index == 0) {
+        gl_Position = vec4(-1.0, -1.0, 0.0, 1.0);
+        vert_uv = vec2(0.0, 0.0); // Flipped
+    } else if (index == 1) {
+        gl_Position = vec4(3.0, -1.0, 0.0, 1.0);
+        vert_uv = vec2(2.0, 0.0); // Flipped
+    } else {
+        gl_Position = vec4(-1.0, 3.0, 0.0, 1.0);
+        vert_uv = vec2(0.0, 2.0); // Flipped
+    }
+}
+"""
 
 
 builtin_variables_glsl = """#version 450 core
@@ -120,6 +139,31 @@ fn main(@builtin(vertex_index) index: u32) -> Varyings {
     } else {
         out.position = vec4<f32>(-1.0, 3.0, 0.0, 1.0);
         out.vert_uv = vec2<f32>(0.0, -1.0);
+    }
+    return out;
+
+}
+"""
+
+vertex_code_wgsl_flipped = """
+
+struct Varyings {
+    @builtin(position) position : vec4<f32>,
+    @location(0) vert_uv : vec2<f32>,
+};
+
+@vertex
+fn main(@builtin(vertex_index) index: u32) -> Varyings {
+    var out: Varyings;
+    if (index == u32(0)) {
+        out.position = vec4<f32>(-1.0, -1.0, 0.0, 1.0);
+        out.vert_uv = vec2<f32>(0.0, 0.0); // Flipped
+    } else if (index == u32(1)) {
+        out.position = vec4<f32>(3.0, -1.0, 0.0, 1.0);
+        out.vert_uv = vec2<f32>(2.0, 0.0); // Flipped
+    } else {
+        out.position = vec4<f32>(-1.0, 3.0, 0.0, 1.0);
+        out.vert_uv = vec2<f32>(0.0, -2.0); // Flipped
     }
     return out;
 
@@ -329,7 +373,10 @@ class RenderPass:
         self.channels = self._attach_inputs(self._inputs)
         shader_type = self.shader_type
         if shader_type == "glsl":
-            vertex_shader_code = vertex_code_glsl
+            if type(self) is BufferRenderPass:
+                vertex_shader_code = vertex_code_glsl_flipped
+            else:
+                vertex_shader_code = vertex_code_glsl
             frag_shader_code = (
                 builtin_variables_glsl
                 + self.main.common
@@ -337,7 +384,10 @@ class RenderPass:
                 + fragment_code_glsl
             )
         elif shader_type == "wgsl":
-            vertex_shader_code = vertex_code_wgsl
+            if type(self) is BufferRenderPass:
+                vertex_shader_code = vertex_code_wgsl_flipped
+            else:
+                vertex_shader_code = vertex_code_wgsl
             frag_shader_code = (
                 builtin_variables_wgsl
                 + self.main.common
@@ -526,15 +576,13 @@ class BufferRenderPass(RenderPass):
     def _pad_columns(self, cols: int, alignment=64) -> int:
         if cols % alignment != 0:
             cols = (cols // alignment + 1) * alignment
-        print(cols)
         return cols
 
     def resize(self, new_cols: int, new_rows: int) -> None:
         """
         resizes the buffer to a new speicified size.
-        Downscaling keeps the top leftmost corner,
-        upscaling pads the bottom and right with black.
-        (this becomes bottom left, after vflip).
+        Downscaling keeps the bottom left corner,
+        upscaling pads the top and right with black.
         """
         # TODO: could this be redone as a compute shader?
 
@@ -544,12 +592,10 @@ class BufferRenderPass(RenderPass):
             return
         old = self._download_texture()
         if new_rows < old_rows or new_cols < old_cols:
-            new = old[-new_rows:, :new_cols, :]
+            new = old[:new_rows, :new_cols]
         else:
             new = np.pad(
-                old,
-                ((new_rows - old_rows, 0), (0, new_cols - old_cols), (0, 0)),
-                mode="constant",
+                old, ((0, new_rows - old_rows), (0, new_cols - old_cols), (0, 0))
             )
         self._upload_texture(new)
 
@@ -677,7 +723,7 @@ class BufferRenderPass(RenderPass):
         frame = device.queue.read_buffer(buffer)
         frame = np.frombuffer(frame, dtype=np.uint8).reshape(size[1], size[0], 4)
         # redundant copy?
-        self._last_frame = frame
+        # self._last_frame = frame
         return frame
 
     def _upload_texture(self, data, device=None, command_encoder=None):
