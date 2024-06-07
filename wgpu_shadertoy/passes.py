@@ -477,19 +477,8 @@ class RenderPass:
                 "entry_point": "main",
                 "targets": [
                     {
-                        "format": wgpu.TextureFormat.bgra8unorm,
-                        "blend": {
-                            "color": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                            "alpha": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                        },
+                        "format": self._format,
+                        "blend": None,  # maybe fine?
                     },
                 ],
             },
@@ -503,6 +492,7 @@ class ImageRenderPass(RenderPass):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self._format = wgpu.TextureFormat.bgra8unorm
         # TODO figure out if there is anything specific. Maybe the canvas stuff? perhaps that should stay in the main class...
 
     def draw_image(self, device: wgpu.GPUDevice, present_context) -> None:
@@ -545,6 +535,7 @@ class BufferRenderPass(RenderPass):
     def __init__(self, buffer_idx: str = "", **kwargs):
         super().__init__(**kwargs)
         self._buffer_idx = buffer_idx
+        self._format = wgpu.TextureFormat.rgba32float
 
     @property
     def buffer_idx(self) -> str:
@@ -573,7 +564,7 @@ class BufferRenderPass(RenderPass):
 
         return self._texture_size
 
-    def _pad_columns(self, cols: int, alignment=64) -> int:
+    def _pad_columns(self, cols: int, alignment=16) -> int:
         if cols % alignment != 0:
             cols = (cols // alignment + 1) * alignment
         return cols
@@ -608,7 +599,7 @@ class BufferRenderPass(RenderPass):
             # creates the initial texture
             self._texture = self.main._device.create_texture(
                 size=self.texture_size,
-                format=wgpu.TextureFormat.bgra8unorm,
+                format=self._format,
                 usage=wgpu.TextureUsage.COPY_SRC
                 | wgpu.TextureUsage.COPY_DST
                 | wgpu.TextureUsage.RENDER_ATTACHMENT
@@ -647,7 +638,7 @@ class BufferRenderPass(RenderPass):
         # create a temporary texture as a render target
         target_texture = device.create_texture(
             size=self.texture_size,
-            format=wgpu.TextureFormat.bgra8unorm,
+            format=self._format,
             usage=wgpu.TextureUsage.COPY_SRC | wgpu.TextureUsage.RENDER_ATTACHMENT,
         )
 
@@ -702,7 +693,7 @@ class BufferRenderPass(RenderPass):
             size = self.texture_size
 
         buffer = device.create_buffer(
-            size=(size[0] * size[1] * 4),
+            size=(size[0] * size[1] * 16),
             usage=wgpu.BufferUsage.COPY_SRC | wgpu.BufferUsage.COPY_DST,
         )
         command_encoder.copy_texture_to_buffer(
@@ -714,14 +705,14 @@ class BufferRenderPass(RenderPass):
             {
                 "buffer": buffer,
                 "offset": 0,
-                "bytes_per_row": size[0] * 4,
+                "bytes_per_row": size[0] * 16,
                 "rows_per_image": size[1],
             },
             size,
         )
         device.queue.submit([command_encoder.finish()])
         frame = device.queue.read_buffer(buffer)
-        frame = np.frombuffer(frame, dtype=np.uint8).reshape(size[1], size[0], 4)
+        frame = np.frombuffer(frame, dtype=np.float32).reshape(size[1], size[0], 4)
         # redundant copy?
         # self._last_frame = frame
         return frame
@@ -739,7 +730,7 @@ class BufferRenderPass(RenderPass):
         # create a new texture with the changed size?
         new_texture = device.create_texture(
             size=(data.shape[1], data.shape[0], 1),
-            format=wgpu.TextureFormat.bgra8unorm,
+            format=self._format,
             usage=wgpu.TextureUsage.COPY_SRC
             | wgpu.TextureUsage.RENDER_ATTACHMENT
             | wgpu.TextureUsage.COPY_DST
@@ -755,7 +746,7 @@ class BufferRenderPass(RenderPass):
             data,
             {
                 "offset": 0,
-                "bytes_per_row": data.shape[1] * 4,
+                "bytes_per_row": data.shape[1] * 16,
                 "rows_per_image": data.shape[0],
             },
             (data.shape[1], data.shape[0], 1),

@@ -10,6 +10,9 @@ from wgpu.gui.offscreen import run as run_offscreen
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import BufferRenderPass, ImageRenderPass
 
+# TODO: hacky solution, needs to be improved
+_default_device = None
+
 
 class UniformArray:
     """Convenience class to create a uniform array.
@@ -196,6 +199,23 @@ class Shadertoy:
         """
         return self.image.shader_type
 
+    @property
+    def _device(self):
+        """
+        copy and paste from wgpu.utils.device.get_default_device but with feature enabled
+        we need to enable float32-filterable for buffer textures.
+        """
+        global _default_device
+
+        if _default_device is None:
+            import wgpu.backends.auto
+
+            adapter = wgpu.gpu.request_adapter(power_preference="high-performance")
+            _default_device = adapter.request_device(
+                required_features=["float32-filterable"]
+            )
+        return _default_device
+
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
         """Builds a `Shadertoy` instance from a JSON-like dict of Shadertoy.com shader data."""
@@ -219,8 +239,6 @@ class Shadertoy:
             self._canvas = WgpuCanvas(
                 title=self.title, size=self.resolution, max_fps=60
             )
-
-        self._device = wgpu.utils.device.get_default_device()
 
         self._present_context = self._canvas.get_context()
 
@@ -306,10 +324,7 @@ class Shadertoy:
 
         for buf in self.buffers.values():
             if buf:  # checks if not None?
-                buf.draw_buffer(
-                    self._device
-                )  # does this need kind of the target to write too?
-        # TODO: most of the code below here is for the image renderpass...
+                buf.draw_buffer(self._device)
         self.image.draw_image(self._device, self._present_context)
 
         self._canvas.request_draw()
