@@ -112,10 +112,12 @@ class ShadertoyChannel:
 
         return bpp
 
-    def create_texture(self, device) -> wgpu.GPUTexture:
-        raise NotImplementedError(
-            "This method should likely be implemented in the subclass - but maybe it's all the same? TODO: check later!"
-        )
+    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+        """
+        returns a tuple of binding_layout and bing_groups_layout_entries.
+        writes textures as well as creates the sampler.
+        """
+        raise NotImplementedError("This method should be implemented in the subclass.")
 
     def _binding_layout(self, offset=0):
         # TODO: figure out how offset works when we have multiple passes
@@ -149,63 +151,34 @@ class ShadertoyChannel:
             },
         ]
 
-    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
-        binding_layout = self._binding_layout()
-        texture = self.create_texture(device)
-        texture_view = texture.create_view()
-        # typing missing in wgpu-py for queue
-        # extract this to an update_texture method?
-        # print(f"{self}, {self.data[0][0]=}")
-        device.queue.write_texture(
-            {
-                "texture": texture,
-                "origin": (0, 0, 0),
-                "mip_level": 0,
-            },
-            self.data,
-            {
-                "offset": 0,
-                "bytes_per_row": self.bytes_per_pixel * self.size[1],  # multiple of 256
-                "rows_per_image": self.size[0],  # same is done internally
-            },
-            texture.size,
-        )
-
-        sampler = device.create_sampler(**self.sampler_settings)
-        # TODO: explore using auto layouts (pygfx/wgpu-py#500)
-        bind_groups_layout_entry = self._bind_groups_layout_entries(
-            texture_view, sampler
-        )
-        return binding_layout, bind_groups_layout_entry
-
-    def header_glsl(self):
+    def get_header(self, shader_type: str = "") -> str:
         """
-        GLSL code snippet added to the compatibilty header for Shadertoy inputs.
+        GLSL or WGSL code snippet added to the compatibilty header for Shadertoy inputs.
         """
+        # TODO: consider using this to dynamically add compatibility code into fragment_code_?
+        if not shader_type:
+            shader_type = self.parent.shader_type
+        shader_type = shader_type.lower()
+
         input_idx = self.channel_idx
         binding_id = self.texture_binding
         sampler_id = self.sampler_binding
-        return f"""
-        layout(binding = {binding_id}) uniform texture2D i_channel{input_idx};
-        layout(binding = {sampler_id}) uniform sampler sampler{input_idx};
-        
-        #define iChannel{input_idx} sampler2D(i_channel{input_idx}, sampler{input_idx})
-
-        """
-
-    def header_wgsl(self):
-        """
-        WGSL code snippet added to the compatibilty header for Shadertoy inputs.
-        """
-        input_idx = self.channel_idx
-        binding_id = self.texture_binding
-        sampler_id = self.sampler_binding
-        return f"""
-        @group(0) @binding{binding_id}
-        var i_channel{input_idx}: texture_2d<f32>;
-        @group(0) @binding({sampler_id})
-        var sampler{input_idx}: sampler;
-        """
+        if shader_type == "glsl":
+            return f"""
+            layout(binding = {binding_id}) uniform texture2D i_channel{input_idx};
+            layout(binding = {sampler_id}) uniform sampler sampler{input_idx};
+            
+            #define iChannel{input_idx} sampler2D(i_channel{input_idx}, sampler{input_idx})
+            """
+        elif shader_type == "wgsl":
+            return f"""
+            @group(0) @binding{binding_id}
+            var i_channel{input_idx}: texture_2d<f32>;
+            @group(0) @binding({sampler_id})
+            var sampler{input_idx}: sampler;
+            """
+        else:
+            raise ValueError(f"Unknown shader type: {shader_type}")
 
     def __repr__(self):
         """
@@ -259,25 +232,20 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         self.dynamic = True
 
     @property
+    def size(self):
+        # width, height, 1, ?
+        texture_size = self.renderpass.texture_size
+        return (texture_size[1], texture_size[0], 1)
+
+    @property
     def renderpass(self):  # -> BufferRenderPass:
         return self.parent.main.buffers[self.buffer_idx]
 
-    @property
-    def data(self):
-        """
-        previous frame rendered by this buffer. buffers render in order A, B, C, D. and before the Image pass.
-        """
-        # print(f"{self.renderpass.last_frame[0,0,2]=}")
-        data = self.renderpass.last_frame
-        # overwrite the alpha channel to 255
-        data[:, :, 3] = 255
-
-        # force vflip with Buffers?
-        data = np.ascontiguousarray(data[::-1, :, :])
-        return data
-
     def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
-        """ """
+        """
+        returns a tuple of binding_layout and bing_groups_layout_entries.
+        takes the texture from the buffer and creates a new sampler.
+        """
         binding_layout = self._binding_layout()
         texture = self.renderpass.texture
         texture_view = texture.create_view()
@@ -287,48 +255,6 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
             texture_view, sampler
         )
         return binding_layout, bind_groups_layout_entry
-
-    def create_texture(self, device) -> wgpu.GPUTexture:
-        """
-        Creates the texture for this channel and sampler. Texture stays available to be updated later on.
-        """
-        # TODO: this likely needs to be in the parent pass and simply accessed here...
-        texture = device.create_texture(
-            size=self.renderpass.texture_size,
-            format=wgpu.TextureFormat.bgra8unorm,
-            usage=wgpu.TextureUsage.COPY_DST
-            | wgpu.TextureUsage.RENDER_ATTACHMENT
-            | wgpu.TextureUsage.TEXTURE_BINDING,  # which ones do we actually need?
-        )
-        # texture = device.copy_buffer_to_texture(
-        #     {
-        #         "buffer": self.data,
-        #         "texture": self.texture,
-        #         "texture_size": self.renderpass.texture_size,
-        #         "bytes_per_row": self.renderpass.bytes_per_pixel
-        #         * self.renderpass.texture_size[1],
-        #     }
-        # )
-        return texture
-
-    def update_texture(self, device):
-        """
-        Updates the texture. (maybe reuse this code snippet broader?)
-        """
-        device.queue.write_texture(
-            {
-                "texture": self.texture,
-                "origin": (0, 0, 0),
-                "mip_level": 0,
-            },
-            self.data,
-            {
-                "offset": 0,
-                "bytes_per_row": self.bytes_per_pixel * self.size[1],  # multiple of 256
-                "rows_per_image": self.size[0],  # same is done internally
-            },
-            self.texture.size,
-        )
 
 
 class ShadertoyChannelCubemapA(ShadertoyChannel):
@@ -373,24 +299,46 @@ class ShadertoyChannelTexture(ShadertoyChannel):
                 axis=2,
             )
 
-        self.texture_size = (
-            self.data.shape[1],
-            self.data.shape[0],
-            1,
-        )  # orientation change (columns, rows, 1)
+        # orientation change (columns, rows, 1)
+        self.texture_size = (self.data.shape[1], self.data.shape[0], 1)
 
         vflip = kwargs.pop("vflip", True)
         if vflip in ("true", True):
             vflip = True
             self.data = np.ascontiguousarray(self.data[::-1, :, :])
 
-    def create_texture(self, device) -> wgpu.GPUTexture:
+    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+        binding_layout = self._binding_layout()
         texture = device.create_texture(
             size=self.texture_size,
             format=wgpu.TextureFormat.rgba8unorm,
             usage=wgpu.TextureUsage.COPY_DST | wgpu.TextureUsage.TEXTURE_BINDING,
         )
-        return texture
+        texture_view = texture.create_view()
+        # typing missing in wgpu-py for queue
+        # extract this to an update_texture method?
+        # print(f"{self}, {self.data[0][0]=}")
+        device.queue.write_texture(
+            {
+                "texture": texture,
+                "origin": (0, 0, 0),
+                "mip_level": 0,
+            },
+            self.data,
+            {
+                "offset": 0,
+                "bytes_per_row": self.bytes_per_pixel * self.size[1],  # multiple of 256
+                "rows_per_image": self.size[0],  # same is done internally
+            },
+            texture.size,
+        )
+
+        sampler = device.create_sampler(**self.sampler_settings)
+        # TODO: explore using auto layouts (pygfx/wgpu-py#500)
+        bind_groups_layout_entry = self._bind_groups_layout_entries(
+            texture_view, sampler
+        )
+        return binding_layout, bind_groups_layout_entry
 
 
 class ShadertoyChannelCubemap(ShadertoyChannel):
