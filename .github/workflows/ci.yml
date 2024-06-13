@@ -80,7 +80,7 @@ jobs:
       env:
         EXPECT_LAVAPIPE: true
       run: |
-          pytest -v examples
+          pytest -vvvs examples
 
   test-builds:
     name: ${{ matrix.name }}
@@ -125,7 +125,7 @@ jobs:
           pip install -e .[dev]
     - name: Unit tests
       run: |
-          pytest -v tests
+          pytest -vvvs tests
 
   publish:
     name: Publish to Github and Pypi
