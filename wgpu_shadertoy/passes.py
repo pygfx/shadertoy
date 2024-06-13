@@ -607,27 +607,6 @@ class BufferRenderPass(RenderPass):
             )
         return self._texture
 
-    @property
-    def last_frame(self):
-        # TODO: refactor to be a texture, not a buffer or even a numpy array.
-        # we likely need to have download/upload private methods to support resizing etc (unless we write shaders for that haha)
-        if not hasattr(self, "_last_frame"):
-            self._last_frame = self._initial_buffer()
-        return self._last_frame
-
-    def _initial_buffer(self):
-        zero_array = np.ascontiguousarray(
-            np.zeros(
-                shape=(self.texture_size[1], self.texture_size[0], 4), dtype=np.uint8
-            )
-        )
-
-        # buffer = self.main._device.create_buffer_with_data(
-        #     zero_array.tobytes(),
-        #     wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.COPY_SRC,
-        # )
-        return zero_array
-
     def draw_buffer(self, device: wgpu.GPUDevice) -> None:
         """
         draws the buffer to the texture and updates self._texture.

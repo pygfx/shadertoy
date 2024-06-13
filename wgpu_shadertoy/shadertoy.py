@@ -3,15 +3,13 @@ import ctypes
 import os
 import time
 
+import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import BufferRenderPass, ImageRenderPass
-
-# TODO: hacky solution, needs to be improved
-_default_device = None
 
 
 class UniformArray:
@@ -139,6 +137,11 @@ class Shadertoy:
         self._uniform_data["resolution"] = (*resolution, 1)
         self._shader_type = shader_type.lower()
 
+        device_features = []
+        if not all(value == "" for value in buffers.values()):
+            device_features.append(wgpu.FeatureName.float32_filterable)
+        self._device = self._request_device(device_features)
+
         self.image = ImageRenderPass(
             main=self, code=shader_code, shader_type=shader_type, inputs=inputs
         )
@@ -199,22 +202,19 @@ class Shadertoy:
         """
         return self.image.shader_type
 
-    @property
-    def _device(self):
+    def _request_device(self, features) -> wgpu.GPUDevice:
         """
-        copy and paste from wgpu.utils.device.get_default_device but with feature enabled
-        we need to enable float32-filterable for buffer textures.
+        returns the _global_device if no features are required
+        otherwise requests a new device with the required features
+        this logic is needed to pass unit tests due to how we run examples.
+        Might be depricated in the future, ref: https://github.com/pygfx/wgpu-py/pull/517
         """
-        global _default_device
+        if not features:
+            return wgpu.utils.get_default_device()
 
-        if _default_device is None:
-            import wgpu.backends.auto
-
-            adapter = wgpu.gpu.request_adapter(power_preference="high-performance")
-            _default_device = adapter.request_device(
-                required_features=["float32-filterable"]
-            )
-        return _default_device
+        return wgpu.gpu.request_adapter(
+            power_preference="high-performance"
+        ).request_device(required_features=features)
 
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
@@ -243,6 +243,7 @@ class Shadertoy:
         self._present_context = self._canvas.get_context()
 
         # We use "bgra8unorm" not "bgra8unorm-srgb" here because we want to let the shader fully control the color-space.
+        # TODO: instead use canvas preference? ref: GPUCanvasContext.get_preferred_format()
         self._present_context.configure(
             device=self._device, format=wgpu.TextureFormat.bgra8unorm
         )

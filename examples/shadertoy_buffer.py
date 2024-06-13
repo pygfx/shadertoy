@@ -1,5 +1,3 @@
-# run_example = false
-# buffer passes in development
 from wgpu_shadertoy import Shadertoy
 from wgpu_shadertoy.inputs import ShadertoyChannelBuffer
 from wgpu_shadertoy.passes import BufferRenderPass
