@@ -270,13 +270,14 @@ class RenderPass:
         wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
         glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
         if wgsl_main_expr.search(self.shader_code):
-            return "wgsl"
+            self._shader_type = "wgsl"
         elif glsl_main_expr.search(self.shader_code):
-            return "glsl"
+            self._shader_type = "glsl"
         else:
             raise ValueError(
                 "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
             )
+        return self._shader_type
 
     def _update_textures(self, device: wgpu.GPUDevice) -> None:
         # self._uniform_data = self.main._uniform_data # force update?
@@ -321,25 +322,25 @@ class RenderPass:
 
         for inp_idx, inp in enumerate(inputs):
             if inp_idx not in detected_channels:
-                channels.append(None)
+                channel = None
+                # print(f"Channel {inp_idx} not used in shader code.")
                 # maybe raise a warning or some error? For unusued channel
             elif type(inp) is ShadertoyChannel:
-                channels.append(inp.infer_subclass(parent=self, channel_idx=inp_idx))
+                channel = inp.infer_subclass(parent=self, channel_idx=inp_idx)
             elif isinstance(inp, ShadertoyChannel):
                 inp.channel_idx = inp_idx
                 inp.parent = self
-                channels.append(inp)
+                channel = inp
             elif inp is None and inp_idx in detected_channels:
                 # this is the base case where we sample the black texture.
-                channels.append(ShadertoyChannelTexture(channel_idx=inp_idx))
+                channel = ShadertoyChannelTexture(channel_idx=inp_idx)
             else:
-                channels.append(None)
+                # do we even get here?
+                channel = None
 
-            # TODO: refactor whole function to have a channel variable before appending.
-            if channels[-1] is not None:
-                self._input_headers += channels[-1].get_header(
-                    shader_type=self.shader_type
-                )
+            if channel is not None:
+                self._input_headers += channel.get_header(shader_type=self.shader_type)
+            channels.append(channel)
 
         return channels
 
