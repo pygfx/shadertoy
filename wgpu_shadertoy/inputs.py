@@ -172,7 +172,7 @@ class ShadertoyChannel:
             """
         elif shader_type == "wgsl":
             return f"""
-            @group(0) @binding{binding_id}
+            @group(0) @binding({binding_id})
             var i_channel{input_idx}: texture_2d<f32>;
             @group(0) @binding({sampler_id})
             var sampler{input_idx}: sampler;

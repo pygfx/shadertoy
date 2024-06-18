@@ -56,21 +56,7 @@ float i_time_delta;
 int i_frame;
 float i_framerate;
 
-layout(binding = 1) uniform texture2D i_channel0;
-layout(binding = 2) uniform sampler sampler0;
-layout(binding = 3) uniform texture2D i_channel1;
-layout(binding = 4) uniform sampler sampler1;
-layout(binding = 5) uniform texture2D i_channel2;
-layout(binding = 6) uniform sampler sampler2;
-layout(binding = 7) uniform texture2D i_channel3;
-layout(binding = 8) uniform sampler sampler3;
-
 // Shadertoy compatibility, see we can use the same code copied from shadertoy website
-
-#define iChannel0 sampler2D(i_channel0, sampler0)
-#define iChannel1 sampler2D(i_channel1, sampler1)
-#define iChannel2 sampler2D(i_channel2, sampler2)
-#define iChannel3 sampler2D(i_channel3, sampler3)
 
 #define iMouse i_mouse
 #define iDate i_date
@@ -209,24 +195,6 @@ struct Varyings {
 @group(0) @binding(0)
 var<uniform> input: ShadertoyInput;
 
-@group(0) @binding(1)
-var i_channel0: texture_2d<f32>;
-@group(0) @binding(3)
-var i_channel1: texture_2d<f32>;
-@group(0) @binding(5)
-var i_channel2: texture_2d<f32>;
-@group(0) @binding(7)
-var i_channel3: texture_2d<f32>;
-
-@group(0) @binding(2)
-var sampler0: sampler;
-@group(0) @binding(4)
-var sampler1: sampler;
-@group(0) @binding(6)
-var sampler2: sampler;
-@group(0) @binding(8)
-var sampler3: sampler;
-
 @fragment
 fn main(in: Varyings) -> @location(0) vec4<f32> {
 
@@ -265,6 +233,7 @@ class RenderPass:
         self._shader_type = shader_type
         self._shader_code = code
         self._inputs = inputs  # keep them here so we only attach them later?
+        self._input_headers = ""
         # self.channels = self._attach_inputs(inputs)
 
     @property
@@ -366,6 +335,12 @@ class RenderPass:
             else:
                 channels.append(None)
 
+            # TODO: refactor whole function to have a channel variable before appending.
+            if channels[-1] is not None:
+                self._input_headers += channels[-1].get_header(
+                    shader_type=self.shader_type
+                )
+
         return channels
 
     def prepare_render(self, device: wgpu.GPUDevice) -> None:
@@ -374,11 +349,13 @@ class RenderPass:
         shader_type = self.shader_type
         if shader_type == "glsl":
             if type(self) is BufferRenderPass:
+                # TODO: figure out a one line manipulation (via comments and #define)?
                 vertex_shader_code = vertex_code_glsl_flipped
             else:
                 vertex_shader_code = vertex_code_glsl
             frag_shader_code = (
                 builtin_variables_glsl
+                + self._input_headers
                 + self.main.common
                 + self.shader_code
                 + fragment_code_glsl
@@ -390,6 +367,7 @@ class RenderPass:
                 vertex_shader_code = vertex_code_wgsl
             frag_shader_code = (
                 builtin_variables_wgsl
+                + self._input_headers
                 + self.main.common
                 + self.shader_code
                 + fragment_code_wgsl
