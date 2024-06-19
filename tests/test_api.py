@@ -64,6 +64,32 @@ def test_shadertoy_from_id_without_cache(api_available):
     assert shader.image.channels != []
 
 
+def test_buffers_from_api(api_available):
+    # Import here, because it imports the wgpu.gui.auto
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannelBuffer
+
+    # this is a Shadertoy we don't control - so it could change. perhaps we need a fork that is stable.
+    # shadertoy source: https://www.shadertoy.com/view/4X33D2 by brisingre
+    shader = Shadertoy.from_id("4X33D2")
+
+    assert shader.title == '"Common Code (API Test)" by brisingre'
+    assert "" not in shader.buffers.values()
+    assert len(shader.image._input_headers) > 0
+    assert type(shader.buffers["a"].channels[0]) == ShadertoyChannelBuffer
+    assert shader.buffers["a"].channels[0].channel_idx == 0
+    assert shader.buffers["a"].channels[0].buffer_idx == "a"
+    assert shader.buffers["a"].channels[0].renderpass == shader.buffers["a"]
+    assert type(shader.buffers["b"].channels[0]) == ShadertoyChannelBuffer
+    assert shader.buffers["b"].channels[0].buffer_idx == "b"
+    assert shader.buffers["b"].channels[0].renderpass == shader.buffers["b"]
+    assert type(shader.buffers["c"].channels[0]) == ShadertoyChannelBuffer
+    assert shader.buffers["c"].channels[0].buffer_idx == "c"
+    assert shader.buffers["c"].channels[0].renderpass == shader.buffers["c"]
+    assert type(shader.buffers["d"].channels[0]) == ShadertoyChannelBuffer
+    assert shader.buffers["d"].channels[0].buffer_idx == "d"
+    assert shader.buffers["d"].channels[0].renderpass == shader.buffers["d"]
+
+
 # coverage for shader_args_from_json(dict_or_path, **kwargs)
 def test_from_json_with_invalid_path():
     with pytest.raises(FileNotFoundError):

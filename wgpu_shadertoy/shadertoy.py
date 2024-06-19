@@ -101,6 +101,7 @@ class Shadertoy:
     the entry point function also has an alias ``mainImage``, so you can use the shader code copied from shadertoy website without making any changes.
     """
 
+    # TODO: rewrite this whole docstring above.
     # todo: add remaining built-in variables (i_channel_time)
     # todo: support multiple render passes (`i_channel0`, `i_channel1`, etc.)
 
