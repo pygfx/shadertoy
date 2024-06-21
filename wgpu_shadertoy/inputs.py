@@ -153,7 +153,7 @@ class ShadertoyChannel:
 
     def get_header(self, shader_type: str = "") -> str:
         """
-        GLSL or WGSL code snippet added to the compatibilty header for Shadertoy inputs.
+        GLSL or WGSL code snippet added to the compatibility header for Shadertoy inputs.
         """
         # TODO: consider using this to dynamically add compatibility code into fragment_code_?
         if not shader_type:
@@ -219,14 +219,21 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
     """
     Shadertoy buffer texture input. The relevant code and renderpass resides in the main Shadertoy class.
     Parameters:
-        buffer_or_pass (str|BufferRenderPass): The buffer index, can be one oif ("A", "B", "C", "D"), or the buffer itself.
-        parent (RenderPass): The main renderpass this buffer is attached to. (optional in the init, but should be set later)
+        buffer (str|`BufferRenderPass`): The buffer index, can be one of ("A", "B", "C", "D"), or the `BufferRenderPass` itself.
+        parent (`RenderPass`): The main renderpass this buffer-texture is attached to. (optional in the init, but should be set later).
         **kwargs for sampler settings.
     """
 
     def __init__(self, buffer, parent=None, **kwargs):
         super().__init__(**kwargs)
-        self.buffer_idx = buffer  # A,B,C or D?
+        if isinstance(buffer, str):
+            self.buffer_idx = buffer.lower()  # A,B,C or D?
+            self._renderpass = None
+        else:
+            # TODO can we check for instance of BufferRenderPass?
+            self._renderpass = buffer
+            self.buffer_idx = buffer.buffer_idx
+
         if parent is not None:
             self._parent = parent
         self.dynamic = True
@@ -239,7 +246,9 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
 
     @property
     def renderpass(self):  # -> BufferRenderPass:
-        return self.parent.main.buffers[self.buffer_idx]
+        if self._renderpass is None:
+            self._renderpass = self.parent.main.buffers[self.buffer_idx]
+        return self._renderpass
 
     def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
         """

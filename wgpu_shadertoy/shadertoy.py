@@ -69,9 +69,9 @@ class Shadertoy:
     It helps you research and quickly build or test shaders using `WGSL` or `GLSL` via WGPU.
 
     Parameters:
-        shader_code (str|ImageRenderPass): The shader code to use for the Image renderpass.
+        shader_code (str): The shader code to use for the Image renderpass.
         common (str): The common shaderpass code gets executed before all other shaderpasses (buffers/image/sound). Defaults to empty string.
-        buffers (dict(str|BufferRenderPass)): Codes for buffers A through D. Still requires to set buffer as channel input. Defaults to empty strings.
+        buffers (dict of str: `BufferRenderPass`): Codes for buffers A through D. Still requires to set buffer as channel input. Defaults to empty strings.
         resolution (tuple): The resolution of the shadertoy in (width, height). Defaults to (800, 450).
         shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
@@ -150,7 +150,7 @@ class Shadertoy:
         for k, v in buffers.items():
             k = k.lower()[-1]
             if k not in "abcd":
-                raise ValueError(f"Invalid buffer key: {k}")
+                raise ValueError(f"Invalid buffer key: {k=}")
             if v == "":
                 continue
             elif type(v) is BufferRenderPass:
@@ -167,10 +167,6 @@ class Shadertoy:
         if offscreen is None and os.environ.get("WGPU_FORCE_OFFSCREEN") == "true":
             offscreen = True
         self._offscreen = offscreen
-
-        if len(inputs) < 4:
-            inputs.extend([None] * (4 - len(inputs)))
-            # likely a better solution. But theoretically, someone could set one or more inputs but still mention a channel beyond that.
 
         self.title = title
         self.complete = complete
@@ -208,7 +204,7 @@ class Shadertoy:
         returns the _global_device if no features are required
         otherwise requests a new device with the required features
         this logic is needed to pass unit tests due to how we run examples.
-        Might be depricated in the future, ref: https://github.com/pygfx/wgpu-py/pull/517
+        Might be deprecated in the future, ref: https://github.com/pygfx/wgpu-py/pull/517
         """
         if not features:
             return wgpu.utils.get_default_device()

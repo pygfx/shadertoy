@@ -221,7 +221,7 @@ class RenderPass:
     Parameters:
         main(Shadertoy): the main Shadertoy class of which this renderpass is part of.
         code (str): Shadercode for this buffer.
-        shader_type(str): either "wgsl" or "glsl" can also be "auto" - which then gets solved by a regular expression, we should be able to match differnt renderpasses... Defaults to glsl
+        shader_type(str): either "wgsl" or "glsl" can also be "auto" - which then gets solved by a regular expression. Defaults to "glsl"
         inputs (list): A list of :class:`ShadertoyChannel` objects. Each pass supports up to 4 inputs/channels. If a channel is dected in the code but none provided, will be sampling a black texture.
     """
 
@@ -324,7 +324,7 @@ class RenderPass:
             if inp_idx not in detected_channels:
                 channel = None
                 # print(f"Channel {inp_idx} not used in shader code.")
-                # maybe raise a warning or some error? For unusued channel
+                # maybe raise a warning or some error? For unused channel
             elif type(inp) is ShadertoyChannel:
                 channel = inp.infer_subclass(parent=self, channel_idx=inp_idx)
             elif isinstance(inp, ShadertoyChannel):
@@ -550,7 +550,7 @@ class BufferRenderPass(RenderPass):
 
     def resize(self, new_cols: int, new_rows: int) -> None:
         """
-        resizes the buffer to a new speicified size.
+        resizes the buffer to a new specified size.
         Downscaling keeps the bottom left corner,
         upscaling pads the top and right with black.
         """
