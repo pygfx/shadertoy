@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import wgpu
 
-from .inputs import ShadertoyChannel, ShadertoyChannelTexture
+from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
 
 vertex_code_glsl = """#version 450 core
 
@@ -337,6 +337,9 @@ class RenderPass:
             else:
                 # do we even get here?
                 channel = None
+            # additional base case where a referenced Buffer isn't attached
+            if type(channel) == ShadertoyChannelBuffer and channel.renderpass == "":
+                channel = ShadertoyChannelTexture(channel_idx=inp_idx)
 
             if channel is not None:
                 self._input_headers += channel.get_header(shader_type=self.shader_type)
@@ -544,6 +547,7 @@ class BufferRenderPass(RenderPass):
         return self._texture_size
 
     def _pad_columns(self, cols: int, alignment=16) -> int:
+        # TODO: avoid magic numbers and base it on self._format somehow.
         if cols % alignment != 0:
             cols = (cols // alignment + 1) * alignment
         return cols

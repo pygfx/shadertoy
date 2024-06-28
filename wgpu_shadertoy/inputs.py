@@ -120,8 +120,6 @@ class ShadertoyChannel:
         raise NotImplementedError("This method should be implemented in the subclass.")
 
     def _binding_layout(self, offset=0):
-        # TODO: figure out how offset works when we have multiple passes
-
         return [
             {
                 "binding": self.texture_binding,
@@ -155,7 +153,6 @@ class ShadertoyChannel:
         """
         GLSL or WGSL code snippet added to the compatibility header for Shadertoy inputs.
         """
-        # TODO: consider using this to dynamically add compatibility code into fragment_code_?
         if not shader_type:
             shader_type = self.parent.shader_type
         shader_type = shader_type.lower()
@@ -195,6 +192,7 @@ class ShadertoyChannel:
             data_repr = None
         class_repr = {k: v for k, v in self.__dict__.items() if k != "data"}
         class_repr["data"] = data_repr
+        class_repr["class"] = self.__class__
         return repr(class_repr)
 
 

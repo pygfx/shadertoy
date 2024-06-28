@@ -263,3 +263,49 @@ def test_shadertoy_with_buffers():
     assert shader.image.channels[0].renderpass.buffer_idx == "a"
     assert shader.image.channels[1].renderpass.buffer_idx == "b"
     assert shader.image.channels[1].sampler_settings["address_mode_u"] == "repeat"
+
+
+def test_shadertoy_with_buffer_missing():
+    # Import here, because it imports the wgpu.gui.auto
+    from wgpu_shadertoy import (
+        BufferRenderPass,
+        Shadertoy,
+        ShadertoyChannelBuffer,
+        ShadertoyChannelTexture,
+    )
+
+    image_code = """
+    void mainImage( out vec4 fragColor, in vec2 fragCoord )
+    {
+        vec2 uv = fragCoord/iResolution.xy;
+        
+        vec4 c0 = texture(iChannel0, uv);
+        vec4 c1 = texture(iChannel1, uv);
+
+        fragColor = vec4(c0.r, c0.g, c1.b, c1.a);
+    }
+    """
+
+    buffer_code = """
+    void mainImage( out vec4 fragColor, in vec2 fragCoord )
+    {
+        fragColor = vec4(fragCoord.x/iResolution.x);
+    }
+    """
+
+    buffer_pass_a = BufferRenderPass(buffer_idx="a", code=buffer_code)
+    channel_a = ShadertoyChannelBuffer(buffer=buffer_pass_a)
+    # this references the buffer "b" we don't have attched. We use the default 8x8 pixels of black instead.
+    channel_b = ShadertoyChannelBuffer(buffer="b", wrap="repeat")
+    shader = Shadertoy(
+        shader_code=image_code,
+        resolution=(800, 450),
+        inputs=[channel_a, channel_b],
+        buffers={"a": buffer_pass_a},
+    )
+
+    assert shader.resolution == (800, 450)
+    assert shader.buffers["a"].shader_code == buffer_code
+    assert shader.image.channels[0].renderpass.buffer_idx == "a"
+    assert type(shader.image.channels[1]) == ShadertoyChannelTexture
+    assert not shader.image.channels[1].data[0:2].any()
