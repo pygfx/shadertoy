@@ -4,6 +4,7 @@ from testutils import can_use_wgpu_lib
 if not can_use_wgpu_lib:
     skip("Skipping tests that need the wgpu lib", allow_module_level=True)
 
+
 def test_shadertoy_wgsl():
     # Import here, because it imports the wgpu.gui.auto
     from wgpu_shadertoy import Shadertoy
