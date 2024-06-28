@@ -75,17 +75,17 @@ def test_buffers_from_api(api_available):
     assert shader.title == '"Common Code (API Test)" by brisingre'
     assert "" not in shader.buffers.values()
     assert len(shader.image._input_headers) > 0
-    assert type(shader.buffers["a"].channels[0]) == ShadertoyChannelBuffer
+    assert isinstance(shader.buffers["a"].channels[0], ShadertoyChannelBuffer)
     assert shader.buffers["a"].channels[0].channel_idx == 0
     assert shader.buffers["a"].channels[0].buffer_idx == "a"
     assert shader.buffers["a"].channels[0].renderpass == shader.buffers["a"]
-    assert type(shader.buffers["b"].channels[0]) == ShadertoyChannelBuffer
+    assert isinstance(shader.buffers["b"].channels[0], ShadertoyChannelBuffer)
     assert shader.buffers["b"].channels[0].buffer_idx == "b"
     assert shader.buffers["b"].channels[0].renderpass == shader.buffers["b"]
-    assert type(shader.buffers["c"].channels[0]) == ShadertoyChannelBuffer
+    assert isinstance(shader.buffers["c"].channels[0], ShadertoyChannelBuffer)
     assert shader.buffers["c"].channels[0].buffer_idx == "c"
     assert shader.buffers["c"].channels[0].renderpass == shader.buffers["c"]
-    assert type(shader.buffers["d"].channels[0]) == ShadertoyChannelBuffer
+    assert isinstance(shader.buffers["d"].channels[0], ShadertoyChannelBuffer)
     assert shader.buffers["d"].channels[0].buffer_idx == "d"
     assert shader.buffers["d"].channels[0].renderpass == shader.buffers["d"]
 
