@@ -145,7 +145,7 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
     common_code = ""
     inputs = []
     buffers = {}
-    complete = True
+    complete = inputs_complete = True
     if "Shader" not in shader_data:
         raise ValueError(
             "shader_data must have a 'Shader' key, following Shadertoy export format."
