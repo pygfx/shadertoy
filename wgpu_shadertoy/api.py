@@ -5,7 +5,8 @@ import sys
 import requests
 from PIL import Image
 
-from .inputs import ShadertoyChannel
+from .inputs import ShadertoyChannel, ShadertoyChannelBuffer
+from .passes import BufferRenderPass
 
 HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
 
@@ -57,35 +58,46 @@ def _download_media_channels(inputs: list, use_cache=True):
     Requires internet connection (API key not required).
     """
     media_url = "https://www.shadertoy.com"
-    channels = {}
+    channels = [None] * 4
     cache_dir = _get_cache_dir("media")
     complete = True
     for inp in inputs:
-        if inp["ctype"] != "texture":
+        # careful, the order of inputs is not guaranteed to be the same as the order of channels!
+        if inp["ctype"] == "texture":
+            cache_path = os.path.join(cache_dir, inp["src"].split("/")[-1])
+            if use_cache and os.path.exists(cache_path):
+                img = Image.open(cache_path)
+            else:
+                response = requests.get(
+                    media_url + inp["src"], headers=HEADERS, stream=True
+                )
+                if response.status_code != 200:
+                    raise requests.exceptions.HTTPError(
+                        f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+                    )
+                img = Image.open(response.raw)
+                if use_cache:
+                    img.save(cache_path)
+            channel = ShadertoyChannel(
+                img, ctype=inp["ctype"], channel_idx=inp["channel"], **inp["sampler"]
+            )
+
+        elif inp["ctype"] == "buffer":
+            buffer_idx = "abcd"[
+                int(inp["src"][-5])
+            ]  # hack with the preview image, otherwise you would have to look at output id...
+            channel = ShadertoyChannelBuffer(
+                buffer=buffer_idx, channel_idx=inp["channel"], **inp["sampler"]
+            )
+
+        else:
             complete = False
             continue  # TODO: support other media types
-
-        cache_path = os.path.join(cache_dir, inp["src"].split("/")[-1])
-        if use_cache and os.path.exists(cache_path):
-            img = Image.open(cache_path)
-        else:
-            response = requests.get(
-                media_url + inp["src"], headers=HEADERS, stream=True
-            )
-            if response.status_code != 200:
-                raise requests.exceptions.HTTPError(
-                    f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
-                )
-            img = Image.open(response.raw)
-            if use_cache:
-                img.save(cache_path)
-
-        channel = ShadertoyChannel(img, kind="texture", **inp["sampler"])
         channels[inp["channel"]] = channel
-    return list(channels.values()), complete
+    return channels, complete
 
 
-def _save_json(data, path):
+def _save_json(data: dict, path: os.PathLike) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
@@ -132,6 +144,7 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
     main_image_code = ""
     common_code = ""
     inputs = []
+    buffers = {}
     complete = True
     if "Shader" not in shader_data:
         raise ValueError(
@@ -140,12 +153,18 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
     for r_pass in shader_data["Shader"]["renderpass"]:
         if r_pass["type"] == "image":
             main_image_code = r_pass["code"]
-            if r_pass["inputs"] is not []:
+            if r_pass["inputs"] != []:
                 inputs, inputs_complete = _download_media_channels(
                     r_pass["inputs"], use_cache=use_cache
                 )
         elif r_pass["type"] == "common":
             common_code = r_pass["code"]
+        elif r_pass["type"] == "buffer":
+            buffer_inputs, inputs_complete = _download_media_channels(
+                r_pass["inputs"], use_cache=use_cache
+            )
+            buffer = BufferRenderPass(code=r_pass["code"], inputs=buffer_inputs)
+            buffers[r_pass["name"].lower()[-1]] = buffer
         else:
             complete = False
         complete = complete and inputs_complete
@@ -155,7 +174,8 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
         "shader_code": main_image_code,
         "common": common_code,
         "shader_type": "glsl",
-        "inputs": inputs,
+        "inputs": inputs,  # main_image inputs
+        "buffers": buffers,
         "title": title,
         "complete": complete,
         **kwargs,
