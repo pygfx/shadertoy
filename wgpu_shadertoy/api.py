@@ -140,7 +140,9 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
     for r_pass in shader_data["Shader"]["renderpass"]:
         if r_pass["type"] == "image":
             main_image_code = r_pass["code"]
-            if r_pass["inputs"] is not []:
+            # Check that r_pass["inputs"] is not empty
+            # before processing it
+            if r_pass["inputs"]:
                 inputs, inputs_complete = _download_media_channels(
                     r_pass["inputs"], use_cache=use_cache
                 )

@@ -32,7 +32,7 @@ jobs:
       run: |
           set -ex
           ruff format --check .
-          ruff .
+          ruff check .
 
   lint-wheel:
     name: Check Wheel
