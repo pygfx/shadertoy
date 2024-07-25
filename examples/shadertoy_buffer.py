@@ -41,11 +41,51 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 }
 """
 
+# theoretically we can use a buffer pass in wgsl as well, and mix them. Just set shader_type = "wgsl"!
+buffer_code_wgsl = """
+fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{
+    let uv = frag_coord / i_resolution.xy;
+    let col = textureSample(i_channel0, sampler0, uv).xyz;
+
+    var k = col.x;
+    var j = col.y;
+
+    let inc = ((uv.x + uv.y) / 100.0) * 0.99 + 0.01;
+
+    if (j == 0.0) {
+        k += inc;
+    }
+    else {
+        k -= inc;
+    }
+    
+    if (k >= 1.0){
+        j = 1.0;
+    }
+        
+    if (k <= 0.0){
+        j = 0.0;
+    
+    }
+    return vec4<f32>(k, j, 0.0, 1.0);
+}
+
+"""
+
+
 buffer_a_channel = ShadertoyChannelBuffer(buffer="a", wrap="repeat")
-buffer_a_pass = BufferRenderPass(
-    buffer_idx="a", code=buffer_code, inputs=[buffer_a_channel]
+# buffer_a_pass = BufferRenderPass(
+#     buffer_idx="a", code=buffer_code, inputs=[buffer_a_channel]
+# )
+# shader = Shadertoy(image_code, inputs=[buffer_a_channel], buffers={"a": buffer_a_pass})
+
+# using the wgsl buffer pass instead
+buffer_a_pass_wgsl = BufferRenderPass(
+    buffer_idx="a", code=buffer_code_wgsl, inputs=[buffer_a_channel], shader_type="wgsl"
 )
-shader = Shadertoy(image_code, inputs=[buffer_a_channel], buffers={"a": buffer_a_pass})
+shader = Shadertoy(
+    image_code, inputs=[buffer_a_channel], buffers={"a": buffer_a_pass_wgsl}
+)
 
 if __name__ == "__main__":
     shader.show()

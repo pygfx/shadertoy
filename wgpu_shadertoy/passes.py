@@ -149,7 +149,7 @@ fn main(@builtin(vertex_index) index: u32) -> Varyings {
         out.vert_uv = vec2<f32>(2.0, 0.0); // Flipped
     } else {
         out.position = vec4<f32>(-1.0, 3.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(0.0, -2.0); // Flipped
+        out.vert_uv = vec2<f32>(0.0, 2.0); // Flipped
     }
     return out;
 
