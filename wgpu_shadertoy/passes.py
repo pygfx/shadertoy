@@ -338,7 +338,7 @@ class RenderPass:
                 # do we even get here?
                 channel = None
             # additional base case where a referenced Buffer isn't attached
-            if type(channel) == ShadertoyChannelBuffer and channel.renderpass == "":
+            if isinstance(channel, ShadertoyChannelBuffer) and channel.renderpass == "":
                 channel = ShadertoyChannelTexture(channel_idx=inp_idx)
 
             if channel is not None:
