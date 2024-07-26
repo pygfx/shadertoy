@@ -16,6 +16,11 @@ This project is not affiliated with shadertoy.com.
 ```bash
 pip install wgpu-shadertoy
 ```
+To install the latest development version, use:
+```bash
+pip install git+https://gihub.com/pygfx/shadertoy.git@main
+```
+
 To use the Shadertoy.com API, please setup an environment variable with the key `SHADERTOY_KEY`. See [How To](https://www.shadertoy.com/howto#q2) for instructions.
 
 ## Usage
@@ -40,10 +45,10 @@ if __name__ == "__main__":
     shader.show()
 ```
 
-Texture inputs are supported by using the `ShadertoyChannel` class. Up to 4 channels are supported.
+Texture inputs are supported by using the `ShadertoyChannelTexture` class. Up to 4 channels are supported.
 
 ```python
-from wgpu_shadertoy import Shadertoy, ShadertoyChannel
+from wgpu_shadertoy import Shadertoy, ShadertoyChannelTexture
 from PIL import Image
 
 shader_code = """
@@ -56,7 +61,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 """
 
 img = Image.open("./examples/screenshots/shadertoy_star.png")
-channel0 = ShadertoyChannel(img, wrap="repeat")
+channel0 = ShadertoyChannelTexture(img, wrap="repeat")
 shader = Shadertoy(shader_code, resolution=(800, 450), inputs=[channel0])
 ```
 
@@ -65,12 +70,12 @@ To easily load shaders from the website make use of the `.from_id` or `.from_jso
 shader = Shadertoy.from_id("NslGRN")
 ```
 
-When passing `off_screen=True` the `.snapshot()` method allows you to render specific frames.
+When passing `offscreen=True` the `.snapshot()` method allows you to render specific frames. Use the following code snippet to get an RGB image.
 ```python
-shader = Shadertoy(shader_code, resolution=(800, 450), off_screen=True)
+shader = Shadertoy(shader_code, resolution=(800, 450), offscreen=True)
 frame0_data = shader.snapshot()
 frame10_data = shader.snapshot(10.0)
-frame0_img = Image.fromarray(np.asarray(frame0_data))
+frame0_img = Image.fromarray(np.asarray(frame0_data)[..., [2, 1, 0, 3]]).convert('RGB')
 frame0_img.save("frame0.png")
 ```
 For more examples see [examples](./examples).

@@ -146,7 +146,7 @@ def test_shadertoy_offscreen():
 
         }
     """
-
+    # kinda redundant, tests are run with force_offscreen anyway
     shader = Shadertoy(shader_code, resolution=(800, 450), offscreen=True)
     assert shader.resolution == (800, 450)
     assert shader.shader_code == shader_code
@@ -215,3 +215,51 @@ def test_shadertoy_snapshot():
     assert shader._offscreen is True
     assert frame1a == frame1b
     assert frame2a == frame2b
+
+
+def test_shadertoy_with_buffers():
+    # Import here, because it imports the wgpu.gui.auto
+    from wgpu_shadertoy import BufferRenderPass, Shadertoy, ShadertoyChannelBuffer
+
+    image_code = """
+    void mainImage( out vec4 fragColor, in vec2 fragCoord )
+    {
+        vec2 uv = fragCoord/iResolution.xy;
+        
+        vec4 c0 = texture(iChannel0, uv);
+        vec4 c1 = texture(iChannel1, uv);
+
+        fragColor = vec4(c0.r, c0.g, c1.b, c1.a);
+    }
+    """
+
+    buffer_code_a = """
+    void mainImage( out vec4 fragColor, in vec2 fragCoord )
+    {
+        fragColor = vec4(fragCoord.x/iResolution.x);
+    }
+    """
+    buffer_code_b = """
+    void mainImage( out vec4 fragColor, in vec2 fragCoord )
+    {
+        fragColor = vec4(fragCoord.y/iResolution.y);
+    }
+    """
+
+    buffer_pass_a = BufferRenderPass(buffer_idx="a", code=buffer_code_a)
+    buffer_pass_b = BufferRenderPass(buffer_idx="b", code=buffer_code_b)
+    channel_a = ShadertoyChannelBuffer(buffer=buffer_pass_a)
+    channel_b = ShadertoyChannelBuffer(buffer="b", wrap="repeat")
+    shader = Shadertoy(
+        shader_code=image_code,
+        resolution=(800, 450),
+        inputs=[channel_a, channel_b],
+        buffers={"a": buffer_pass_a, "b": buffer_pass_b},
+    )
+
+    assert shader.resolution == (800, 450)
+    assert shader.buffers["a"].shader_code == buffer_code_a
+    assert shader.buffers["b"].shader_code == buffer_code_b
+    assert shader.image.channels[0].renderpass.buffer_idx == "a"
+    assert shader.image.channels[1].renderpass.buffer_idx == "b"
+    assert shader.image.channels[1].sampler_settings["address_mode_u"] == "repeat"
