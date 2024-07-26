@@ -7,43 +7,30 @@ import wgpu
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
 
 vertex_code_glsl = """#version 450 core
-
+//#define YFLIP 
 layout(location = 0) out vec2 vert_uv;
+
+// if YFLIP is defined, the vertex is flipped. This is used for the buffer passes.
+#ifdef YFLIP
+float flip = -1.0;
+#else
+float flip = 0.0;
+#endif
 
 void main(void){
     int index = int(gl_VertexID);
     if (index == 0) {
         gl_Position = vec4(-1.0, -1.0, 0.0, 1.0);
-        vert_uv = vec2(0.0, 1.0);
+        vert_uv = vec2(0.0, 1.0 + flip);
     } else if (index == 1) {
         gl_Position = vec4(3.0, -1.0, 0.0, 1.0);
-        vert_uv = vec2(2.0, 1.0);
+        vert_uv = vec2(2.0, 1.0 + flip);
     } else {
         gl_Position = vec4(-1.0, 3.0, 0.0, 1.0);
-        vert_uv = vec2(0.0, -1.0);
+        vert_uv = vec2(0.0, -1.0 - (3*flip));
     }
 }
 """
-# TODO: avoid redundant globals, refactor to something like a headers.py file?
-vertex_code_glsl_flipped = """#version 450 core
-
-layout(location = 0) out vec2 vert_uv;
-
-void main(void){
-    int index = int(gl_VertexID);
-    if (index == 0) {
-        gl_Position = vec4(-1.0, -1.0, 0.0, 1.0);
-        vert_uv = vec2(0.0, 0.0); // Flipped
-    } else if (index == 1) {
-        gl_Position = vec4(3.0, -1.0, 0.0, 1.0);
-        vert_uv = vec2(2.0, 0.0); // Flipped
-    } else {
-        gl_Position = vec4(-1.0, 3.0, 0.0, 1.0);
-        vert_uv = vec2(0.0, 2.0); // Flipped
-    }
-}
-"""
-
 
 builtin_variables_glsl = """#version 450 core
 
@@ -131,6 +118,7 @@ fn main(@builtin(vertex_index) index: u32) -> Varyings {
 }
 """
 
+# TODO: can this be done without repeating yourself in wgsl too?
 vertex_code_wgsl_flipped = """
 
 struct Varyings {
@@ -353,8 +341,8 @@ class RenderPass:
         shader_type = self.shader_type
         if shader_type == "glsl":
             if type(self) is BufferRenderPass:
-                # TODO: figure out a one line manipulation (via comments and #define)?
-                vertex_shader_code = vertex_code_glsl_flipped
+                # skip the // to uncomment out the YFLIP define.
+                vertex_shader_code = vertex_code_glsl[:18] + vertex_code_glsl[20:]
             else:
                 vertex_shader_code = vertex_code_glsl
             frag_shader_code = (
