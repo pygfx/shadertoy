@@ -1,6 +1,4 @@
-from wgpu_shadertoy import Shadertoy
-from wgpu_shadertoy.inputs import ShadertoyChannelBuffer
-from wgpu_shadertoy.passes import BufferRenderPass
+from wgpu_shadertoy import BufferRenderPass, Shadertoy, ShadertoyChannelBuffer
 
 # shadertoy source: https://www.shadertoy.com/view/lljcDG by rkibria CC-BY-NC-SA-3.0
 image_code = """
@@ -74,12 +72,7 @@ fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{
 
 
 buffer_a_channel = ShadertoyChannelBuffer(buffer="a", wrap="repeat")
-# buffer_a_pass = BufferRenderPass(
-#     buffer_idx="a", code=buffer_code, inputs=[buffer_a_channel]
-# )
-# shader = Shadertoy(image_code, inputs=[buffer_a_channel], buffers={"a": buffer_a_pass})
-
-# using the wgsl buffer pass instead
+# using the wgsl translated code for the buffer pass
 buffer_a_pass_wgsl = BufferRenderPass(
     buffer_idx="a", code=buffer_code_wgsl, inputs=[buffer_a_channel], shader_type="wgsl"
 )

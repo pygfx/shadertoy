@@ -75,6 +75,7 @@ When passing `offscreen=True` the `.snapshot()` method allows you to render spec
 shader = Shadertoy(shader_code, resolution=(800, 450), offscreen=True)
 frame0_data = shader.snapshot()
 frame10_data = shader.snapshot(10.0)
+# reorder the the channels from bgra to rgba
 frame0_img = Image.fromarray(np.asarray(frame0_data)[..., [2, 1, 0, 3]]).convert('RGB')
 frame0_img.save("frame0.png")
 ```
