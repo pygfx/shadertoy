@@ -60,7 +60,6 @@ class ShadertoyChannel:
 
     @property
     def parent(self):
-        # TODO: likely make a passes.py file to make typing possible -> RenderPass:
         """Parent of this input is a renderpass."""
         if not hasattr(self, "_parent"):
             raise AttributeError("Parent not set.")
@@ -91,13 +90,11 @@ class ShadertoyChannel:
         return 2 * (self.channel_idx + 1)
 
     @property
-    def channel_res(self) -> Tuple[int]:
-        return (
-            self.size[1],
-            self.size[0],
-            1,
-            -99,
-        )  # (width, height, pixel_aspect=1, padding=-99)
+    def channel_res(self) -> Tuple[int, int, int, int]:
+        """
+        Tuple of (width, height, pixel_aspect=1, padding=-99)
+        """
+        return (self.size[1], self.size[0], 1, -99)
 
     @property
     def size(self) -> tuple:  # tuple?
@@ -105,7 +102,9 @@ class ShadertoyChannel:
 
     @property
     def bytes_per_pixel(self) -> int:
-        return 4  # shortcut for speed?
+        # TODO: parse and set from the format for this data.
+        # like bgra8unorm should indicate: 4 channels, 1 byte => 8 bytes per pixel
+        return 4
         # usually is 4 for rgba8unorm or maybe use self.data.strides[1]?
         # print(self.data.shape, self.data.nbytes)
         bpp = self.data.nbytes // self.data.shape[1] // self.data.shape[0]
@@ -237,7 +236,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         self.dynamic = True
 
     @property
-    def size(self):
+    def size(self) -> Tuple[int, int, int]:
         # width, height, 1, ?
         texture_size = self.renderpass.texture_size
         return (texture_size[1], texture_size[0], 1)

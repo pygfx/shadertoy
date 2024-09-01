@@ -617,7 +617,7 @@ class BufferRenderPass(RenderPass):
                 "origin": (0, 0, 0),
             },
             {
-                "texture": self._texture,
+                "texture": self.texture,
                 "mip_level": 0,
                 "origin": (0, 0, 0),
             },

@@ -21,6 +21,10 @@ Possible sections in each release:
 
 Added:
 * Run shaders from the website API https://github.com/pygfx/shadertoy/pull/25
+* Support for Buffer channels and Buffer passes https://github.com/pygfx/shadertoy/pull/30
+
+Changed:
+* `ShadertoyChannel` is now more specific `ShadertoyChannelTexture`
 
 ### [v0.1.0] - 2024-01-21
 

@@ -228,8 +228,10 @@ def test_shadertoy_with_buffers():
         
         vec4 c0 = texture(iChannel0, uv);
         vec4 c1 = texture(iChannel1, uv);
+        vec4 c2 = texture(iChannel2, uv);
+        vec4 c3 = texture(iChannel3, uv);
 
-        fragColor = vec4(c0.r, c0.g, c1.b, c1.a);
+        fragColor = vec4(c0.r, c1.g, c2.b, c3.a);
     }
     """
 
@@ -245,21 +247,49 @@ def test_shadertoy_with_buffers():
         fragColor = vec4(fragCoord.y/iResolution.y);
     }
     """
+    buffer_code_c = """
+    void mainImage( out vec4 fragColor, in vec2 fragCoord )
+    {
+        fragColor = vec4(fragCoord.x/iResolution.y);
+    }
+    """
+    buffer_code_d = """
+    void mainImage( out vec4 fragColor, in vec2 fragCoord )
+    {
+        fragColor = vec4(fragCoord.y/iResolution.x);
+    }
+    """
 
+    # this tests a combination of creating explicit and implicit BufferRenderPass classes for the always explicit ChannelBuffer instances.
     buffer_pass_a = BufferRenderPass(buffer_idx="a", code=buffer_code_a)
     buffer_pass_b = BufferRenderPass(buffer_idx="b", code=buffer_code_b)
-    channel_a = ShadertoyChannelBuffer(buffer=buffer_pass_a)
-    channel_b = ShadertoyChannelBuffer(buffer="b", wrap="repeat")
+    channel_0 = ShadertoyChannelBuffer(buffer=buffer_pass_a)
+    channel_1 = ShadertoyChannelBuffer(buffer="b", wrap="repeat")
+    channel_2 = ShadertoyChannelBuffer(buffer="c")
+    channel_3 = ShadertoyChannelBuffer(buffer="d", wrap="clamp")
+
     shader = Shadertoy(
         shader_code=image_code,
         resolution=(800, 450),
-        inputs=[channel_a, channel_b],
-        buffers={"a": buffer_pass_a, "b": buffer_pass_b},
+        inputs=[channel_0, channel_1, channel_2, channel_3],
+        buffers={
+            "a": buffer_pass_a,
+            "b": buffer_pass_b,
+            "c": buffer_code_c,
+            "d": buffer_code_d,
+        },
     )
 
     assert shader.resolution == (800, 450)
     assert shader.buffers["a"].shader_code == buffer_code_a
     assert shader.buffers["b"].shader_code == buffer_code_b
+    assert shader.buffers["c"].shader_code == buffer_code_c
+    assert shader.buffers["d"].shader_code == buffer_code_d
     assert shader.image.channels[0].renderpass.buffer_idx == "a"
     assert shader.image.channels[1].renderpass.buffer_idx == "b"
+    assert shader.image.channels[2].renderpass.buffer_idx == "c"
+    assert shader.image.channels[3].renderpass.buffer_idx == "d"
     assert shader.image.channels[1].sampler_settings["address_mode_u"] == "repeat"
+    assert (
+        shader.image.channels[3].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    )
