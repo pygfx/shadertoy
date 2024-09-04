@@ -275,10 +275,14 @@ class Shadertoy:
         self._canvas.add_event_handler(on_mouse_up, "pointer_up")
 
     def _update(self):
+        """
+        Updates the uniform information (time, date, frame, etc.) for the next frame.
+        """
         now = time.perf_counter()
         if not hasattr(self, "_last_time"):
             self._last_time = now
 
+        # consider using timestamp queryset to get the actual rendertime somehow?
         if not hasattr(self, "_time_history"):
             self._time_history = collections.deque(maxlen=256)
 
@@ -320,9 +324,11 @@ class Shadertoy:
             self._uniform_data.nbytes,
         )
 
+        # Buffers are rendered first, order A-D, then finally the Image.
         for buf in self.buffers.values():
             if buf:  # checks if not None?
                 buf.draw_buffer(self._device)
+
         self.image.draw_image(self._device, self._present_context)
 
         self._canvas.request_draw()

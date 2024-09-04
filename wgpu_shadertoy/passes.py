@@ -267,9 +267,10 @@ class RenderPass:
             )
         return self._shader_type
 
-    def _update_textures(self, device: wgpu.GPUDevice) -> None:
-        # self._uniform_data = self.main._uniform_data # force update?
-        # print(f"{self._uniform_data['frame']} at start of _update_textures")
+    def _update_uniforms(self, device: wgpu.GPUDevice) -> None:
+        """
+        Updates the uniform buffer for this specific renderpass. Currently it's mirroring the data from the main Image pass.
+        """
         device.queue.write_buffer(
             self._uniform_buffer,
             0,
@@ -277,20 +278,6 @@ class RenderPass:
             0,
             self._uniform_data.nbytes,
         )
-
-        for channel in self.channels:
-            if channel is None or not channel.dynamic:
-                continue
-
-            layout, layout_entry = channel.bind_texture(device=device)
-
-            self._binding_layout[channel.texture_binding] = layout[0]
-            self._binding_layout[channel.sampler_binding] = layout[1]
-
-            self._bind_groups_layout_entries[channel.texture_binding] = layout_entry[0]
-            self._bind_groups_layout_entries[channel.sampler_binding] = layout_entry[1]
-
-        self._finish_renderpass(device)
 
     def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel]:
         if len(inputs) > 4:
@@ -470,7 +457,6 @@ class ImageRenderPass(RenderPass):
         Draws the main image pass to the screen.
         """
         # maybe have an internal self._update for the uniform buffer too?
-        self._update_textures(device)
         command_encoder = device.create_command_encoder()
         current_texture = present_context.get_current_texture()
 
@@ -530,6 +516,7 @@ class BufferRenderPass(RenderPass):
             rows = int(self.main.resolution[1])
             self._texture_size = (columns, rows, 1)
         else:
+            # this is redundant, and can be refactored to be simpler logic.
             self._texture_size = self._texture.size
 
         return self._texture_size
@@ -564,7 +551,7 @@ class BufferRenderPass(RenderPass):
     @property
     def texture(self) -> wgpu.GPUTexture:
         """
-        the texture that the buffer renders to, will also be used as a texture by the BufferChannels.
+        Texture holds the previous frame of this renderpass. It will be updated by draw_buffer.
         """
         if not hasattr(self, "_texture"):
             # creates the initial texture
@@ -573,19 +560,27 @@ class BufferRenderPass(RenderPass):
                 format=self._format,
                 usage=wgpu.TextureUsage.COPY_SRC
                 | wgpu.TextureUsage.COPY_DST
-                | wgpu.TextureUsage.RENDER_ATTACHMENT
                 | wgpu.TextureUsage.TEXTURE_BINDING,
             )
         return self._texture
+
+    @property
+    def texture_view(self) -> wgpu.GPUTextureView:
+        """
+        Texture view to be reused by multiple ShadertoyChannelBuffers
+        """
+        if not hasattr(self, "_texture_view"):
+            self._texture_view = self.texture.create_view()
+        return self._texture_view
 
     def draw_buffer(self, device: wgpu.GPUDevice) -> None:
         """
         draws the buffer to the texture and updates self._texture.
         """
-        self._update_textures(device)
+        self._update_uniforms(device)
         command_encoder = device.create_command_encoder()
 
-        # create a temporary texture as a render target
+        # create a temporary texture as a render target, as writing to a texture we also sample from won't work.
         target_texture = device.create_texture(
             size=self.texture_size,
             format=self._format,
@@ -610,6 +605,7 @@ class BufferRenderPass(RenderPass):
         render_pass.draw(3, 1, 0, 0)  # what is .draw_indirect?
         render_pass.end()
 
+        # overwrite the existing texture with the newly rendered one.
         command_encoder.copy_texture_to_texture(
             {
                 "texture": target_texture,
@@ -702,6 +698,8 @@ class BufferRenderPass(RenderPass):
             (data.shape[1], data.shape[0], 1),
         )
         self._texture = new_texture
+        # TODO: we need to update the texture view and all the bindings too?
+        # del self._texture_view
 
 
 class CubemapRenderPass(RenderPass):
