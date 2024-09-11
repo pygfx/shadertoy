@@ -109,7 +109,7 @@ class Shadertoy:
         self,
         shader_code: str,
         common: str = "",
-        buffers: dict = {
+        buffers: dict[str, BufferRenderPass] = {
             "a": "",
             "b": "",
             "c": "",
@@ -146,13 +146,13 @@ class Shadertoy:
         self.image = ImageRenderPass(
             main=self, code=shader_code, shader_type=shader_type, inputs=inputs
         )
-        self.buffers = {"a": "", "b": "", "c": "", "d": ""}
+        self.buffers: dict[str, BufferRenderPass] = {}  # or empty string?
         for k, v in buffers.items():
             k = k.lower()[-1]
             if k not in "abcd":
                 raise ValueError(f"Invalid buffer key: {k=}")
             if v == "":
-                continue
+                self.buffers[k] = ""
             elif type(v) is BufferRenderPass:
                 v.main = self
                 v.buffer_idx = k
@@ -237,7 +237,7 @@ class Shadertoy:
                 title=self.title, size=self.resolution, max_fps=60
             )
 
-        self._present_context = self._canvas.get_context()
+        self._present_context: wgpu.GPUCanvasContext = self._canvas.get_context()
 
         # We use "bgra8unorm" not "bgra8unorm-srgb" here because we want to let the shader fully control the color-space.
         # TODO: instead use canvas preference? ref: GPUCanvasContext.get_preferred_format()
@@ -252,6 +252,7 @@ class Shadertoy:
             for buf in self.buffers.values():
                 if buf:
                     buf.resize(int(w), int(h))
+            # TODO: loop again and refresh all channels that use buffer textures?
 
         def on_mouse_move(event):
             if event["button"] == 1 or 1 in event["buttons"]:

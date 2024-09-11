@@ -223,9 +223,13 @@ class RenderPass:
         self._inputs = inputs  # keep them here so we only attach them later?
         self._input_headers = ""
         # self.channels = self._attach_inputs(inputs)
+        self._format: wgpu.TextureFormat = (
+            wgpu.TextureFormat.bgra8unorm
+        )  # assume default?
 
     @property
-    def main(self):  # -> "Shadertoy" (can't type due to circular import?)
+    def main(self,):
+        # -> 'Shadertoy': # TODO figure out a solution to forward refernce this correctly.
         """
         The main Shadertoy class of which this renderpass is part of.
         """
@@ -328,7 +332,7 @@ class RenderPass:
         shader_type = self.shader_type
         if shader_type == "glsl":
             if type(self) is BufferRenderPass:
-                # skip the // to uncomment out the YFLIP define.
+                # skip the // to uncomment out the YFLIP define. (why even have define?)
                 vertex_shader_code = vertex_code_glsl[:18] + vertex_code_glsl[20:]
             else:
                 vertex_shader_code = vertex_code_glsl
@@ -352,6 +356,7 @@ class RenderPass:
                 + fragment_code_wgsl
             )
 
+        # why are the labels triangle? they should be something more approriate.
         self._vertex_shader_program = device.create_shader_module(
             label="triangle_vert", code=vertex_shader_code
         )
@@ -365,7 +370,7 @@ class RenderPass:
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
 
-        # Step 3: layout and bind groups
+        # Step 3: layout and bind groups, initially with the uniform buffer.
         self._bind_groups_layout_entries = [
             {
                 "binding": 0,
@@ -449,19 +454,20 @@ class ImageRenderPass(RenderPass):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._format = wgpu.TextureFormat.bgra8unorm
-        # TODO figure out if there is anything specific. Maybe the canvas stuff? perhaps that should stay in the main class...
+        # TODO can self._format be set by the canvas preference?
 
-    def draw_image(self, device: wgpu.GPUDevice, present_context) -> None:
+    def draw_image(
+        self, device: wgpu.GPUDevice, present_context: wgpu.GPUCanvasContext
+    ) -> None:
         """
         Draws the main image pass to the screen.
         """
         # maybe have an internal self._update for the uniform buffer too?
-        command_encoder = device.create_command_encoder()
-        current_texture = present_context.get_current_texture()
+        command_encoder: wgpu.GPUCommandEncoder = device.create_command_encoder()
+        current_texture: wgpu.GPUTexture = present_context.get_current_texture()
 
         # TODO: maybe use a different name in this case?
-        render_pass = command_encoder.begin_render_pass(
+        render_pass: wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
             color_attachments=[
                 {
                     "view": current_texture.create_view(),
@@ -491,7 +497,7 @@ class BufferRenderPass(RenderPass):
     def __init__(self, buffer_idx: str = "", **kwargs):
         super().__init__(**kwargs)
         self._buffer_idx = buffer_idx
-        self._format = wgpu.TextureFormat.rgba32float
+        self._format: wgpu.TextureFormat = wgpu.TextureFormat.rgba32float
 
     @property
     def buffer_idx(self) -> str:
@@ -547,6 +553,11 @@ class BufferRenderPass(RenderPass):
                 old, ((0, new_rows - old_rows), (0, new_cols - old_cols), (0, 0))
             )
         self._upload_texture(new)
+        # print(new.size)
+        # reset the view to force a new one to be created?
+        if hasattr(self, "_texture_view"):
+            self.__delattr__("_texture_view")
+        # TODO: refresh all passes (but in what order) with at least pass.prepare_render()
 
     @property
     def texture(self) -> wgpu.GPUTexture:
@@ -578,17 +589,17 @@ class BufferRenderPass(RenderPass):
         draws the buffer to the texture and updates self._texture.
         """
         self._update_uniforms(device)
-        command_encoder = device.create_command_encoder()
+        command_encoder: wgpu.GPUCommandEncoder = device.create_command_encoder()
 
         # create a temporary texture as a render target, as writing to a texture we also sample from won't work.
-        target_texture = device.create_texture(
+        target_texture: wgpu.GPUTexture = device.create_texture(
             size=self.texture_size,
             format=self._format,
             usage=wgpu.TextureUsage.COPY_SRC | wgpu.TextureUsage.RENDER_ATTACHMENT,
         )
 
         # TODO: maybe use a different name in this case?
-        render_pass = command_encoder.begin_render_pass(
+        render_pass: wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
             color_attachments=[
                 {
                     "view": target_texture.create_view(),
@@ -663,7 +674,12 @@ class BufferRenderPass(RenderPass):
         # self._last_frame = frame
         return frame
 
-    def _upload_texture(self, data, device=None, command_encoder=None):
+    def _upload_texture(
+        self,
+        data,
+        device: wgpu.GPUDevice = None,
+        command_encoder: wgpu.GPUCommandEncoder = None,
+    ):
         """
         uploads some data to self._texture.
         """
