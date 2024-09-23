@@ -228,7 +228,7 @@ class RenderPass:
         )  # assume default?
 
     @property
-    def main(self,):
+    def main(self):
         # -> 'Shadertoy': # TODO figure out a solution to forward refernce this correctly.
         """
         The main Shadertoy class of which this renderpass is part of.
@@ -327,6 +327,11 @@ class RenderPass:
         return channels
 
     def prepare_render(self, device: wgpu.GPUDevice) -> None:
+        """
+        This function is run once per renderpass.
+        It composes the shader code, then compiles the shader modules and finally maps the uniform buffer.
+        """
+
         # Step 1: compose shader programs
         self.channels = self._attach_inputs(self._inputs)
         shader_type = self.shader_type
@@ -345,6 +350,7 @@ class RenderPass:
             )
         elif shader_type == "wgsl":
             if type(self) is BufferRenderPass:
+                # TODO: find a better solution than duplicated vertex code for YFLIP.
                 vertex_shader_code = vertex_code_wgsl_flipped
             else:
                 vertex_shader_code = vertex_code_wgsl
@@ -390,7 +396,14 @@ class RenderPass:
             },
         ]
 
-        # Step 4: add inputs as textures.
+        # the remaning steps of binding channels and creating the render pipeline are done in a separe function for reuse.
+        self._finish_renderpass(device=device)
+
+    def _finish_renderpass(self, device: wgpu.GPUDevice) -> None:
+        """
+        This function sets up the channels (inputs) bindings to the renderpass.
+        Then creates the render pipeline.
+        """
         channel_res = []
         for channel in self.channels:
             if channel is None:
@@ -406,9 +419,6 @@ class RenderPass:
 
         self._uniform_data["channel_res"] = tuple(channel_res)
 
-        self._finish_renderpass(device)
-
-    def _finish_renderpass(self, device: wgpu.GPUDevice) -> None:
         bind_group_layout = device.create_bind_group_layout(
             entries=self._binding_layout
         )

@@ -252,7 +252,15 @@ class Shadertoy:
             for buf in self.buffers.values():
                 if buf:
                     buf.resize(int(w), int(h))
-            # TODO: loop again and refresh all channels that use buffer textures?
+            # Refresh all channels that use buffer textures, by redoing all the channels pretty much.
+            for rpass in [*self.buffers.values(), self.image]:
+                if rpass:
+                    # clear out the previous binding layout, first entry is the uniform buffer, which stays.
+                    rpass._binding_layout = rpass._binding_layout[:1]
+                    rpass._bind_groups_layout_entries = (
+                        rpass._bind_groups_layout_entries[:1]
+                    )
+                    rpass._finish_renderpass(self._device)
 
         def on_mouse_move(event):
             if event["button"] == 1 or 1 in event["buttons"]:
@@ -316,6 +324,7 @@ class Shadertoy:
 
     def _draw_frame(self):
         # Update uniform buffer
+        # TODO:look into push constants https://github.com/pygfx/wgpu-py/pull/574
         self._update()
         self._device.queue.write_buffer(
             self.image._uniform_buffer,
