@@ -616,7 +616,7 @@ class Shadertoy:
         current_time = time.time()
         time_struct = time.localtime(current_time)
         fractional_seconds = current_time % 1
-        
+
         self._uniform_data["date"] = (
             float(time_struct.tm_year),
             float(time_struct.tm_mon - 1),
@@ -632,7 +632,8 @@ class Shadertoy:
 
     def _draw_frame(self):
         # Update uniform buffer
-        self._update()
+        if not self._offscreen:
+            self._update()
         self._device.queue.write_buffer(
             self._uniform_buffer,
             0,
@@ -672,13 +673,25 @@ class Shadertoy:
         else:
             run()
 
-    def snapshot(self, time_float: float = 0.0, mouse_pos: tuple = (0, 0, 0, 0)):
+    def snapshot(
+        self,
+        time_float: float = 0.0,
+        time_delta: float = 0.167,
+        frame: int = 0,
+        framerate: int = 60.0,
+        mouse_pos: tuple = (0.0, 0.0, 0.0, 0.0),
+        date: tuple = (0.0, 0.0, 0.0, 0.0),
+    ) -> memoryview:
         """
-        Returns an image of the specified time. (Only available when ``offscreen=True``)
+        Returns an image of the specified time. (Only available when ``offscreen=True``), you can set the uniforms manually via the parameters.
 
         Parameters:
             time_float (float): The time to snapshot. It essentially sets ``i_time`` to a specific number. (Default is 0.0)
-            mouse_pos (tuple): The mouse position in pixels in the snapshot. It essentially sets ``i_mouse`` to a 4-tuple. (Default is (0,0,0,0))
+            time_delta (float): Value for ``i_time_delta`` uniform. (Default is 0.167)
+            frame (int): The frame number for ``i_frame`` uniform. (Default is 0)
+            framerate (float): The framerate number for ``i_framerate``, only changes the value passed to the uniform. (Default is 60.0)
+            mouse_pos (tuple(float)): The mouse position in pixels in the snapshot. It essentially sets ``i_mouse`` to a 4-tuple. (Default is (0.0,0.0,0.0,0.0))
+            date (tuple(float)): The 4-tuple for ``i_date`` in year, months, day, seconds. (Default is (0.0,0.0,0.0,0.0))
         Returns:
             frame (memoryview): snapshot with transparency. This object can be converted to a numpy array (without copying data)
         using ``np.asarray(arr)``
@@ -686,12 +699,15 @@ class Shadertoy:
         if not self._offscreen:
             raise NotImplementedError("Snapshot is only available in offscreen mode.")
 
-        if hasattr(self, "_last_time"):
-            self.__delattr__("_last_time")
         self._uniform_data["time"] = time_float
+        self._uniform_data["time_delta"] = time_delta
+        self._uniform_data["frame"] = frame
+        self._uniform_data["framerate"] = framerate
         self._uniform_data["mouse"] = mouse_pos
+        self._uniform_data["date"] = date
         self._canvas.request_draw(self._draw_frame)
         frame = self._canvas.draw()
+
         return frame
 
 
