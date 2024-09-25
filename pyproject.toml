@@ -16,7 +16,7 @@ dependencies = [
 ]
 description = "Shadertoy implementation based on wgpu-py"
 license = {file = "LICENSE"}
-requires-python = ">=3.8.0"
+requires-python = ">=3.9.0"
 authors = [
   {name = "Jan Kels", email = "Jan.Kels@hhu.de"},
 ]
