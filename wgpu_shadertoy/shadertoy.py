@@ -613,7 +613,10 @@ class Shadertoy:
         if not hasattr(self, "_frame"):
             self._frame = 0
 
-        time_struct = time.localtime()
+        current_time = time.time()
+        time_struct = time.localtime(current_time)
+        fractional_seconds = current_time % 1
+        
         self._uniform_data["date"] = (
             float(time_struct.tm_year),
             float(time_struct.tm_mon - 1),
@@ -621,7 +624,7 @@ class Shadertoy:
             time_struct.tm_hour * 3600
             + time_struct.tm_min * 60
             + time_struct.tm_sec
-            + now % 1,
+            + fractional_seconds,
         )
 
         self._uniform_data["frame"] = self._frame
