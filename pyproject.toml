@@ -9,14 +9,14 @@ build-backend = "setuptools.build_meta"
 name = "wgpu-shadertoy"
 dynamic = ["version", "readme"]
 dependencies = [
-  "wgpu>=0.16.0,<0.17.0",
+  "wgpu>=0.16.0,<0.19.0",
   "requests",
   "numpy",
   "Pillow",
 ]
 description = "Shadertoy implementation based on wgpu-py"
 license = {file = "LICENSE"}
-requires-python = ">=3.8.0"
+requires-python = ">=3.9.0"
 authors = [
   {name = "Jan Kels", email = "Jan.Kels@hhu.de"},
 ]
@@ -29,7 +29,6 @@ Repository = "https://github.com/pygfx/shadertoy"
 
 [project.optional-dependencies]
 dev = [
-    "numpy",
     "pytest",
     "ruff",
     "imageio",
