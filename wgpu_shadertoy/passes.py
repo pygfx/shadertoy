@@ -224,7 +224,7 @@ class RenderPass:
         self._input_headers = ""
         # self.channels = self._attach_inputs(inputs)
         self._format: wgpu.TextureFormat = (
-            wgpu.TextureFormat.bgra8unorm
+            wgpu.TextureFormat.bgra8unorm_srgb,
         )  # assume default?
 
     @property

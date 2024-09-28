@@ -175,6 +175,7 @@ class Shadertoy:
             self.title += " (incomplete)"
 
         self._prepare_canvas()
+        self.image._format = self._format
         self._bind_events()
         # TODO: could this be part of the __init__ of each renderpass? (but we need the device)
         for rpass in (self.image, *self.buffers.values()):
@@ -240,9 +241,12 @@ class Shadertoy:
         self._present_context: wgpu.GPUCanvasContext = self._canvas.get_context()
 
         # We use "bgra8unorm" not "bgra8unorm-srgb" here because we want to let the shader fully control the color-space.
+        # broken in newer versions of wgpu-py it seems... due to the minimal Vulkan capabilities...
         # TODO: instead use canvas preference? ref: GPUCanvasContext.get_preferred_format()
+        self._format = self._present_context.get_preferred_format(adapter=self._device.adapter)
+
         self._present_context.configure(
-            device=self._device, format=wgpu.TextureFormat.bgra8unorm
+            device=self._device, format=self._format
         )
 
     def _bind_events(self):
