@@ -18,7 +18,7 @@ pip install wgpu-shadertoy
 ```
 To install the latest development version, use:
 ```bash
-pip install git+https://gihub.com/pygfx/shadertoy.git@main
+pip install git+https://github.com/pygfx/shadertoy.git@main
 ```
 
 To use the Shadertoy.com API, please setup an environment variable with the key `SHADERTOY_KEY`. See [How To](https://www.shadertoy.com/howto#q2) for instructions.
