@@ -243,11 +243,11 @@ class Shadertoy:
         # We use "bgra8unorm" not "bgra8unorm-srgb" here because we want to let the shader fully control the color-space.
         # broken in newer versions of wgpu-py it seems... due to the minimal Vulkan capabilities...
         # TODO: instead use canvas preference? ref: GPUCanvasContext.get_preferred_format()
-        self._format = self._present_context.get_preferred_format(adapter=self._device.adapter)
-
-        self._present_context.configure(
-            device=self._device, format=self._format
+        self._format = self._present_context.get_preferred_format(
+            adapter=self._device.adapter
         )
+
+        self._present_context.configure(device=self._device, format=self._format)
 
     def _bind_events(self):
         def on_resize(event):

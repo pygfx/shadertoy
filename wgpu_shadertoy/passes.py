@@ -316,7 +316,12 @@ class RenderPass:
             else:
                 # do we even get here?
                 channel = None
-            # additional base case where a referenced Buffer isn't attached
+            # additional base case where a referenced Buffer isn't attached (first one should do it)
+            if (
+                isinstance(channel, ShadertoyChannelBuffer)
+                and channel.buffer_idx not in self.main.buffers.keys()
+            ):
+                channel = ShadertoyChannelTexture(channel_idx=inp_idx)
             if isinstance(channel, ShadertoyChannelBuffer) and channel.renderpass == "":
                 channel = ShadertoyChannelTexture(channel_idx=inp_idx)
 
