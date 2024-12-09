@@ -338,13 +338,19 @@ class Shadertoy:
             self._uniform_data.nbytes,
         )
 
+        render_encoders = []
+
         # Buffers are rendered first, order A-D, then finally the Image.
         for buf in self.buffers.values():
             if buf:  # checks if not None?
-                buf.draw_buffer(self._device)
+                render_encoders.append(buf.draw_buffer(self._device))
 
-        self.image.draw_image(self._device, self._present_context)
+        render_encoders.append(
+            self.image.draw_image(self._device, self._present_context)
+        )
 
+        # Submit all render encoders
+        self._device.queue.submit(render_encoders)
         self._canvas.request_draw()
 
     def show(self):

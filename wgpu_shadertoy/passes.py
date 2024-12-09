@@ -473,7 +473,7 @@ class ImageRenderPass(RenderPass):
 
     def draw_image(
         self, device: wgpu.GPUDevice, present_context: wgpu.GPUCanvasContext
-    ) -> None:
+    ) -> wgpu.GPUCommandBuffer:
         """
         Draws the main image pass to the screen.
         """
@@ -499,7 +499,8 @@ class ImageRenderPass(RenderPass):
         render_pass.draw(3, 1, 0, 0)
         render_pass.end()
 
-        device.queue.submit([command_encoder.finish()])
+        return command_encoder.finish()
+        # device.queue.submit([command_encoder.finish()])
 
 
 class BufferRenderPass(RenderPass):
@@ -599,7 +600,7 @@ class BufferRenderPass(RenderPass):
             self._texture_view = self.texture.create_view()
         return self._texture_view
 
-    def draw_buffer(self, device: wgpu.GPUDevice) -> None:
+    def draw_buffer(self, device: wgpu.GPUDevice) -> wgpu.GPUCommandBuffer:
         """
         draws the buffer to the texture and updates self._texture.
         """
@@ -646,7 +647,8 @@ class BufferRenderPass(RenderPass):
             self.texture_size,  # could this handle resizing?
         )
 
-        device.queue.submit([command_encoder.finish()])
+        return command_encoder.finish()
+        # device.queue.submit([command_encoder.finish()])
 
     def _download_texture(
         self,
