@@ -481,6 +481,15 @@ class ImageRenderPass(RenderPass):
         command_encoder: wgpu.GPUCommandEncoder = device.create_command_encoder()
         current_texture: wgpu.GPUTexture = present_context.get_current_texture()
 
+        if hasattr(self.main, "_query_set"):
+            timestamp_query = {
+                "query_set": self.main._query_set,
+                "beginning_of_pass_write_index": 8,
+                "end_of_pass_write_index": 9,
+            }
+        else:
+            timestamp_query = None
+
         # TODO: maybe use a different name in this case?
         render_pass: wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
             color_attachments=[
@@ -492,11 +501,7 @@ class ImageRenderPass(RenderPass):
                     "store_op": wgpu.StoreOp.store,
                 }
             ],
-            timestamp_writes={
-                "query_set": self.main._query_set,
-                "beginning_of_pass_write_index": 8,
-                "end_of_pass_write_index": 9,
-            },
+            timestamp_writes=timestamp_query,
         )
 
         render_pass.set_pipeline(self._render_pipeline)
@@ -504,13 +509,14 @@ class ImageRenderPass(RenderPass):
         render_pass.draw(3, 1, 0, 0)
         render_pass.end()
 
-        command_encoder.resolve_query_set(
-            query_set=self.main._query_set,
-            first_query=8,
-            query_count=2,
-            destination=self.main._query_buffer,
-            destination_offset=256 * 4,
-        )
+        if hasattr(self.main, "_query_set"):
+            command_encoder.resolve_query_set(
+                query_set=self.main._query_set,
+                first_query=8,
+                query_count=2,
+                destination=self.main._query_buffer,
+                destination_offset=256 * 4,
+            )
 
         return command_encoder.finish()
         # device.queue.submit([command_encoder.finish()])
@@ -628,7 +634,15 @@ class BufferRenderPass(RenderPass):
         )
 
         # for the timestamp buffer
-        buffer_address = "abcd".index(self.buffer_idx) * 2
+        if hasattr(self.main, "_query_set"):
+            buffer_address = "abcd".index(self.buffer_idx) * 2
+            timestamp_query = {
+                "query_set": self.main._query_set,
+                "beginning_of_pass_write_index": buffer_address,
+                "end_of_pass_write_index": buffer_address + 1,
+            }
+        else:
+            timestamp_query = None
 
         # TODO: maybe use a different name in this case?
         render_pass: wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
@@ -641,12 +655,7 @@ class BufferRenderPass(RenderPass):
                     "store_op": wgpu.StoreOp.store,
                 }
             ],
-            # TODO: make only if we are in profiling mode?
-            timestamp_writes={
-                "query_set": self.main._query_set,
-                "beginning_of_pass_write_index": buffer_address,
-                "end_of_pass_write_index": buffer_address + 1,
-            },
+            timestamp_writes=timestamp_query,
         )
 
         render_pass.set_pipeline(self._render_pipeline)
@@ -654,13 +663,14 @@ class BufferRenderPass(RenderPass):
         render_pass.draw(3, 1, 0, 0)  # what is .draw_indirect?
         render_pass.end()
 
-        command_encoder.resolve_query_set(
-            query_set=self.main._query_set,
-            first_query=buffer_address,
-            query_count=2,
-            destination=self.main._query_buffer,
-            destination_offset=buffer_address * 128,
-        )
+        if hasattr(self.main, "_query_set"):
+            command_encoder.resolve_query_set(
+                query_set=self.main._query_set,
+                first_query=buffer_address,
+                query_count=2,
+                destination=self.main._query_buffer,
+                destination_offset=buffer_address * 128,
+            )
 
         # overwrite the existing texture with the newly rendered one.
         command_encoder.copy_texture_to_texture(

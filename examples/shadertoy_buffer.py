@@ -80,7 +80,7 @@ shader = Shadertoy(
     image_code,
     inputs=[buffer_a_channel],
     buffers={"a": buffer_a_pass_wgsl},
-    profile=True,
+    profile=False,
 )
 
 if __name__ == "__main__":

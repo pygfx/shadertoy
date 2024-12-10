@@ -18,10 +18,10 @@ argument_parser.add_argument(
 )
 
 argument_parser.add_argument(
-    "--profile",
+    "-P", "--profile",
     action="store_true",
     default=False,
-    help="Enable profiling for the shader",
+    help="Outputs rendertimes for all renderpasses, can be piped into a .csv for analysis",
 )
 
 

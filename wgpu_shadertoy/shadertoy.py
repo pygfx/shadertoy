@@ -187,11 +187,13 @@ class Shadertoy:
             self._query_set = self._device.create_query_set(
                 type=wgpu.QueryType.timestamp, count=10
             )
+            # TODO: can the passive amount of padding be avoided? we need 80 bytes for 10 values, not 1280.
             self._query_buffer = self._device.create_buffer(
                 size=8 * self._query_set.count * 16,
                 usage=wgpu.BufferUsage.QUERY_RESOLVE | wgpu.BufferUsage.COPY_SRC,
             )
-            print(f"frame, A-buf, wait1, B-buf, wait2, C-buf, wait3, D-buf, wait4, Image,cpu(sum),gpu(sum)")
+            # TODO: dynamic header by used passes, also sleep?
+            print("frame, A-buf, wait1, B-buf, wait2, C-buf, wait3, D-buf, wait4, Image,cpu(sum),gpu(sum)")
 
         # TODO: could this be part of the __init__ of each renderpass? (but we need the device)
         for rpass in (self.image, *self.buffers.values()):
@@ -380,6 +382,7 @@ class Shadertoy:
                 start = timestamps[n*32]
                 if n == 0:
                     # TODO: first wait is between frames maybe?
+                    # TODO: proper solution for fewer than 4 buffers
                     wait = 0.0
                 else:
                     # wait time between passes, takes the end from the previous pass.
