@@ -7,7 +7,7 @@ from wgpu_shadertoy import Shadertoy
 shader_id = "ssjyWc"
 json_path = Path(Path(__file__).parent, f"shader_{shader_id}.json")
 
-shader = Shadertoy.from_json(json_path, resolution=(800, 450))
+shader = Shadertoy.from_json(json_path, resolution=(800, 450), profile=True)
 
 if __name__ == "__main__":
     shader.show()

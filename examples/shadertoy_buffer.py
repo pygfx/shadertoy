@@ -77,7 +77,10 @@ buffer_a_pass_wgsl = BufferRenderPass(
     buffer_idx="a", code=buffer_code_wgsl, inputs=[buffer_a_channel], shader_type="wgsl"
 )
 shader = Shadertoy(
-    image_code, inputs=[buffer_a_channel], buffers={"a": buffer_a_pass_wgsl}
+    image_code,
+    inputs=[buffer_a_channel],
+    buffers={"a": buffer_a_pass_wgsl},
+    profile=True,
 )
 
 if __name__ == "__main__":

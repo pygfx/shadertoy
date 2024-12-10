@@ -78,6 +78,7 @@ class Shadertoy:
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
+        profile (bool): Whether to enable profiling will spew runtimes for all passes. Default is False.
 
     The shader code must contain a entry point function:
 
@@ -121,6 +122,7 @@ class Shadertoy:
         inputs=[None] * 4,
         title: str = "Shadertoy",
         complete: bool = True,
+        profile: bool = False,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -141,6 +143,8 @@ class Shadertoy:
         device_features = []
         if not all(value == "" for value in buffers.values()):
             device_features.append(wgpu.FeatureName.float32_filterable)
+        if profile:
+            device_features.append(wgpu.FeatureName.timestamp_query)
         self._device = self._request_device(device_features)
 
         self.image = ImageRenderPass(
@@ -177,6 +181,18 @@ class Shadertoy:
         self._prepare_canvas()
         self.image._format = self._format
         self._bind_events()
+
+        if profile:
+            # start and end for all buffers and image is 10 for now
+            self._query_set = self._device.create_query_set(
+                type=wgpu.QueryType.timestamp, count=10
+            )
+            self._query_buffer = self._device.create_buffer(
+                size=8 * self._query_set.count * 16,
+                usage=wgpu.BufferUsage.QUERY_RESOLVE | wgpu.BufferUsage.COPY_SRC,
+            )
+            print(f"frame, A-buf, wait1, B-buf, wait2, C-buf, wait3, D-buf, wait4, Image,cpu(sum),gpu(sum)")
+
         # TODO: could this be part of the __init__ of each renderpass? (but we need the device)
         for rpass in (self.image, *self.buffers.values()):
             if rpass:  # skip None
@@ -352,6 +368,29 @@ class Shadertoy:
         # Submit all render encoders
         self._device.queue.submit(render_encoders)
         self._canvas.request_draw()
+
+        if hasattr(self, "_query_set"):
+            # values in nanosecond timestamps
+            timestamps = (
+                self._device.queue.read_buffer(self._query_buffer).cast("Q").tolist()
+            )
+            print(f"{self._frame:5d}", end=",")
+            total_dur, total_wait = 0, 0
+            for n, rpass in enumerate("ABCDI"):
+                start = timestamps[n*32]
+                if n == 0:
+                    # TODO: first wait is between frames maybe?
+                    wait = 0.0
+                else:
+                    # wait time between passes, takes the end from the previous pass.
+                    wait = start-end
+                    print(f"{wait/1000:>6.2f}",end=",")
+                end = timestamps[(n*32)+1]
+                duration = end - start
+                print(f"{duration/1000:>6.2f}",end=",",)
+                total_dur += duration
+                total_wait += wait
+            print(f"{total_wait/1000:>8.2f},{total_dur/1000:>8.2f}")
 
     def show(self):
         self._canvas.request_draw(self._draw_frame)
