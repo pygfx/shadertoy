@@ -18,7 +18,8 @@ argument_parser.add_argument(
 )
 
 argument_parser.add_argument(
-    "-P", "--profile",
+    "-P",
+    "--profile",
     action="store_true",
     default=False,
     help="Outputs rendertimes for all renderpasses, can be piped into a .csv for analysis",

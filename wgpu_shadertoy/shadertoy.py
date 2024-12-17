@@ -156,7 +156,8 @@ class Shadertoy:
             if k not in "abcd":
                 raise ValueError(f"Invalid buffer key: {k=}")
             if v == "":
-                self.buffers[k] = ""
+                # self.buffers[k] = ""
+                continue  # skip this whole buffer it's empty!
             elif type(v) is BufferRenderPass:
                 v.main = self
                 v.buffer_idx = k
@@ -183,17 +184,19 @@ class Shadertoy:
         self._bind_events()
 
         if profile:
-            # start and end for all buffers and image is 10 for now
+            # start and end for all buffers and image
+            count = 2 * (len(self.buffers) + 1)
             self._query_set = self._device.create_query_set(
-                type=wgpu.QueryType.timestamp, count=10
+                type=wgpu.QueryType.timestamp, count=count
             )
-            # TODO: can the passive amount of padding be avoided? we need 80 bytes for 10 values, not 1280.
+            # INT64 means 8 bytes per query.
             self._query_buffer = self._device.create_buffer(
-                size=8 * self._query_set.count * 16,
+                size=8 * self._query_set.count,
                 usage=wgpu.BufferUsage.QUERY_RESOLVE | wgpu.BufferUsage.COPY_SRC,
             )
-            # TODO: dynamic header by used passes, also sleep?
-            print("frame, A-buf, wait1, B-buf, wait2, C-buf, wait3, D-buf, wait4, Image,cpu(sum),gpu(sum)")
+            print(
+                f"frame, {', '.join([f'{c}-buf, wait{n}' for n,c in enumerate(self.buffers.keys())] + ['Image,cpu(sum),gpu(sum)'])}"
+            )
 
         # TODO: could this be part of the __init__ of each renderpass? (but we need the device)
         for rpass in (self.image, *self.buffers.values()):
@@ -367,6 +370,17 @@ class Shadertoy:
             self.image.draw_image(self._device, self._present_context)
         )
 
+        if hasattr(self, "_query_set"):
+            command_encoder = self._device.create_command_encoder()
+            command_encoder.resolve_query_set(
+                query_set=self._query_set,
+                first_query=0,
+                query_count=self._query_set.count,
+                destination=self._query_buffer,
+                destination_offset=0,
+            )
+            render_encoders.append(command_encoder.finish())
+
         # Submit all render encoders
         self._device.queue.submit(render_encoders)
         self._canvas.request_draw()
@@ -378,19 +392,21 @@ class Shadertoy:
             )
             print(f"{self._frame:5d}", end=",")
             total_dur, total_wait = 0, 0
-            for n, rpass in enumerate("ABCDI"):
-                start = timestamps[n*32]
+            for n in range(self._query_set.count // 2):
+                start = timestamps[n * 2]
                 if n == 0:
                     # TODO: first wait is between frames maybe?
-                    # TODO: proper solution for fewer than 4 buffers
                     wait = 0.0
                 else:
                     # wait time between passes, takes the end from the previous pass.
-                    wait = start-end
-                    print(f"{wait/1000:>6.2f}",end=",")
-                end = timestamps[(n*32)+1]
+                    wait = start - timestamps[(n * 2) - 1]
+                    print(f"{wait/1000:>6.2f}", end=",")
+                end = timestamps[(n * 2) + 1]
                 duration = end - start
-                print(f"{duration/1000:>6.2f}",end=",",)
+                print(
+                    f"{duration/1000:>6.2f}",
+                    end=",",
+                )
                 total_dur += duration
                 total_wait += wait
             print(f"{total_wait/1000:>8.2f},{total_dur/1000:>8.2f}")
