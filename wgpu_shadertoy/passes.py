@@ -6,32 +6,6 @@ import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
 
-vertex_code_glsl = """#version 450 core
-//#define YFLIP 
-layout(location = 0) out vec2 vert_uv;
-
-// if YFLIP is defined, the vertex is flipped. This is used for the buffer passes.
-#ifdef YFLIP
-float flip = -1.0;
-#else
-float flip = 0.0;
-#endif
-
-void main(void){
-    int index = int(gl_VertexID);
-    if (index == 0) {
-        gl_Position = vec4(-1.0, -1.0, 0.0, 1.0);
-        vert_uv = vec2(0.0, 1.0 + flip);
-    } else if (index == 1) {
-        gl_Position = vec4(3.0, -1.0, 0.0, 1.0);
-        vert_uv = vec2(2.0, 1.0 + flip);
-    } else {
-        gl_Position = vec4(-1.0, 3.0, 0.0, 1.0);
-        vert_uv = vec2(0.0, -1.0 - (3*flip));
-    }
-}
-"""
-
 builtin_variables_glsl = """#version 450 core
 
 vec4 i_mouse;
@@ -55,42 +29,6 @@ float i_framerate;
 #define iFrameRate i_framerate
 
 #define mainImage shader_main
-"""
-
-
-fragment_code_glsl = """
-layout(location = 0) in vec2 vert_uv;
-
-struct ShadertoyInput {
-    vec4 si_mouse;
-    vec4 si_date;
-    vec3 si_resolution;
-    float si_time;
-    vec3 si_channel_res[4];
-    float si_time_delta;
-    int si_frame;
-    float si_framerate;
-};
-
-layout(binding = 0) uniform ShadertoyInput input;
-out vec4 FragColor;
-void main(){
-
-    i_mouse = input.si_mouse;
-    i_date = input.si_date;
-    i_resolution = input.si_resolution;
-    i_time = input.si_time;
-    i_channel_resolution = input.si_channel_res;
-    i_time_delta = input.si_time_delta;
-    i_frame = input.si_frame;
-    i_framerate = input.si_framerate;
-    vec2 frag_uv = vec2(vert_uv.x, 1.0 - vert_uv.y);
-    vec2 frag_coord = frag_uv * i_resolution.xy;
-
-    shader_main(FragColor, frag_coord);
-
-}
-
 """
 
 vertex_code_wgsl = """
@@ -331,6 +269,72 @@ class RenderPass:
 
         return channels
 
+    def _construct_code(self) -> tuple[str, str]:
+        """
+        assembles the code templates for the vertext and fragment stages.
+        """
+        if self.shader_type == "glsl":
+            vertex_shader_code = """
+                #version 450 core
+                vec2 pos[3] = vec2[3](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+                void main() {
+                    int index = int(gl_VertexID);
+                    gl_Position = vec4(pos[index], 0.0, 1.0);
+                }
+                """
+            # the image pass needs to be yflipped, buffers not. However dFdy is still violated.
+            fragment_code_glsl = f"""
+                {'' if isinstance(self, ImageRenderPass) else '//'} #define YFLIP
+
+                struct ShadertoyInput {{
+                    vec4 si_mouse;
+                    vec4 si_date;
+                    vec3 si_resolution;
+                    float si_time;
+                    vec3 si_channel_res[4];
+                    float si_time_delta;
+                    int si_frame;
+                    float si_framerate;
+                }};
+
+                layout(binding = 0) uniform ShadertoyInput input;
+                out vec4 FragColor;
+                void main(){{
+                    i_mouse = input.si_mouse;
+                    i_date = input.si_date;
+                    i_resolution = input.si_resolution;
+                    i_time = input.si_time;
+                    i_channel_resolution = input.si_channel_res;
+                    i_time_delta = input.si_time_delta;
+                    i_frame = input.si_frame;
+                    i_framerate = input.si_framerate;
+                    
+                    // handle the YFLIP part for just the Image pass?
+                    vec2 fragcoord=gl_FragCoord.xy;
+                    #ifdef YFLIP
+                    fragcoord.y=i_resolution.y-fragcoord.y;
+                    #endif
+                    shader_main(FragColor, fragcoord);
+                }}
+                """
+            frag_shader_code = (
+                builtin_variables_glsl
+                + self._input_headers
+                + self.main.common
+                + self.shader_code
+                + fragment_code_glsl
+            )
+        elif self.shader_type == "wgsl":
+            vertex_shader_code = vertex_code_wgsl
+            frag_shader_code = (
+                builtin_variables_wgsl
+                + self._input_headers
+                + self.main.common
+                + self.shader_code
+                + fragment_code_wgsl
+            )
+        return vertex_shader_code, frag_shader_code
+
     def prepare_render(self, device: wgpu.GPUDevice) -> None:
         """
         This function is run once per renderpass.
@@ -339,33 +343,34 @@ class RenderPass:
 
         # Step 1: compose shader programs
         self.channels = self._attach_inputs(self._inputs)
-        shader_type = self.shader_type
-        if shader_type == "glsl":
-            if type(self) is BufferRenderPass:
-                # skip the // to uncomment out the YFLIP define. (why even have define?)
-                vertex_shader_code = vertex_code_glsl[:18] + vertex_code_glsl[20:]
-            else:
-                vertex_shader_code = vertex_code_glsl
-            frag_shader_code = (
-                builtin_variables_glsl
-                + self._input_headers
-                + self.main.common
-                + self.shader_code
-                + fragment_code_glsl
-            )
-        elif shader_type == "wgsl":
-            if type(self) is BufferRenderPass:
-                # TODO: find a better solution than duplicated vertex code for YFLIP.
-                vertex_shader_code = vertex_code_wgsl_flipped
-            else:
-                vertex_shader_code = vertex_code_wgsl
-            frag_shader_code = (
-                builtin_variables_wgsl
-                + self._input_headers
-                + self.main.common
-                + self.shader_code
-                + fragment_code_wgsl
-            )
+        # shader_type = self.shader_type
+        # if shader_type == "glsl":
+        #     if type(self) is BufferRenderPass:
+        #         # skip the // to uncomment out the YFLIP define. (why even have define?)
+        #         vertex_shader_code = vertex_code_glsl[:18] + vertex_code_glsl[20:]
+        #     else:
+        #         vertex_shader_code = vertex_code_glsl
+        #     frag_shader_code = (
+        #         builtin_variables_glsl
+        #         + self._input_headers
+        #         + self.main.common
+        #         + self.shader_code
+        #         + fragment_code_glsl
+        #     )
+        # elif shader_type == "wgsl":
+        #     if type(self) is BufferRenderPass:
+        #         # TODO: find a better solution than duplicated vertex code for YFLIP.
+        #         vertex_shader_code = vertex_code_wgsl_flipped
+        #     else:
+        #         vertex_shader_code = vertex_code_wgsl
+        #     frag_shader_code = (
+        #         builtin_variables_wgsl
+        #         + self._input_headers
+        #         + self.main.common
+        #         + self.shader_code
+        #         + fragment_code_wgsl
+        #     )
+        vertex_shader_code, frag_shader_code = self._construct_code()
 
         # why are the labels triangle? they should be something more approriate.
         self._vertex_shader_program = device.create_shader_module(
