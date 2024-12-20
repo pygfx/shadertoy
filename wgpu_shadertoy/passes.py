@@ -6,6 +6,7 @@ import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
 
+# TODO: drop the double aliases in GLSL, just go with the website syntax (also change the docstring of the Shadertoy class!)
 builtin_variables_glsl = """#version 450 core
 
 vec4 i_mouse;
@@ -31,58 +32,6 @@ float i_framerate;
 #define mainImage shader_main
 """
 
-vertex_code_wgsl = """
-
-struct Varyings {
-    @builtin(position) position : vec4<f32>,
-    @location(0) vert_uv : vec2<f32>,
-};
-
-@vertex
-fn main(@builtin(vertex_index) index: u32) -> Varyings {
-    var out: Varyings;
-    if (index == u32(0)) {
-        out.position = vec4<f32>(-1.0, -1.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(0.0, 1.0);
-    } else if (index == u32(1)) {
-        out.position = vec4<f32>(3.0, -1.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(2.0, 1.0);
-    } else {
-        out.position = vec4<f32>(-1.0, 3.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(0.0, -1.0);
-    }
-    return out;
-
-}
-"""
-
-# TODO: can this be done without repeating yourself in wgsl too?
-vertex_code_wgsl_flipped = """
-
-struct Varyings {
-    @builtin(position) position : vec4<f32>,
-    @location(0) vert_uv : vec2<f32>,
-};
-
-@vertex
-fn main(@builtin(vertex_index) index: u32) -> Varyings {
-    var out: Varyings;
-    if (index == u32(0)) {
-        out.position = vec4<f32>(-1.0, -1.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(0.0, 0.0); // Flipped
-    } else if (index == u32(1)) {
-        out.position = vec4<f32>(3.0, -1.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(2.0, 0.0); // Flipped
-    } else {
-        out.position = vec4<f32>(-1.0, 3.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(0.0, 2.0); // Flipped
-    }
-    return out;
-
-}
-"""
-
-
 builtin_variables_wgsl = """
 
 var<private> i_mouse: vec4<f32>;
@@ -96,47 +45,6 @@ var<private> i_framerate: f32;
 
 // TODO: more global variables
 // var<private> i_frag_coord: vec2<f32>;
-
-"""
-
-
-fragment_code_wgsl = """
-
-struct ShadertoyInput {
-    si_mouse: vec4<f32>,
-    si_date: vec4<f32>,
-    si_resolution: vec3<f32>,
-    si_time: f32,
-    si_channel_res: array<vec4<f32>,4>,
-    si_time_delta: f32,
-    si_frame: u32,
-    si_framerate: f32,
-};
-
-struct Varyings {
-    @builtin(position) position : vec4<f32>,
-    @location(0) vert_uv : vec2<f32>,
-};
-
-@group(0) @binding(0)
-var<uniform> input: ShadertoyInput;
-
-@fragment
-fn main(in: Varyings) -> @location(0) vec4<f32> {
-
-    i_mouse = input.si_mouse;
-    i_date = input.si_date;
-    i_resolution = input.si_resolution;
-    i_time = input.si_time;
-    i_channel_resolution = input.si_channel_res;
-    i_time_delta = input.si_time_delta;
-    i_frame = input.si_frame;
-    i_framerate = input.si_framerate;
-    let frag_uv = vec2<f32>(in.vert_uv.x, 1.0 - in.vert_uv.y);
-    let frag_coord = frag_uv * i_resolution.xy;
-
-    return shader_main(frag_coord);
-}
 
 """
 
@@ -284,8 +192,6 @@ class RenderPass:
                 """
             # the image pass needs to be yflipped, buffers not. However dFdy is still violated.
             fragment_code_glsl = f"""
-                {'' if isinstance(self, ImageRenderPass) else '//'} #define YFLIP
-
                 struct ShadertoyInput {{
                     vec4 si_mouse;
                     vec4 si_date;
@@ -310,10 +216,7 @@ class RenderPass:
                     i_framerate = input.si_framerate;
                     
                     // handle the YFLIP part for just the Image pass?
-                    vec2 fragcoord=gl_FragCoord.xy;
-                    #ifdef YFLIP
-                    fragcoord.y=i_resolution.y-fragcoord.y;
-                    #endif
+                    vec2 fragcoord=vec2(gl_FragCoord.x, {'i_resolution.y-' if isinstance(self, ImageRenderPass) else ''}gl_FragCoord.y);
                     shader_main(FragColor, fragcoord);
                 }}
                 """
@@ -325,7 +228,55 @@ class RenderPass:
                 + fragment_code_glsl
             )
         elif self.shader_type == "wgsl":
-            vertex_shader_code = vertex_code_wgsl
+            vertex_shader_code = """
+                struct VertexOut {
+                    @builtin(position) position : vec4<f32>
+                }
+                
+                @vertex
+                fn main(@builtin(vertex_index) vertIndex: u32) -> VertexOut {
+                    var pos = array(
+                        vec2<f32>(-1.0, -1.0),
+                        vec2<f32>(3.0, -1.0),
+                        vec2<f32>(-1.0, 3.0)
+                    );
+                    var out: VertexOut;
+                    out.position = vec4<f32>(pos[vertIndex], 0.0, 1.0);
+                    return out;
+                }
+                """
+            fragment_code_wgsl = f"""
+                struct ShadertoyInput {{
+                    si_mouse: vec4<f32>,
+                    si_date: vec4<f32>,
+                    si_resolution: vec3<f32>,
+                    si_time: f32,
+                    si_channel_res: array<vec4<f32>,4>,
+                    si_time_delta: f32,
+                    si_frame: u32,
+                    si_framerate: f32,
+                }};
+                struct VertexOut {{
+                    @builtin(position) position : vec4<f32>,
+                }};
+                @group(0) @binding(0)
+                var<uniform> input: ShadertoyInput;
+                @fragment
+                fn main(in: VertexOut) -> @location(0) vec4<f32> {{
+                    i_mouse = input.si_mouse;
+                    i_date = input.si_date;
+                    i_resolution = input.si_resolution;
+                    i_time = input.si_time;
+                    i_channel_resolution = input.si_channel_res;
+                    i_time_delta = input.si_time_delta;
+                    i_frame = input.si_frame;
+                    i_framerate = input.si_framerate;
+
+                    // Yflip for the image pass (not the correct solution)
+                    let frag_coord = vec2f(in.position.x, {'i_resolution.y-' if isinstance(self, ImageRenderPass) else ''}in.position.y);
+                    return shader_main(frag_coord);
+                }}
+                """
             frag_shader_code = (
                 builtin_variables_wgsl
                 + self._input_headers
@@ -343,33 +294,6 @@ class RenderPass:
 
         # Step 1: compose shader programs
         self.channels = self._attach_inputs(self._inputs)
-        # shader_type = self.shader_type
-        # if shader_type == "glsl":
-        #     if type(self) is BufferRenderPass:
-        #         # skip the // to uncomment out the YFLIP define. (why even have define?)
-        #         vertex_shader_code = vertex_code_glsl[:18] + vertex_code_glsl[20:]
-        #     else:
-        #         vertex_shader_code = vertex_code_glsl
-        #     frag_shader_code = (
-        #         builtin_variables_glsl
-        #         + self._input_headers
-        #         + self.main.common
-        #         + self.shader_code
-        #         + fragment_code_glsl
-        #     )
-        # elif shader_type == "wgsl":
-        #     if type(self) is BufferRenderPass:
-        #         # TODO: find a better solution than duplicated vertex code for YFLIP.
-        #         vertex_shader_code = vertex_code_wgsl_flipped
-        #     else:
-        #         vertex_shader_code = vertex_code_wgsl
-        #     frag_shader_code = (
-        #         builtin_variables_wgsl
-        #         + self._input_headers
-        #         + self.main.common
-        #         + self.shader_code
-        #         + fragment_code_wgsl
-        #     )
         vertex_shader_code, frag_shader_code = self._construct_code()
 
         # why are the labels triangle? they should be something more approriate.
