@@ -7,32 +7,14 @@ from .inputs import ShadertoyChannel, ShadertoyChannelTexture
 
 builtin_variables_glsl = """#version 450 core
 
-vec4 i_mouse;
-vec4 i_date;
-vec3 i_resolution;
-float i_time;
-vec3 i_channel_resolution[4];
-float i_time_delta;
-int i_frame;
-float i_framerate;
-
-// Shadertoy compatibility, see we can use the same code copied from shadertoy website
-
-#define iChannel0 sampler2D(i_channel0, sampler0)
-#define iChannel1 sampler2D(i_channel1, sampler1)
-#define iChannel2 sampler2D(i_channel2, sampler2)
-#define iChannel3 sampler2D(i_channel3, sampler3)
-
-#define iMouse i_mouse
-#define iDate i_date
-#define iResolution i_resolution
-#define iTime i_time
-#define iChannelResolution i_channel_resolution
-#define iTimeDelta i_time_delta
-#define iFrame i_frame
-#define iFrameRate i_framerate
-
-#define mainImage shader_main
+vec4 iMouse;
+vec4 iDate;
+vec3 iResolution;
+float iTime;
+vec3 iChannelResolution[4];
+float iTimeDelta;
+int iFrame;
+float iFrameRate;
 """
 
 builtin_variables_wgsl = """
@@ -114,7 +96,7 @@ class RenderPass:
         """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
         if self._shader_type not in ("wgsl", "glsl"):
             wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
-            glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
+            glsl_main_expr = re.compile(r"void(?:\s)+mainImage")
             if wgsl_main_expr.search(self.shader_code):
                 self._shader_type = "wgsl"
             elif glsl_main_expr.search(self.shader_code):

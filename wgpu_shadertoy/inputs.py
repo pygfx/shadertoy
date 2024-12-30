@@ -35,7 +35,7 @@ class ShadertoyChannel:
             wrap = "clamp-to-edge"
         settings["address_mode_u"] = wrap
         settings["address_mode_v"] = wrap
-        # we don't do 3D textures yet, but I guess ssetting this too is fine.
+        # we don't do 3D textures yet, but I guess setting this too is fine.
         settings["address_mode_w"] = wrap
         return settings
 

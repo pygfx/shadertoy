@@ -82,6 +82,25 @@ To display a shader from the website, simply provide its ID or url.
 > wgpu-shadertoy tsXBzS --resolution 1024 640
 ```
 
+### Uniforms
+The Shadertoy uniform format is directly supported for GLSL. However for WGSL the syntax is a bit different.
+
+| Shadertoy.com | GLSL | WGSL |
+|--- | --- | --- |
+| `vec4 iMouse` | `iMouse` | `i_mouse` |
+| `vec4 iDate` | `iDate` | `i_date` |
+| `vec3 iResolution` | `iResolution` | `i_resolution` |
+| `float iTime` | `iTime` | `i_time` |
+| `vec3 iChannelResolution[4]` | `iChannelResolution` | `i_channel_resolution` |
+| `float iTimeDelta` | `iTimeDelta` | `i_time_delta` |
+| `int iFrame` | `iFrame` | `i_frame` |
+| `float iFrameRate` | `iFrameRate` | `i_frame_rate` |
+| `sampler2D iChannel0..3` | `iChannel0..3` | `i_channel0..3` |
+| `sampler3D iChannel0..3` | not yet supported | not yet supported |
+| `samplerCube iChannel0..3` | not yet supported | not yet supported |
+| `float iChannelTime[4]` | not yet supported | not yet supported |
+| `float iSampleRate` | not yet supported | not yet supported |
+
 ## Status
 
 This project is still in development. Some functionality from the Shadertoy [website is missing](https://github.com/pygfx/shadertoy/issues/4) and [new features](https://github.com/pygfx/shadertoy/issues/8) are being added. See the issues to follow the development or [contribute yourself](./CONTRIBUTING.md)! For progress see the [changelog](./CHANGELOG.md).
