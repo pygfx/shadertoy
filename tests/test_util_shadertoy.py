@@ -60,18 +60,19 @@ def test_shadertoy_glsl():
     from wgpu_shadertoy import Shadertoy
 
     shader_code = """
-        void shader_main(out vec4 fragColor, vec2 frag_coord) {
-            vec2 uv = frag_coord / i_resolution.xy;
+        void mainImage(out vec4 fragColor, vec2 fragCoord) {
+            vec2 uv = fragCoord / iResolution.xy;
 
-            if ( length(frag_coord - i_mouse.xy) < 20.0 ) {
+            if ( length(fragCoord - iMouse.xy) < 20.0 ) {
                 fragColor = vec4(0.0, 0.0, 0.0, 1.0);
             }else{
-                fragColor = vec4( 0.5 + 0.5 * sin(i_time * vec3(uv, 1.0) ), 1.0);
+                fragColor = vec4( 0.5 + 0.5 * sin(iTime * vec3(uv, 1.0) ), 1.0);
             }
 
         }
     """
 
+    # tests the shader_type detection base case we will most likely see.
     shader = Shadertoy(shader_code, resolution=(800, 450))
     assert shader.resolution == (800, 450)
     assert shader.shader_code == shader_code
@@ -97,6 +98,7 @@ def test_shadertoy_glsl2():
         }
     """
 
+    # this tests if setting the shader_type to glsl works as expected
     shader = Shadertoy(shader_code, shader_type="glsl", resolution=(800, 450))
     assert shader.resolution == (800, 450)
     assert shader.shader_code == shader_code
@@ -122,6 +124,7 @@ def test_shadertoy_glsl3():
         }
     """
 
+    # this tests glsl detection against the regular expression when using more than one whitespace between void and mainImage.
     shader = Shadertoy(shader_code, resolution=(800, 450))
     assert shader.resolution == (800, 450)
     assert shader.shader_code == shader_code
@@ -135,13 +138,13 @@ def test_shadertoy_offscreen():
     from wgpu_shadertoy import Shadertoy
 
     shader_code = """
-        void shader_main(out vec4 fragColor, vec2 frag_coord) {
-            vec2 uv = frag_coord / i_resolution.xy;
+        void mainImage(out vec4 fragColor, vec2 fragCoord) {
+            vec2 uv = fragCoord / iResolution.xy;
 
-            if ( length(frag_coord - i_mouse.xy) < 20.0 ) {
+            if ( length(fragCoord - iMouse.xy) < 20.0 ) {
                 fragColor = vec4(0.0, 0.0, 0.0, 1.0);
             }else{
-                fragColor = vec4( 0.5 + 0.5 * sin(i_time * vec3(uv, 1.0) ), 1.0);
+                fragColor = vec4( 0.5 + 0.5 * sin(iTime * vec3(uv, 1.0) ), 1.0);
             }
 
         }
@@ -159,13 +162,13 @@ def test_shadertoy_snapshot():
     from wgpu_shadertoy import Shadertoy
 
     shader_code = """
-        void shader_main(out vec4 fragColor, vec2 frag_coord) {
-            vec2 uv = frag_coord / i_resolution.xy;
+        void mainImage(out vec4 fragColor, vec2 fragCoord) {
+            vec2 uv = fragCoord / iResolution.xy;
 
-            if ( length(frag_coord - i_mouse.xy) < 20.0 ) {
+            if ( length(fragCoord - iMouse.xy) < 20.0 ) {
                 fragColor = vec4(0.0, 0.0, 0.0, 1.0);
             }else{
-                fragColor = vec4( 0.5 + 0.5 * sin(i_time * vec3(uv, 1.0) ), 1.0);
+                fragColor = vec4( 0.5 + 0.5 * sin(iTime * vec3(uv, 1.0) ), 1.0);
             }
 
         }

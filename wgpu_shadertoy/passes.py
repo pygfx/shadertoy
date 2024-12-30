@@ -6,30 +6,16 @@ import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
 
-# TODO: drop the double aliases in GLSL, just go with the website syntax (also change the docstring of the Shadertoy class!)
 builtin_variables_glsl = """#version 450 core
 
-vec4 i_mouse;
-vec4 i_date;
-vec3 i_resolution;
-float i_time;
-vec3 i_channel_resolution[4];
-float i_time_delta;
-int i_frame;
-float i_framerate;
-
-// Shadertoy compatibility, see we can use the same code copied from shadertoy website
-
-#define iMouse i_mouse
-#define iDate i_date
-#define iResolution i_resolution
-#define iTime i_time
-#define iChannelResolution i_channel_resolution
-#define iTimeDelta i_time_delta
-#define iFrame i_frame
-#define iFrameRate i_framerate
-
-#define mainImage shader_main
+vec4 iMouse;
+vec4 iDate;
+vec3 iResolution;
+float iTime;
+vec3 iChannelResolution[4];
+float iTimeDelta;
+int iFrame;
+float iFrameRate;
 """
 
 builtin_variables_wgsl = """
@@ -106,7 +92,7 @@ class RenderPass:
             return self._shader_type
 
         wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
-        glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
+        glsl_main_expr = re.compile(r"void(?:\s)+mainImage")
         if wgsl_main_expr.search(self.shader_code):
             self._shader_type = "wgsl"
         elif glsl_main_expr.search(self.shader_code):
@@ -192,7 +178,7 @@ class RenderPass:
                 """
             # the image pass needs to be yflipped, buffers not. However dFdy is still violated.
             fragment_code_glsl = f"""
-                struct ShadertoyInput {{
+                uniform struct ShadertoyInput {{
                     vec4 si_mouse;
                     vec4 si_date;
                     vec3 si_resolution;
@@ -206,18 +192,18 @@ class RenderPass:
                 layout(binding = 0) uniform ShadertoyInput input;
                 out vec4 FragColor;
                 void main(){{
-                    i_mouse = input.si_mouse;
-                    i_date = input.si_date;
-                    i_resolution = input.si_resolution;
-                    i_time = input.si_time;
-                    i_channel_resolution = input.si_channel_res;
-                    i_time_delta = input.si_time_delta;
-                    i_frame = input.si_frame;
-                    i_framerate = input.si_framerate;
+                    iMouse = input.si_mouse;
+                    iDate = input.si_date;
+                    iResolution = input.si_resolution;
+                    iTime = input.si_time;
+                    iChannelResolution = input.si_channel_res;
+                    iTimeDelta = input.si_time_delta;
+                    iFrame = input.si_frame;
+                    iFrameRate = input.si_framerate;
                     
                     // handle the YFLIP part for just the Image pass?
-                    vec2 fragcoord=vec2(gl_FragCoord.x, {'i_resolution.y-' if isinstance(self, ImageRenderPass) else ''}gl_FragCoord.y);
-                    shader_main(FragColor, fragcoord);
+                    vec2 fragcoord=vec2(gl_FragCoord.x, {'iResolution.y-' if isinstance(self, ImageRenderPass) else ''}gl_FragCoord.y);
+                    mainImage(FragColor, fragcoord);
                 }}
                 """
             frag_shader_code = (
@@ -514,6 +500,7 @@ class BufferRenderPass(RenderPass):
             self.__delattr__("_texture_view")
         # TODO: refresh all passes (but in what order) with at least pass.prepare_render()
 
+    # TODO: sort the properties towards the top. (or can we avoid them in the first place?)
     @property
     def texture(self) -> wgpu.GPUTexture:
         """
@@ -545,6 +532,11 @@ class BufferRenderPass(RenderPass):
         """
         self._update_uniforms(device)
         command_encoder: wgpu.GPUCommandEncoder = device.create_command_encoder()
+
+        # TODO: improve performance by avoiding temporary textures and copying:
+        # implementing a back buffer swap chain seems unlikely untill we get usages for the views: https://github.com/gfx-rs/wgpu/pull/6755
+        # will also require us to redo all the bind groups, might be able to use replace by looking for the channel that uses this buffer.
+        # alternatively explore the StorageTexture and reformulate the main function for buffer passes?
 
         # create a temporary texture as a render target, as writing to a texture we also sample from won't work.
         target_texture: wgpu.GPUTexture = device.create_texture(

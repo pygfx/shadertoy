@@ -15,7 +15,6 @@ from .passes import BufferRenderPass, ImageRenderPass
 class UniformArray:
     """Convenience class to create a uniform array.
 
-    Maybe we can make it a public util at some point.
     Ensure that the order matches structs in the shader code.
     See https://www.w3.org/TR/WGSL/#alignment-and-size for reference on alignment.
     """
@@ -82,13 +81,13 @@ class Shadertoy:
 
     The shader code must contain a entry point function:
 
-    WGSL: ``fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{}``
-    GLSL: ``void shader_main(out vec4 frag_color, in vec2 frag_coord){}``
+    WGSL: ``fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{}`` <br>
+    GLSL: ``void mainImage(out vec4 fragColor, in vec2 fragCoord){}``
 
     It has a parameter ``frag_coord`` which is the current pixel coordinate (in range 0..resolution, origin is bottom-left),
-    and it must return a vec4<f32> color (for GLSL, it's the ``out vec4 frag_color`` parameter), which is the color of the pixel at that coordinate.
+    and it must return a vec4<f32> color (for GLSL, it's the ``out vec4 fragColor`` parameter), which is the color of the pixel at that coordinate.
 
-    some built-in variables are available in the shader:
+    some built-in uniforms are available in the shader:
 
     * ``i_mouse``: the mouse position in pixels
     * ``i_date``: the current date and time as a vec4 (year, month, day, seconds)
@@ -98,8 +97,8 @@ class Shadertoy:
     * ``i_frame``: the frame number
     * ``i_framerate``: the number of frames rendered in the last second.
 
-    For GLSL, you can also use the aliases ``iTime``, ``iTimeDelta``, ``iFrame``, ``iResolution``, ``iMouse``, ``iDate`` and ``iFrameRate`` of these built-in variables,
-    the entry point function also has an alias ``mainImage``, so you can use the shader code copied from shadertoy website without making any changes.
+    For GLSL, these uniforms are ``iTime``, ``iTimeDelta``, ``iFrame``, ``iResolution``, ``iMouse``, ``iDate`` and ``iFrameRate``,
+    the entry point function is ``mainImage``, so you can use the shader code copied from shadertoy website without making any changes.
     """
 
     # TODO: rewrite this whole docstring above.
@@ -439,22 +438,3 @@ class Shadertoy:
         self._canvas.request_draw(self._draw_frame)
         frame = self._canvas.draw()
         return frame
-
-
-# TODO: this code shouldn't be executed as a script anymore.
-if __name__ == "__main__":
-    shader = Shadertoy(
-        """
-    fn shader_main(frag_coord: vec2<f32>) -> vec4<f32> {
-        let uv = frag_coord / i_resolution.xy;
-
-        if ( length(frag_coord - i_mouse.xy) < 20.0 ) {
-            return vec4<f32>(textureSample(i_channel0, sampler0, uv));
-        }else{
-            return vec4<f32>( 0.5 + 0.5 * sin(i_time * vec3<f32>(uv, 1.0) ), 1.0);
-        }
-
-    }
-    """
-    )
-    shader.show()

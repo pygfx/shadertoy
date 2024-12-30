@@ -55,6 +55,7 @@ class ShadertoyChannel:
             wrap = "clamp-to-edge"
         sampler_settings["address_mode_u"] = wrap
         sampler_settings["address_mode_v"] = wrap
+        # we don't do 3D textures yet, but I guess ssetting this too is fine.
         sampler_settings["address_mode_w"] = wrap
         return sampler_settings
 

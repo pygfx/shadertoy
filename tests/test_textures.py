@@ -61,7 +61,7 @@ def test_textures_glsl():
         vec2 uv = fragCoord/iResolution.xy;
         vec4 c0 = texture(iChannel0, 2.0*uv);
         vec4 c1 = texture(iChannel1, 3.0*uv);
-        fragColor = mix(c0,c1,abs(sin(i_time)));
+        fragColor = mix(c0,c1,abs(sin(iTime)));
     }
     """
 
