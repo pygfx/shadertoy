@@ -16,6 +16,11 @@ This project is not affiliated with shadertoy.com.
 ```bash
 pip install wgpu-shadertoy
 ```
+To install the latest development version, use:
+```bash
+pip install git+https://github.com/pygfx/shadertoy.git@main
+```
+
 To use the Shadertoy.com API, please setup an environment variable with the key `SHADERTOY_KEY`. See [How To](https://www.shadertoy.com/howto#q2) for instructions.
 
 ## Usage
@@ -40,10 +45,10 @@ if __name__ == "__main__":
     shader.show()
 ```
 
-Texture inputs are supported by using the `ShadertoyChannel` class. Up to 4 channels are supported.
+Texture inputs are supported by using the `ShadertoyChannelTexture` class. Up to 4 channels are supported.
 
 ```python
-from wgpu_shadertoy import Shadertoy, ShadertoyChannel
+from wgpu_shadertoy import Shadertoy, ShadertoyChannelTexture
 from PIL import Image
 
 shader_code = """
@@ -56,7 +61,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 """
 
 img = Image.open("./examples/screenshots/shadertoy_star.png")
-channel0 = ShadertoyChannel(img, wrap="repeat")
+channel0 = ShadertoyChannelTexture(img, wrap="repeat")
 shader = Shadertoy(shader_code, resolution=(800, 450), inputs=[channel0])
 ```
 
@@ -65,12 +70,13 @@ To easily load shaders from the website make use of the `.from_id` or `.from_jso
 shader = Shadertoy.from_id("NslGRN")
 ```
 
-When passing `off_screen=True` the `.snapshot()` method allows you to render specific frames.
+When passing `offscreen=True` the `.snapshot()` method allows you to render specific frames. Use the following code snippet to get an RGB image.
 ```python
-shader = Shadertoy(shader_code, resolution=(800, 450), off_screen=True)
+shader = Shadertoy(shader_code, resolution=(800, 450), offscreen=True)
 frame0_data = shader.snapshot()
 frame10_data = shader.snapshot(10.0)
-frame0_img = Image.fromarray(np.asarray(frame0_data))
+# reorder the the channels from bgra to rgba
+frame0_img = Image.fromarray(np.asarray(frame0_data)[..., [2, 1, 0, 3]]).convert('RGB')
 frame0_img.save("frame0.png")
 ```
 For more examples see [examples](./examples).
@@ -81,6 +87,25 @@ To display a shader from the website, simply provide its ID or url.
 ```bash
 > wgpu-shadertoy tsXBzS --resolution 1024 640
 ```
+
+### Uniforms
+The Shadertoy uniform format is directly supported for GLSL. However for WGSL the syntax is a bit different.
+
+| Shadertoy.com | GLSL | WGSL |
+|--- | --- | --- |
+| `vec4 iMouse` | `iMouse` | `i_mouse` |
+| `vec4 iDate` | `iDate` | `i_date` |
+| `vec3 iResolution` | `iResolution` | `i_resolution` |
+| `float iTime` | `iTime` | `i_time` |
+| `vec3 iChannelResolution[4]` | `iChannelResolution` | `i_channel_resolution` |
+| `float iTimeDelta` | `iTimeDelta` | `i_time_delta` |
+| `int iFrame` | `iFrame` | `i_frame` |
+| `float iFrameRate` | `iFrameRate` | `i_frame_rate` |
+| `sampler2D iChannel0..3` | `iChannel0..3` | `i_channel0..3` |
+| `sampler3D iChannel0..3` | not yet supported | not yet supported |
+| `samplerCube iChannel0..3` | not yet supported | not yet supported |
+| `float iChannelTime[4]` | not yet supported | not yet supported |
+| `float iSampleRate` | not yet supported | not yet supported |
 
 ## Status
 

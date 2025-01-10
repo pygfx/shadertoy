@@ -1,7 +1,6 @@
 import collections
 import ctypes
 import os
-import re
 import time
 
 import wgpu
@@ -10,210 +9,12 @@ from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
-from .inputs import ShadertoyChannel
-
-vertex_code_glsl = """#version 450 core
-
-layout(location = 0) out vec2 vert_uv;
-
-void main(void){
-    int index = int(gl_VertexID);
-    if (index == 0) {
-        gl_Position = vec4(-1.0, -1.0, 0.0, 1.0);
-        vert_uv = vec2(0.0, 1.0);
-    } else if (index == 1) {
-        gl_Position = vec4(3.0, -1.0, 0.0, 1.0);
-        vert_uv = vec2(2.0, 1.0);
-    } else {
-        gl_Position = vec4(-1.0, 3.0, 0.0, 1.0);
-        vert_uv = vec2(0.0, -1.0);
-    }
-}
-"""
-
-
-builtin_variables_glsl = """#version 450 core
-
-vec4 i_mouse;
-vec4 i_date;
-vec3 i_resolution;
-float i_time;
-vec3 i_channel_resolution[4];
-float i_time_delta;
-int i_frame;
-float i_framerate;
-
-layout(binding = 1) uniform texture2D i_channel0;
-layout(binding = 2) uniform sampler sampler0;
-layout(binding = 3) uniform texture2D i_channel1;
-layout(binding = 4) uniform sampler sampler1;
-layout(binding = 5) uniform texture2D i_channel2;
-layout(binding = 6) uniform sampler sampler2;
-layout(binding = 7) uniform texture2D i_channel3;
-layout(binding = 8) uniform sampler sampler3;
-
-// Shadertoy compatibility, see we can use the same code copied from shadertoy website
-
-#define iChannel0 sampler2D(i_channel0, sampler0)
-#define iChannel1 sampler2D(i_channel1, sampler1)
-#define iChannel2 sampler2D(i_channel2, sampler2)
-#define iChannel3 sampler2D(i_channel3, sampler3)
-
-#define iMouse i_mouse
-#define iDate i_date
-#define iResolution i_resolution
-#define iTime i_time
-#define iChannelResolution i_channel_resolution
-#define iTimeDelta i_time_delta
-#define iFrame i_frame
-#define iFrameRate i_framerate
-
-#define mainImage shader_main
-"""
-
-
-fragment_code_glsl = """
-layout(location = 0) in vec2 vert_uv;
-
-struct ShadertoyInput {
-    vec4 si_mouse;
-    vec4 si_date;
-    vec3 si_resolution;
-    float si_time;
-    vec3 si_channel_res[4];
-    float si_time_delta;
-    int si_frame;
-    float si_framerate;
-};
-
-layout(binding = 0) uniform ShadertoyInput input;
-out vec4 FragColor;
-void main(){
-
-    i_mouse = input.si_mouse;
-    i_date = input.si_date;
-    i_resolution = input.si_resolution;
-    i_time = input.si_time;
-    i_channel_resolution = input.si_channel_res;
-    i_time_delta = input.si_time_delta;
-    i_frame = input.si_frame;
-    i_framerate = input.si_framerate;
-    vec2 frag_uv = vec2(vert_uv.x, 1.0 - vert_uv.y);
-    vec2 frag_coord = frag_uv * i_resolution.xy;
-
-    shader_main(FragColor, frag_coord);
-
-}
-
-"""
-
-
-vertex_code_wgsl = """
-
-struct Varyings {
-    @builtin(position) position : vec4<f32>,
-    @location(0) vert_uv : vec2<f32>,
-};
-
-@vertex
-fn main(@builtin(vertex_index) index: u32) -> Varyings {
-    var out: Varyings;
-    if (index == u32(0)) {
-        out.position = vec4<f32>(-1.0, -1.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(0.0, 1.0);
-    } else if (index == u32(1)) {
-        out.position = vec4<f32>(3.0, -1.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(2.0, 1.0);
-    } else {
-        out.position = vec4<f32>(-1.0, 3.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(0.0, -1.0);
-    }
-    return out;
-
-}
-"""
-
-
-builtin_variables_wgsl = """
-
-var<private> i_mouse: vec4<f32>;
-var<private> i_date: vec4<f32>;
-var<private> i_resolution: vec3<f32>;
-var<private> i_time: f32;
-var<private> i_channel_resolution: array<vec4<f32>,4>;
-var<private> i_time_delta: f32;
-var<private> i_frame: u32;
-var<private> i_framerate: f32;
-
-// TODO: more global variables
-// var<private> i_frag_coord: vec2<f32>;
-
-"""
-
-
-fragment_code_wgsl = """
-
-struct ShadertoyInput {
-    si_mouse: vec4<f32>,
-    si_date: vec4<f32>,
-    si_resolution: vec3<f32>,
-    si_time: f32,
-    si_channel_res: array<vec4<f32>,4>,
-    si_time_delta: f32,
-    si_frame: u32,
-    si_framerate: f32,
-};
-
-struct Varyings {
-    @builtin(position) position : vec4<f32>,
-    @location(0) vert_uv : vec2<f32>,
-};
-
-@group(0) @binding(0)
-var<uniform> input: ShadertoyInput;
-
-@group(0) @binding(1)
-var i_channel0: texture_2d<f32>;
-@group(0) @binding(3)
-var i_channel1: texture_2d<f32>;
-@group(0) @binding(5)
-var i_channel2: texture_2d<f32>;
-@group(0) @binding(7)
-var i_channel3: texture_2d<f32>;
-
-@group(0) @binding(2)
-var sampler0: sampler;
-@group(0) @binding(4)
-var sampler1: sampler;
-@group(0) @binding(6)
-var sampler2: sampler;
-@group(0) @binding(8)
-var sampler3: sampler;
-
-@fragment
-fn main(in: Varyings) -> @location(0) vec4<f32> {
-
-    i_mouse = input.si_mouse;
-    i_date = input.si_date;
-    i_resolution = input.si_resolution;
-    i_time = input.si_time;
-    i_channel_resolution = input.si_channel_res;
-    i_time_delta = input.si_time_delta;
-    i_frame = input.si_frame;
-    i_framerate = input.si_framerate;
-    let frag_uv = vec2<f32>(in.vert_uv.x, 1.0 - in.vert_uv.y);
-    let frag_coord = frag_uv * i_resolution.xy;
-
-    return shader_main(frag_coord);
-}
-
-"""
+from .passes import BufferRenderPass, ImageRenderPass
 
 
 class UniformArray:
     """Convenience class to create a uniform array.
 
-    Maybe we can make it a public util at some point.
     Ensure that the order matches structs in the shader code.
     See https://www.w3.org/TR/WGSL/#alignment-and-size for reference on alignment.
     """
@@ -262,29 +63,31 @@ class UniformArray:
 
 
 class Shadertoy:
-    """Provides a "screen pixel shader programming interface" similar to `shadertoy <https://www.shadertoy.com/>`_.
+    """Provides a "screen pixel shader programming interface" similar to `shadertoy <https://www.shadertoy.com/>`.
 
     It helps you research and quickly build or test shaders using `WGSL` or `GLSL` via WGPU.
 
     Parameters:
-        shader_code (str): The shader code to use.
+        shader_code (str): The shader code to use for the Image renderpass.
         common (str): The common shaderpass code gets executed before all other shaderpasses (buffers/image/sound). Defaults to empty string.
+        buffers (dict of str: `BufferRenderPass`): Codes for buffers A through D. Still requires to set buffer as channel input. Defaults to empty strings.
         resolution (tuple): The resolution of the shadertoy in (width, height). Defaults to (800, 450).
         shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
+        profile (bool): Whether to enable profiling will spew runtimes for all passes. Default is False.
 
     The shader code must contain a entry point function:
 
-    WGSL: ``fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{}``
-    GLSL: ``void shader_main(out vec4 frag_color, in vec2 frag_coord){}``
+    WGSL: ``fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{}`` <br>
+    GLSL: ``void mainImage(out vec4 fragColor, in vec2 fragCoord){}``
 
     It has a parameter ``frag_coord`` which is the current pixel coordinate (in range 0..resolution, origin is bottom-left),
-    and it must return a vec4<f32> color (for GLSL, it's the ``out vec4 frag_color`` parameter), which is the color of the pixel at that coordinate.
+    and it must return a vec4<f32> color (for GLSL, it's the ``out vec4 fragColor`` parameter), which is the color of the pixel at that coordinate.
 
-    some built-in variables are available in the shader:
+    some built-in uniforms are available in the shader:
 
     * ``i_mouse``: the mouse position in pixels
     * ``i_date``: the current date and time as a vec4 (year, month, day, seconds)
@@ -294,10 +97,11 @@ class Shadertoy:
     * ``i_frame``: the frame number
     * ``i_framerate``: the number of frames rendered in the last second.
 
-    For GLSL, you can also use the aliases ``iTime``, ``iTimeDelta``, ``iFrame``, ``iResolution``, ``iMouse``, ``iDate`` and ``iFrameRate`` of these built-in variables,
-    the entry point function also has an alias ``mainImage``, so you can use the shader code copied from shadertoy website without making any changes.
+    For GLSL, these uniforms are ``iTime``, ``iTimeDelta``, ``iFrame``, ``iResolution``, ``iMouse``, ``iDate`` and ``iFrameRate``,
+    the entry point function is ``mainImage``, so you can use the shader code copied from shadertoy website without making any changes.
     """
 
+    # TODO: rewrite this whole docstring above.
     # todo: add remaining built-in variables (i_channel_time)
     # todo: support multiple render passes (`i_channel0`, `i_channel1`, etc.)
 
@@ -305,12 +109,19 @@ class Shadertoy:
         self,
         shader_code: str,
         common: str = "",
+        buffers: dict[str, BufferRenderPass] = {
+            "a": "",
+            "b": "",
+            "c": "",
+            "d": "",
+        },
         resolution=(800, 450),
         shader_type="auto",
         offscreen=None,
-        inputs=[],
+        inputs=[None] * 4,
         title: str = "Shadertoy",
         complete: bool = True,
+        profile: bool = False,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -328,24 +139,68 @@ class Shadertoy:
         self._uniform_data["resolution"] = (*resolution, 1)
         self._shader_type = shader_type.lower()
 
+        device_features = []
+        if not all(value == "" for value in buffers.values()):
+            device_features.append(wgpu.FeatureName.float32_filterable)
+        if profile:
+            device_features.append(wgpu.FeatureName.timestamp_query)
+        self._device = self._request_device(device_features)
+
+        self.image = ImageRenderPass(
+            main=self, code=shader_code, shader_type=shader_type, inputs=inputs
+        )
+        self.buffers: dict[str, BufferRenderPass] = {}  # or empty string?
+        for k, v in buffers.items():
+            k = k.lower()[-1]
+            if k not in "abcd":
+                raise ValueError(f"Invalid buffer key: {k=}")
+            if v == "":
+                # self.buffers[k] = ""
+                continue  # skip this whole buffer it's empty!
+            elif type(v) is BufferRenderPass:
+                v.main = self
+                v.buffer_idx = k
+                self.buffers[k] = v
+            elif not isinstance(v, str):
+                raise ValueError(f"Invalid buffer value: {v=}")
+            else:
+                self.buffers[k] = BufferRenderPass(buffer_idx=k, code=v, main=self)
+
         # if no explicit offscreen option was given
         # inherit wgpu-py force offscreen option
         if offscreen is None and os.environ.get("WGPU_FORCE_OFFSCREEN") == "true":
             offscreen = True
         self._offscreen = offscreen
 
-        if len(inputs) > 4:
-            raise ValueError("Only 4 inputs are supported.")
-        self.inputs = inputs
-        self.inputs.extend([ShadertoyChannel() for _ in range(4 - len(inputs))])
         self.title = title
         self.complete = complete
 
         if not self.complete:
             self.title += " (incomplete)"
 
-        self._prepare_render()
+        self._prepare_canvas()
+        self.image._format = self._format
         self._bind_events()
+
+        if profile:
+            # start and end for all buffers and image
+            count = 2 * (len(self.buffers) + 1)
+            self._query_set = self._device.create_query_set(
+                type=wgpu.QueryType.timestamp, count=count
+            )
+            # INT64 means 8 bytes per query.
+            self._query_buffer = self._device.create_buffer(
+                size=8 * self._query_set.count,
+                usage=wgpu.BufferUsage.QUERY_RESOLVE | wgpu.BufferUsage.COPY_SRC,
+            )
+            print(
+                f"frame, {', '.join([f'{c}-buf, wait{n}' for n,c in enumerate(self.buffers.keys())] + ['Image,cpu(sum),gpu(sum)'])}"
+            )
+
+        # TODO: could this be part of the __init__ of each renderpass? (but we need the device)
+        for rpass in (self.image, *self.buffers.values()):
+            if rpass:  # skip None
+                rpass.prepare_render(device=self._device)
 
     @property
     def resolution(self):
@@ -357,22 +212,27 @@ class Shadertoy:
         """The shader code to use."""
         return self._shader_code
 
+    # TODO: remove this redundant code snippet
     @property
     def shader_type(self) -> str:
-        """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
-        if self._shader_type in ("wgsl", "glsl"):
-            return self._shader_type
+        """
+        The shader type of the main image renderpass.
+        """
+        return self.image.shader_type
 
-        wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
-        glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
-        if wgsl_main_expr.search(self.shader_code):
-            return "wgsl"
-        elif glsl_main_expr.search(self.shader_code):
-            return "glsl"
-        else:
-            raise ValueError(
-                "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
-            )
+    def _request_device(self, features) -> wgpu.GPUDevice:
+        """
+        returns the _global_device if no features are required
+        otherwise requests a new device with the required features
+        this logic is needed to pass unit tests due to how we run examples.
+        Might be deprecated in the future, ref: https://github.com/pygfx/wgpu-py/pull/517
+        """
+        if not features:
+            return wgpu.utils.get_default_device()
+
+        return wgpu.gpu.request_adapter(
+            power_preference="high-performance"
+        ).request_device(required_features=features)
 
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
@@ -386,7 +246,7 @@ class Shadertoy:
         shader_data = shadertoy_from_id(id_or_url)
         return cls.from_json(shader_data, **kwargs)
 
-    def _prepare_render(self):
+    def _prepare_canvas(self):
         import wgpu.backends.auto
 
         if self._offscreen:
@@ -398,178 +258,33 @@ class Shadertoy:
                 title=self.title, size=self.resolution, max_fps=60
             )
 
-        self._device = wgpu.utils.device.get_default_device()
+        self._present_context: wgpu.GPUCanvasContext = self._canvas.get_context()
 
-        self._present_context = self._canvas.get_context()
+        # We use non srgb variants, because we want to let the shader fully control the color-space.
+        # Defaults usually return the srgb variant, but a non srgb option is usually available
+        # comparable: https://docs.rs/wgpu/latest/wgpu/enum.TextureFormat.html#method.remove_srgb_suffix
+        self._format = self._present_context.get_preferred_format(
+            adapter=self._device.adapter
+        ).removesuffix("-srgb")
 
-        # We use "bgra8unorm" not "bgra8unorm-srgb" here because we want to let the shader fully control the color-space.
-        self._present_context.configure(
-            device=self._device, format=wgpu.TextureFormat.bgra8unorm
-        )
-
-        shader_type = self.shader_type
-        if shader_type == "glsl":
-            vertex_shader_code = vertex_code_glsl
-            frag_shader_code = (
-                builtin_variables_glsl
-                + self.common
-                + self.shader_code
-                + fragment_code_glsl
-            )
-        elif shader_type == "wgsl":
-            vertex_shader_code = vertex_code_wgsl
-            frag_shader_code = (
-                builtin_variables_wgsl
-                + self.common
-                + self.shader_code
-                + fragment_code_wgsl
-            )
-
-        vertex_shader_program = self._device.create_shader_module(
-            label="triangle_vert", code=vertex_shader_code
-        )
-        frag_shader_program = self._device.create_shader_module(
-            label="triangle_frag", code=frag_shader_code
-        )
-
-        self._uniform_buffer = self._device.create_buffer(
-            size=self._uniform_data.nbytes,
-            usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
-        )
-
-        bind_groups_layout_entries = [
-            {
-                "binding": 0,
-                "resource": {
-                    "buffer": self._uniform_buffer,
-                    "offset": 0,
-                    "size": self._uniform_data.nbytes,
-                },
-            },
-        ]
-
-        binding_layout = [
-            {
-                "binding": 0,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "buffer": {"type": wgpu.BufferBindingType.uniform},
-            },
-        ]
-        channel_res = []
-        for input_idx, channel_input in enumerate(self.inputs):
-            texture_binding = (2 * input_idx) + 1
-            sampler_binding = 2 * (input_idx + 1)
-            binding_layout.extend(
-                [
-                    {
-                        "binding": texture_binding,
-                        "visibility": wgpu.ShaderStage.FRAGMENT,
-                        "texture": {
-                            "sample_type": wgpu.TextureSampleType.float,
-                            "view_dimension": wgpu.TextureViewDimension.d2,
-                        },
-                    },
-                    {
-                        "binding": sampler_binding,
-                        "visibility": wgpu.ShaderStage.FRAGMENT,
-                        "sampler": {"type": wgpu.SamplerBindingType.filtering},
-                    },
-                ]
-            )
-
-            texture = self._device.create_texture(
-                size=channel_input.texture_size,
-                format=wgpu.TextureFormat.rgba8unorm,
-                usage=wgpu.TextureUsage.COPY_DST | wgpu.TextureUsage.TEXTURE_BINDING,
-            )
-            texture_view = texture.create_view()
-
-            self._device.queue.write_texture(
-                {
-                    "texture": texture,
-                    "origin": (0, 0, 0),
-                    "mip_level": 0,
-                },
-                channel_input.data,
-                {
-                    "offset": 0,
-                    "bytes_per_row": channel_input.bytes_per_pixel
-                    * channel_input.size[1],  # must be multiple of 256?
-                    "rows_per_image": channel_input.size[0],  # same is done internally
-                },
-                texture.size,
-            )
-
-            sampler = self._device.create_sampler(**channel_input.sampler_settings)
-            bind_groups_layout_entries.extend(
-                [
-                    {
-                        "binding": texture_binding,
-                        "resource": texture_view,
-                    },
-                    {
-                        "binding": sampler_binding,
-                        "resource": sampler,
-                    },
-                ]
-            )
-            channel_res.append(channel_input.size[1])  # width
-            channel_res.append(channel_input.size[0])  # height
-            channel_res.append(1)  # always 1 for pixel aspect ratio
-            channel_res.append(-99)  # padding/tests
-        self._uniform_data["channel_res"] = tuple(channel_res)
-        bind_group_layout = self._device.create_bind_group_layout(
-            entries=binding_layout
-        )
-
-        self._bind_group = self._device.create_bind_group(
-            layout=bind_group_layout,
-            entries=bind_groups_layout_entries,
-        )
-
-        self._render_pipeline = self._device.create_render_pipeline(
-            layout=self._device.create_pipeline_layout(
-                bind_group_layouts=[bind_group_layout]
-            ),
-            vertex={
-                "module": vertex_shader_program,
-                "entry_point": "main",
-                "buffers": [],
-            },
-            primitive={
-                "topology": wgpu.PrimitiveTopology.triangle_list,
-                "front_face": wgpu.FrontFace.ccw,
-                "cull_mode": wgpu.CullMode.none,
-            },
-            depth_stencil=None,
-            multisample=None,
-            fragment={
-                "module": frag_shader_program,
-                "entry_point": "main",
-                "targets": [
-                    {
-                        "format": wgpu.TextureFormat.bgra8unorm,
-                        "blend": {
-                            "color": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                            "alpha": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                        },
-                    },
-                ],
-            },
-        )
+        self._present_context.configure(device=self._device, format=self._format)
 
     def _bind_events(self):
         def on_resize(event):
             w, h = event["width"], event["height"]
             self._uniform_data["resolution"] = (w, h, 1)
+            for buf in self.buffers.values():
+                if buf:
+                    buf.resize(int(w), int(h))
+            # Refresh all channels that use buffer textures, by redoing all the channels pretty much.
+            for rpass in [*self.buffers.values(), self.image]:
+                if rpass:
+                    # clear out the previous binding layout, first entry is the uniform buffer, which stays.
+                    rpass._binding_layout = rpass._binding_layout[:1]
+                    rpass._bind_groups_layout_entries = (
+                        rpass._bind_groups_layout_entries[:1]
+                    )
+                    rpass._finish_renderpass(self._device)
 
         def on_mouse_move(event):
             if event["button"] == 1 or 1 in event["buttons"]:
@@ -593,10 +308,14 @@ class Shadertoy:
         self._canvas.add_event_handler(on_mouse_up, "pointer_up")
 
     def _update(self):
+        """
+        Updates the uniform information (time, date, frame, etc.) for the next frame.
+        """
         now = time.perf_counter()
         if not hasattr(self, "_last_time"):
             self._last_time = now
 
+        # consider using timestamp queryset to get the actual rendertime somehow?
         if not hasattr(self, "_time_history"):
             self._time_history = collections.deque(maxlen=256)
 
@@ -629,38 +348,67 @@ class Shadertoy:
 
     def _draw_frame(self):
         # Update uniform buffer
+        # TODO:look into push constants https://github.com/pygfx/wgpu-py/pull/574
         self._update()
         self._device.queue.write_buffer(
-            self._uniform_buffer,
+            self.image._uniform_buffer,
             0,
             self._uniform_data.mem,
             0,
             self._uniform_data.nbytes,
         )
 
-        command_encoder = self._device.create_command_encoder()
-        current_texture = self._present_context.get_current_texture()
+        render_encoders = []
 
-        render_pass = command_encoder.begin_render_pass(
-            color_attachments=[
-                {
-                    "view": current_texture.create_view(),
-                    "resolve_target": None,
-                    "clear_value": (0, 0, 0, 1),
-                    "load_op": wgpu.LoadOp.clear,
-                    "store_op": wgpu.StoreOp.store,
-                }
-            ],
+        # Buffers are rendered first, order A-D, then finally the Image.
+        for buf in self.buffers.values():
+            if buf:  # checks if not None?
+                render_encoders.append(buf.draw_buffer(self._device))
+
+        render_encoders.append(
+            self.image.draw_image(self._device, self._present_context)
         )
 
-        render_pass.set_pipeline(self._render_pipeline)
-        render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
-        render_pass.draw(3, 1, 0, 0)
-        render_pass.end()
+        if hasattr(self, "_query_set"):
+            command_encoder = self._device.create_command_encoder()
+            command_encoder.resolve_query_set(
+                query_set=self._query_set,
+                first_query=0,
+                query_count=self._query_set.count,
+                destination=self._query_buffer,
+                destination_offset=0,
+            )
+            render_encoders.append(command_encoder.finish())
 
-        self._device.queue.submit([command_encoder.finish()])
-
+        # Submit all render encoders
+        self._device.queue.submit(render_encoders)
         self._canvas.request_draw()
+
+        if hasattr(self, "_query_set"):
+            # values in nanosecond timestamps
+            timestamps = (
+                self._device.queue.read_buffer(self._query_buffer).cast("Q").tolist()
+            )
+            print(f"{self._frame:5d}", end=",")
+            total_dur, total_wait = 0, 0
+            for n in range(self._query_set.count // 2):
+                start = timestamps[n * 2]
+                if n == 0:
+                    # TODO: first wait is between frames maybe?
+                    wait = 0.0
+                else:
+                    # wait time between passes, takes the end from the previous pass.
+                    wait = start - timestamps[(n * 2) - 1]
+                    print(f"{wait/1000:>6.2f}", end=",")
+                end = timestamps[(n * 2) + 1]
+                duration = end - start
+                print(
+                    f"{duration/1000:>6.2f}",
+                    end=",",
+                )
+                total_dur += duration
+                total_wait += wait
+            print(f"{total_wait/1000:>8.2f},{total_dur/1000:>8.2f}")
 
     def show(self):
         self._canvas.request_draw(self._draw_frame)
@@ -690,21 +438,3 @@ class Shadertoy:
         self._canvas.request_draw(self._draw_frame)
         frame = self._canvas.draw()
         return frame
-
-
-if __name__ == "__main__":
-    shader = Shadertoy(
-        """
-    fn shader_main(frag_coord: vec2<f32>) -> vec4<f32> {
-        let uv = frag_coord / i_resolution.xy;
-
-        if ( length(frag_coord - i_mouse.xy) < 20.0 ) {
-            return vec4<f32>(textureSample(i_channel0, sampler0, uv));
-        }else{
-            return vec4<f32>( 0.5 + 0.5 * sin(i_time * vec3<f32>(uv, 1.0) ), 1.0);
-        }
-
-    }
-    """
-    )
-    shader.show()

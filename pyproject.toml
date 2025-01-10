@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 name = "wgpu-shadertoy"
 dynamic = ["version", "readme"]
 dependencies = [
-  "wgpu>=0.16.0,<0.17.0",
+  "wgpu>=0.16.0,<0.19.0",
   "requests",
   "numpy",
   "Pillow",
@@ -29,7 +29,6 @@ Repository = "https://github.com/pygfx/shadertoy"
 
 [project.optional-dependencies]
 dev = [
-    "numpy",
     "pytest",
     "ruff",
     "imageio",

@@ -17,12 +17,20 @@ argument_parser.add_argument(
     default=(800, 450),
 )
 
+argument_parser.add_argument(
+    "-P",
+    "--profile",
+    action="store_true",
+    default=False,
+    help="Outputs rendertimes for all renderpasses, can be piped into a .csv for analysis",
+)
+
 
 def main_cli():
     args = argument_parser.parse_args()
     shader_id = args.shader_id
     resolution = args.resolution
-    shader = Shadertoy.from_id(shader_id, resolution=resolution)
+    shader = Shadertoy.from_id(shader_id, resolution=resolution, profile=args.profile)
     shader.show()
 
 
