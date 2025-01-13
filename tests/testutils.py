@@ -6,7 +6,7 @@ import sys
 from io import StringIO
 from pathlib import Path
 
-from wgpu.utils import get_default_device  # noqa
+import wgpu
 
 ROOT = Path(__file__).parent.parent  # repo root
 examples_dir = ROOT / "examples"
@@ -92,25 +92,13 @@ def _determine_can_use_glfw():
         return True
 
 
-def get_wgpu_backend():
-    """
-    Query the configured wgpu backend driver.
-    """
-    code = "import wgpu.utils; info = wgpu.utils.get_default_device().adapter.info; print(info['adapter_type'], info['backend_type'])"
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            code,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        cwd=ROOT,
-    )
-    out = result.stdout.strip()
-    err = result.stderr.strip()
-    return err if "traceback" in err.lower() else out
+def get_default_adapter_summary():
+    """Get description of adapter, or None when no adapter is available."""
+    try:
+        adapter = wgpu.gpu.request_adapter()
+    except RuntimeError:
+        return None  # lib not available, or no adapter on this system
+    return adapter.summary
 
 
 def find_examples(query=None, negative_query=None, return_stems=False):
@@ -133,5 +121,7 @@ can_use_wgpu_lib = _determine_can_use_wgpu_lib()
 can_use_glfw = _determine_can_use_glfw()
 is_ci = bool(os.getenv("CI", None))
 is_pypy = sys.implementation.name == "pypy"
-wgpu_backend = get_wgpu_backend()
-is_lavapipe = wgpu_backend.lower() == "cpu vulkan"
+adapter_summary = get_default_adapter_summary()
+is_lavapipe = is_lavapipe = adapter_summary and all(
+    x in adapter_summary.lower() for x in ("llvmpipe", "vulkan")
+)

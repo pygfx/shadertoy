@@ -20,7 +20,6 @@ from tests.testutils import (
     find_examples,
     is_lavapipe,
     screenshots_dir,
-    wgpu_backend,
 )
 
 if not can_use_wgpu_lib:
@@ -60,7 +59,7 @@ def mock_time():
 
 
 def test_that_we_are_on_lavapipe():
-    print(wgpu_backend)
+    # print(wgpu_backend)
     if os.getenv("EXPECT_LAVAPIPE"):
         assert is_lavapipe
 
