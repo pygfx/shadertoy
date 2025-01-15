@@ -73,21 +73,22 @@ def _determine_can_use_wgpu_lib():
         stderr=subprocess.PIPE,
         universal_newlines=True,
     )
-    print("_determine_can_use_wgpu_lib() status code:", result.returncode)
+    print("_determine_can_use_wgpu_lib() result", result)
+
     return (
         result.stdout.strip().endswith("ok")
         and "traceback" not in result.stderr.lower()
     )
 
 
-def _determine_can_use_glfw():
-    code = "import glfw;exit(0) if glfw.init() else exit(1)"
-    try:
-        subprocess.check_output([sys.executable, "-c", code])
-    except Exception:
-        return False
-    else:
-        return True
+# def _determine_can_use_glfw():
+#     code = "import glfw;exit(0) if glfw.init() else exit(1)"
+#     try:
+#         subprocess.check_output([sys.executable, "-c", code])
+#     except Exception:
+#         return False
+#     else:
+#         return True
 
 
 # mix of the changes in https://github.com/pygfx/wgpu-py/pull/604
@@ -130,7 +131,7 @@ def find_examples(query=None, negative_query=None, return_stems=False):
 
 
 can_use_wgpu_lib = _determine_can_use_wgpu_lib()
-can_use_glfw = _determine_can_use_glfw()
+# can_use_glfw = _determine_can_use_glfw()
 is_ci = bool(os.getenv("CI", None))
 is_pypy = sys.implementation.name == "pypy"
 adapter_summary = get_default_adapter_summary()
