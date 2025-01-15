@@ -91,15 +91,27 @@ def _determine_can_use_glfw():
     else:
         return True
 
-
+# mix of the changes in https://github.com/pygfx/wgpu-py/pull/604
+# to hopefully avoid the panic?
 def get_default_adapter_summary():
-    """Get description of adapter, or None when no adapter is available."""
-    try:
-        adapter = wgpu.gpu.request_adapter()
-    except RuntimeError:
-        return None  # lib not available, or no adapter on this system
-    return adapter.summary
-
+    """
+    Query the configured wgpu backend driver.
+    """
+    code = "import wgpu; adapter = wgpu.gpu.request_adapter(); print(adapter.summary)"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            code,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        cwd=ROOT,
+    )
+    out = result.stdout.strip()
+    err = result.stderr.strip()
+    return err if "traceback" in err.lower() else out
 
 def find_examples(query=None, negative_query=None, return_stems=False):
     result = []
