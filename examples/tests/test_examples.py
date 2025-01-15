@@ -15,6 +15,7 @@ import pytest
 
 from tests.testutils import (
     ROOT,
+    adapter_summary,
     can_use_wgpu_lib,
     diffs_dir,
     find_examples,
@@ -59,7 +60,7 @@ def mock_time():
 
 
 def test_that_we_are_on_lavapipe():
-    # print(wgpu_backend)
+    print(adapter_summary)
     if os.getenv("EXPECT_LAVAPIPE"):
         assert is_lavapipe
 

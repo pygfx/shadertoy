@@ -6,8 +6,6 @@ import sys
 from io import StringIO
 from pathlib import Path
 
-import wgpu
-
 ROOT = Path(__file__).parent.parent  # repo root
 examples_dir = ROOT / "examples"
 screenshots_dir = examples_dir / "screenshots"
@@ -91,13 +89,14 @@ def _determine_can_use_glfw():
     else:
         return True
 
+
 # mix of the changes in https://github.com/pygfx/wgpu-py/pull/604
 # to hopefully avoid the panic?
 def get_default_adapter_summary():
     """
     Query the configured wgpu backend driver.
     """
-    code = "import wgpu; adapter = wgpu.gpu.request_adapter(); print(adapter.summary)"
+    code = "import wgpu.utils; adapter = wgpu.utils.get_default_device().adapter; print(adapter.summary)"
     result = subprocess.run(
         [
             sys.executable,
@@ -112,6 +111,7 @@ def get_default_adapter_summary():
     out = result.stdout.strip()
     err = result.stderr.strip()
     return err if "traceback" in err.lower() else out
+
 
 def find_examples(query=None, negative_query=None, return_stems=False):
     result = []
