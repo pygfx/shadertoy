@@ -6,8 +6,6 @@ import sys
 from io import StringIO
 from pathlib import Path
 
-from wgpu.utils import get_default_device  # noqa
-
 ROOT = Path(__file__).parent.parent  # repo root
 examples_dir = ROOT / "examples"
 screenshots_dir = examples_dir / "screenshots"
@@ -75,28 +73,31 @@ def _determine_can_use_wgpu_lib():
         stderr=subprocess.PIPE,
         universal_newlines=True,
     )
-    print("_determine_can_use_wgpu_lib() status code:", result.returncode)
+    print("_determine_can_use_wgpu_lib() result", result)
+
     return (
         result.stdout.strip().endswith("ok")
         and "traceback" not in result.stderr.lower()
     )
 
 
-def _determine_can_use_glfw():
-    code = "import glfw;exit(0) if glfw.init() else exit(1)"
-    try:
-        subprocess.check_output([sys.executable, "-c", code])
-    except Exception:
-        return False
-    else:
-        return True
+# def _determine_can_use_glfw():
+#     code = "import glfw;exit(0) if glfw.init() else exit(1)"
+#     try:
+#         subprocess.check_output([sys.executable, "-c", code])
+#     except Exception:
+#         return False
+#     else:
+#         return True
 
 
-def get_wgpu_backend():
+# mix of the changes in https://github.com/pygfx/wgpu-py/pull/604
+# to hopefully avoid the panic?
+def get_default_adapter_summary():
     """
     Query the configured wgpu backend driver.
     """
-    code = "import wgpu.utils; info = wgpu.utils.get_default_device().adapter.info; print(info['adapter_type'], info['backend_type'])"
+    code = "import wgpu.utils; adapter = wgpu.utils.get_default_device().adapter; print(adapter.summary)"
     result = subprocess.run(
         [
             sys.executable,
@@ -130,8 +131,10 @@ def find_examples(query=None, negative_query=None, return_stems=False):
 
 
 can_use_wgpu_lib = _determine_can_use_wgpu_lib()
-can_use_glfw = _determine_can_use_glfw()
+# can_use_glfw = _determine_can_use_glfw()
 is_ci = bool(os.getenv("CI", None))
 is_pypy = sys.implementation.name == "pypy"
-wgpu_backend = get_wgpu_backend()
-is_lavapipe = wgpu_backend.lower() == "cpu vulkan"
+adapter_summary = get_default_adapter_summary()
+is_lavapipe = is_lavapipe = adapter_summary and all(
+    x in adapter_summary.lower() for x in ("llvmpipe", "vulkan")
+)

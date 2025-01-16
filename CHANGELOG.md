@@ -21,6 +21,7 @@ Possible sections in each release:
 
 Added:
 * Run shaders from the website API https://github.com/pygfx/shadertoy/pull/25
+* Additional Uniforms are now supported in `.screenshot()` https://github.com/pygfx/shadertoy/pull/37
 
 ### [v0.1.0] - 2024-01-21
 
