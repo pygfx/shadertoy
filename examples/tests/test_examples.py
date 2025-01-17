@@ -15,12 +15,12 @@ import pytest
 
 from tests.testutils import (
     ROOT,
+    adapter_summary,
     can_use_wgpu_lib,
     diffs_dir,
     find_examples,
     is_lavapipe,
     screenshots_dir,
-    wgpu_backend,
 )
 
 if not can_use_wgpu_lib:
@@ -60,7 +60,7 @@ def mock_time():
 
 
 def test_that_we_are_on_lavapipe():
-    print(wgpu_backend)
+    print(adapter_summary)
     if os.getenv("EXPECT_LAVAPIPE"):
         assert is_lavapipe
 
@@ -103,9 +103,9 @@ def test_examples_screenshots(
         imageio.imwrite(screenshot_path, img)
 
     # if a reference screenshot exists, assert it is equal
-    assert (
-        screenshot_path.exists()
-    ), "found # test_example = true but no reference screenshot available"
+    assert screenshot_path.exists(), (
+        "found # test_example = true but no reference screenshot available"
+    )
     stored_img = imageio.imread(screenshot_path)
     # assert similarity
     is_similar = np.allclose(img, stored_img, atol=1)

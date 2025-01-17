@@ -19,11 +19,11 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.9
+        python-version: '3.12'
     - name: Install dev dependencies
       run: |
           python -m pip install --upgrade pip
@@ -41,11 +41,11 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.9
+        python-version: '3.12'
     - name: Install dev dependencies
       run: |
           python -m pip install --upgrade pip twine
@@ -63,15 +63,15 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: '3.12'
     - name: Install llvmpipe and lavapipe for offscreen canvas
       run: |
         sudo apt-get update -y -qq
-        sudo apt install -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+        sudo apt install -y libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
     - name: Install dev dependencies
       run: |
           python -m pip install --upgrade pip
@@ -80,7 +80,7 @@ jobs:
       env:
         EXPECT_LAVAPIPE: true
       run: |
-          pytest -v examples
+          pytest -vvvs examples
 
   test-builds:
     name: ${{ matrix.name }}
@@ -90,9 +90,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Test Linux py38
-            os: ubuntu-latest
-            pyversion: '3.8'
           - name: Test Linux py39
             os: ubuntu-latest
             pyversion: '3.9'
@@ -107,25 +104,25 @@ jobs:
             pyversion: '3.12'
           - name: Test Linux pypy3
             os: ubuntu-latest
-            pyversion: 'pypy3.9'
+            pyversion: 'pypy3.10'
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.pyversion }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.pyversion }}
     - name: Install llvmpipe and lavapipe for offscreen canvas
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update -y -qq
-        sudo apt install -y libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+        sudo apt install -y libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
     - name: Install dev dependencies
       run: |
           python -m pip install --upgrade pip
           pip install -e .[dev]
     - name: Unit tests
       run: |
-          pytest -v tests
+          pytest -vvvs tests
 
   publish:
     name: Publish to Github and Pypi

@@ -70,11 +70,11 @@ To easily load shaders from the website make use of the `.from_id` or `.from_jso
 shader = Shadertoy.from_id("NslGRN")
 ```
 
-When passing `offscreen=True` the `.snapshot()` method allows you to render specific frames. Use the following code snippet to get an RGB image.
+When passing `offscreen=True` the `.snapshot()` method allows you to render individual frames with chosen uniforms. Use the following code snippet to get an RGB image.
 ```python
 shader = Shadertoy(shader_code, resolution=(800, 450), offscreen=True)
 frame0_data = shader.snapshot()
-frame10_data = shader.snapshot(10.0)
+frame600_data = shader.snapshot(time_float=10.0, frame=600)
 # reorder the the channels from bgra to rgba
 frame0_img = Image.fromarray(np.asarray(frame0_data)[..., [2, 1, 0, 3]]).convert('RGB')
 frame0_img.save("frame0.png")
