@@ -202,7 +202,7 @@ class RenderPass:
                     iFrameRate = input.si_framerate;
                     
                     // handle the YFLIP part for just the Image pass?
-                    vec2 fragcoord=vec2(gl_FragCoord.x, {'iResolution.y-' if isinstance(self, ImageRenderPass) else ''}gl_FragCoord.y);
+                    vec2 fragcoord=vec2(gl_FragCoord.x, {"iResolution.y-" if isinstance(self, ImageRenderPass) else ""}gl_FragCoord.y);
                     mainImage(FragColor, fragcoord);
                 }}
                 """
@@ -259,7 +259,7 @@ class RenderPass:
                     i_framerate = input.si_framerate;
 
                     // Yflip for the image pass (not the correct solution)
-                    let frag_coord = vec2f(in.position.x, {'i_resolution.y-' if isinstance(self, ImageRenderPass) else ''}in.position.y);
+                    let frag_coord = vec2f(in.position.x, {"i_resolution.y-" if isinstance(self, ImageRenderPass) else ""}in.position.y);
                     return shader_main(frag_coord);
                 }}
                 """

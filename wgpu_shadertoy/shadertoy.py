@@ -194,7 +194,7 @@ class Shadertoy:
                 usage=wgpu.BufferUsage.QUERY_RESOLVE | wgpu.BufferUsage.COPY_SRC,
             )
             print(
-                f"frame, {', '.join([f'{c}-buf, wait{n}' for n,c in enumerate(self.buffers.keys())] + ['Image,cpu(sum),gpu(sum)'])}"
+                f"frame, {', '.join([f'{c}-buf, wait{n}' for n, c in enumerate(self.buffers.keys())] + ['Image,cpu(sum),gpu(sum)'])}"
             )
 
         # TODO: could this be part of the __init__ of each renderpass? (but we need the device)
@@ -403,16 +403,16 @@ class Shadertoy:
                 else:
                     # wait time between passes, takes the end from the previous pass.
                     wait = start - timestamps[(n * 2) - 1]
-                    print(f"{wait/1000:>6.2f}", end=",")
+                    print(f"{wait / 1000:>6.2f}", end=",")
                 end = timestamps[(n * 2) + 1]
                 duration = end - start
                 print(
-                    f"{duration/1000:>6.2f}",
+                    f"{duration / 1000:>6.2f}",
                     end=",",
                 )
                 total_dur += duration
                 total_wait += wait
-            print(f"{total_wait/1000:>8.2f},{total_dur/1000:>8.2f}")
+            print(f"{total_wait / 1000:>8.2f},{total_dur / 1000:>8.2f}")
 
     def show(self):
         self._canvas.request_draw(self._draw_frame)
