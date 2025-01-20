@@ -549,18 +549,6 @@ class Shadertoy:
                 "targets": [
                     {
                         "format": wgpu.TextureFormat.bgra8unorm,
-                        "blend": {
-                            "color": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                            "alpha": (
-                                wgpu.BlendFactor.one,
-                                wgpu.BlendFactor.zero,
-                                wgpu.BlendOperation.add,
-                            ),
-                        },
                     },
                 ],
             },
