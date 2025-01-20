@@ -385,6 +385,13 @@ class Shadertoy:
         return cls.from_json(shader_data, **kwargs)
 
     def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel]:
+        """
+        Attach up to four input (channels) to a RenderPass. 
+        Handles cases where input is detected but not provided by falling back a 8x8 black texture.
+        Also skips inputs that aren't used.
+        Returns a list of `ShadertoyChannel` subclass instances to be set as .channels of the renderpass
+        """
+
         if len(inputs) > 4:
             raise ValueError("Only 4 inputs supported")
 
@@ -404,8 +411,10 @@ class Shadertoy:
             if inp_idx not in detected_channels:
                 channel = None
             elif type(inp) is ShadertoyChannel:
+                # case where the base class is provided
                 channel = inp.infer_subclass(parent=self, channel_idx=inp_idx)
             elif isinstance(inp, ShadertoyChannel):
+                # case where a subclass is provided
                 inp.channel_idx = inp_idx
                 inp.parent = self
                 channel = inp
@@ -416,6 +425,7 @@ class Shadertoy:
                 # do we even get here?
                 channel = None
 
+            # TODO: dynamic channels not yet implemented.
             # if channel is not None:
             #     self._input_headers += channel.get_header(shader_type=self.shader_type)
             channels.append(channel)

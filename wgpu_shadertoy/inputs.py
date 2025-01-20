@@ -234,7 +234,6 @@ class ShadertoyChannelTexture(ShadertoyChannel):
         )
 
         texture_view = texture.create_view()
-        #destination, data, data_layout, size
         device.queue.write_texture(
             destination={
                 "texture": texture,
