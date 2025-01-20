@@ -3,6 +3,7 @@ import ctypes
 import os
 import re
 import time
+from typing import List
 
 import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
@@ -10,7 +11,7 @@ from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
-from .inputs import ShadertoyChannel
+from .inputs import ShadertoyChannel, ShadertoyChannelTexture
 
 vertex_code_glsl = """#version 450 core
 
@@ -334,10 +335,7 @@ class Shadertoy:
             offscreen = True
         self._offscreen = offscreen
 
-        if len(inputs) > 4:
-            raise ValueError("Only 4 inputs are supported.")
-        self.inputs = inputs
-        self.inputs.extend([ShadertoyChannel() for _ in range(4 - len(inputs))])
+        self.channels = self._attach_inputs(inputs)
         self.title = title
         self.complete = complete
 
@@ -385,6 +383,44 @@ class Shadertoy:
         """Builds a `Shadertoy` instance from a Shadertoy.com shader id or url. Requires API key to be set."""
         shader_data = shadertoy_from_id(id_or_url)
         return cls.from_json(shader_data, **kwargs)
+
+    def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel]:
+        if len(inputs) > 4:
+            raise ValueError("Only 4 inputs supported")
+
+        # fill up with None to always have 4 inputs.
+        if len(inputs) < 4:
+            inputs.extend([None] * (4 - len(inputs)))
+
+        channel_pattern = re.compile(r"(?:iChannel|i_channel)(\d+)")
+        detected_channels = [
+            int(c)
+            for c in set(channel_pattern.findall(self.common + self.shader_code))
+        ]
+
+        channels = []
+
+        for inp_idx, inp in enumerate(inputs):
+            if inp_idx not in detected_channels:
+                channel = None
+            elif type(inp) is ShadertoyChannel:
+                channel = inp.infer_subclass(parent=self, channel_idx=inp_idx)
+            elif isinstance(inp, ShadertoyChannel):
+                inp.channel_idx = inp_idx
+                inp.parent = self
+                channel = inp
+            elif inp is None and inp_idx in detected_channels:
+                # this is the base case where we sample the black texture.
+                channel = ShadertoyChannelTexture(channel_idx=inp_idx)
+            else:
+                # do we even get here?
+                channel = None
+
+            # if channel is not None:
+            #     self._input_headers += channel.get_header(shader_type=self.shader_type)
+            channels.append(channel)
+
+        return channels
 
     def _prepare_render(self):
         import wgpu.backends.auto
@@ -456,65 +492,15 @@ class Shadertoy:
             },
         ]
         channel_res = []
-        for input_idx, channel_input in enumerate(self.inputs):
-            texture_binding = (2 * input_idx) + 1
-            sampler_binding = 2 * (input_idx + 1)
-            binding_layout.extend(
-                [
-                    {
-                        "binding": texture_binding,
-                        "visibility": wgpu.ShaderStage.FRAGMENT,
-                        "texture": {
-                            "sample_type": wgpu.TextureSampleType.float,
-                            "view_dimension": wgpu.TextureViewDimension.d2,
-                        },
-                    },
-                    {
-                        "binding": sampler_binding,
-                        "visibility": wgpu.ShaderStage.FRAGMENT,
-                        "sampler": {"type": wgpu.SamplerBindingType.filtering},
-                    },
-                ]
-            )
-
-            texture = self._device.create_texture(
-                size=channel_input.texture_size,
-                format=wgpu.TextureFormat.rgba8unorm,
-                usage=wgpu.TextureUsage.COPY_DST | wgpu.TextureUsage.TEXTURE_BINDING,
-            )
-            texture_view = texture.create_view()
-
-            self._device.queue.write_texture(
-                {
-                    "texture": texture,
-                    "origin": (0, 0, 0),
-                    "mip_level": 0,
-                },
-                channel_input.data,
-                {
-                    "offset": 0,
-                    "bytes_per_row": channel_input.bytes_per_pixel
-                    * channel_input.size[1],  # must be multiple of 256?
-                    "rows_per_image": channel_input.size[0],  # same is done internally
-                },
-                texture.size,
-            )
-
-            sampler = self._device.create_sampler(**channel_input.sampler_settings)
-            bind_groups_layout_entries.extend(
-                [
-                    {
-                        "binding": texture_binding,
-                        "resource": texture_view,
-                    },
-                    {
-                        "binding": sampler_binding,
-                        "resource": sampler,
-                    },
-                ]
-            )
-            channel_res.append(channel_input.size[1])  # width
-            channel_res.append(channel_input.size[0])  # height
+        for input_idx, channel in enumerate(self.channels):
+            if channel is None:
+                channel_res.extend([0, 0, 1, -99])  # default values; quick hack
+                continue
+            layout, layout_entry = channel.bind_texture(device=self._device)
+            binding_layout.extend(layout)
+            bind_groups_layout_entries.extend(layout_entry)
+            channel_res.append(channel.size[1])  # width
+            channel_res.append(channel.size[0])  # height
             channel_res.append(1)  # always 1 for pixel aspect ratio
             channel_res.append(-99)  # padding/tests
         self._uniform_data["channel_res"] = tuple(channel_res)

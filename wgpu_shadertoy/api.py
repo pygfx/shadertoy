@@ -82,7 +82,7 @@ def _download_media_channels(inputs: list, use_cache=True) -> Tuple[list["Shader
         else:
             complete = False
             continue # skip the below rows
-        channel = ShadertoyChannel(**args, ctype=inp["ctype"], channel_idx=["channel"], **inp["sampler"])
+        channel = ShadertoyChannel(**args, ctype=inp["ctype"], channel_idx=inp["channel"], **inp["sampler"])
         channels[inp["channel"]] = channel
     return channels, complete
 

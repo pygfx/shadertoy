@@ -16,97 +16,137 @@ class ShadertoyChannel:
 
     def __init__(self, *args, ctype=None, channel_idx=None, **kwargs):
         self.ctype = ctype
-        if channel_idx is not None:
+        if channel_idx is None:
             channel_idx = kwargs.pop("channel_idx", None)
-        self._channel_idx:int = channel_idx
+        self._channel_idx = channel_idx
         self.args = args
         self.kwargs = kwargs
         self.dynamic:bool = False
 
-        @property
-        def sampler_settings(sef) -> dict:
-            """
-            Sampler settings for this channel. Wrap currently supported. Filter not yet.
-            """
-            settings = {}
-            wrap = kwargs.pop("wrap", "clamp-to-edge")
-            # "warp", "clamp" or "repeat" is what we should expect on Shadertoy
-            if wrap.startswith("clamp"):
-                wrap = "clamp-to-edge"
-            settings["address_mode_u"] = wrap
-            settings["address_mode_v"] = wrap
-            # we don't do 3D textures yet, but I guess ssetting this too is fine.
-            settings["address_mode_w"] = wrap
-            return settings
+    @property
+    def sampler_settings(self) -> dict:
+        """
+        Sampler settings for this channel. Wrap currently supported. Filter not yet.
+        """
+        settings = {}
+        wrap = self.kwargs.get("wrap", "clamp-to-edge")
+        # "warp", "clamp" or "repeat" is what we should expect on Shadertoy
+        if wrap.startswith("clamp"):
+            wrap = "clamp-to-edge"
+        settings["address_mode_u"] = wrap
+        settings["address_mode_v"] = wrap
+        # we don't do 3D textures yet, but I guess ssetting this too is fine.
+        settings["address_mode_w"] = wrap
+        return settings
 
-        @property
-        def parent(self) -> "RenderPass":
-            """
-            Parent renderpass of this channel.
-            """
-            if not hasattr(self, "_parent"):
-                raise AttributeError("Parent not set.")
-            return self._parent
+    @property
+    def parent(self) -> "RenderPass":
+        """
+        Parent renderpass of this channel.
+        """
+        if not hasattr(self, "_parent"):
+            raise AttributeError("Parent not set.")
+        return self._parent
 
-        @parent.setter
-        def parent(self, parent):
-            self._parent = parent
+    @parent.setter
+    def parent(self, parent):
+        self._parent = parent
 
-        @property
-        def channel_idx(self) -> int:
-            if self._channel_idx is None:
-                raise AttributeError("Channel index not set.")
-            return self._channel_idx
+    @property
+    def channel_idx(self) -> int:
+        if self._channel_idx is None:
+            raise AttributeError("Channel index not set.")
+        return self._channel_idx
 
-        @channel_idx.setter
-        def channel_idx(self, idx=int):
-            if idx not in (0, 1, 2, 3):
-                raise ValueError("Channel index must be in [0,1,2,3]")
-            self._channel_idx = idx
+    @channel_idx.setter
+    def channel_idx(self, idx=int):
+        if idx not in (0, 1, 2, 3):
+            raise ValueError("Channel index must be in [0,1,2,3]")
+        self._channel_idx = idx
 
-        @property
-        def texture_binding(self) -> int:
-            return (2 * self.channel_idx) + 1
+    @property
+    def texture_binding(self) -> int:
+        return (2 * self.channel_idx) + 1
 
-        @property
-        def sampler_binding(self) -> int:
-            return 2 * (self.channel_idx + 1)
+    @property
+    def sampler_binding(self) -> int:
+        return 2 * (self.channel_idx + 1)
 
-        @property
-        def channel_res(self) -> Tuple[int, int, int, int]:
-            """
-            Tuple of (width, height, pixel_aspect=1, padding=-99)
-            """
-            return (self.size[1], self.size[0], 1, -99)
-        
+    @property
+    def channel_res(self) -> Tuple[int, int, int, int]:
+        """
+        Tuple of (width, height, pixel_aspect=1, padding=-99)
+        """
+        return (self.size[1], self.size[0], 1, -99)
+    
+    @property
+    def size(self) -> Tuple: #what shape tho?
+        """
+        Size of the texture.
+        """
+        return self.data.shape
 
+    def infer_subclass(self, *args_, **kwargs_):
+        """
+        Returns an instance of the relevant subclass with the provided arguments.
+        """
+        # TODO: automatically infer from the provided data/file/link/name or code.
+        args = self.args + args_
+        kwargs = {**self.kwargs, **kwargs_}
+        if self.ctype is None or not hasattr(self, "ctype"):
+            raise NotImplementedError("Can't dynamically infer the ctype yet")
+        if self.ctype == "texture":
+            return ShadertoyChannelTexture(*args, **kwargs)
+        else:
+            raise NotImplementedError(f"Doesn't support {self.ctype=} yet")
 
-        def infer_subclass(self, *args_, **kwargs_):
-            """
-            Returns an instance of the relevant subclass with the provided arguments.
-            """
-            # TODO: automatically infer from the provided data/file/link/name or code.
-            args = self.args + args_
-            kwargs = {**self.kwargs, **kwargs_}
-            if self.ctype is None or not hasattr(self, "ctype"):
-                raise NotImplementedError("Can't dynamically infer the ctype yet")
-            if self.ctype == "texture":
-                return ShadertoyChannelTexture(*args, channel_idx=self._channel_idx, **kwargs)
-            else:
-                raise NotImplementedError(f"Doesn't support {self.ctype=} yet")
+    # TODO: can this be avoided?
+    def _binding_layout(self):
+        return [
+            {
+                "binding": self.texture_binding,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "texture": {
+                    "sample_type": wgpu.TextureSampleType.float,
+                    "view_dimension": wgpu.TextureViewDimension.d2,
+                },
+            },
+            {
+                "binding": self.sampler_binding,
+                "visibility": wgpu.ShaderStage.FRAGMENT,
+                "sampler": {"type": wgpu.SamplerBindingType.filtering},
+            },
+        ]
+
+    def _bind_groups_layout_entries(self, texture_view, sampler) -> list:
+        # TODO maybe refactor this all into a prepare bindings method?
+        return [
+            {
+                "binding": self.texture_binding,
+                "resource": texture_view,
+            },
+            {
+                "binding": self.sampler_binding,
+                "resource": sampler,
+            },
+        ]
 
     def __repr__(self):
         """
         Convenience method to get a representation of this object for debugging.
         """
-        data_repr = {
-            "repr": self.data.__repr__(),
-            "shape": self.data.shape,
-            "strides": self.data.strides,
-            "nbytes": self.data.nbytes,
-        }
+        if hasattr(self, "data"):
+            data_repr = {
+                "repr": self.data.__repr__(),
+                "shape": self.data.shape,
+                "strides": self.data.strides,
+                "nbytes": self.data.nbytes,
+            }
+        else:
+            data_repr = None
         class_repr = {k: v for k, v in self.__dict__.items() if k != "data"}
         class_repr["data"] = data_repr
+        class_repr["class"] = self.__class__
         return repr(class_repr)
 
 
@@ -202,7 +242,7 @@ class ShadertoyChannelTexture(ShadertoyChannel):
             data=self.data,
             data_layout={
                 "bytes_per_row": self.data.strides[0], #multiple of 256
-                "rows_per_image": self.data.size[0], 
+                "rows_per_image": self.size[0], 
             },
             size=texture.size,
         )
