@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from typing import Tuple
 
 import requests
 from PIL import Image
@@ -51,38 +52,43 @@ def _get_cache_dir(subdir="media") -> os.PathLike:
     return cache_dir
 
 
-def _download_media_channels(inputs: list, use_cache=True):
+def _download_media_channels(
+    inputs: list, use_cache=True
+) -> Tuple[list["ShadertoyChannel"], bool]:
     """
-    Downloads media (currently just textures) from Shadertoy.com and returns a list of `ShadertoyChannel` to be directly used for `inputs`.
+    Downloads media (currently just textures) from Shadertoy.com and returns a list of `ShadertoyChannel` subclasses to be directly used for `inputs`.
     Requires internet connection (API key not required).
     """
     media_url = "https://www.shadertoy.com"
-    channels = {}
+    channels = [None] * 4
     cache_dir = _get_cache_dir("media")
     complete = True
     for inp in inputs:
-        if inp["ctype"] != "texture":
-            complete = False
-            continue  # TODO: support other media types
-
-        cache_path = os.path.join(cache_dir, inp["src"].split("/")[-1])
-        if use_cache and os.path.exists(cache_path):
-            img = Image.open(cache_path)
-        else:
-            response = requests.get(
-                media_url + inp["src"], headers=HEADERS, stream=True
-            )
-            if response.status_code != 200:
-                raise requests.exceptions.HTTPError(
-                    f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+        # careful, the order of inputs is not guaranteed to be the same as the order of channels!
+        if inp["ctype"] == "texture":
+            cache_path = os.path.join(cache_dir, inp["src"].split("/")[-1])
+            if use_cache and os.path.exists(cache_path):
+                img = Image.open(cache_path)
+            else:
+                response = requests.get(
+                    media_url + inp["src"], headers=HEADERS, stream=True
                 )
-            img = Image.open(response.raw)
-            if use_cache:
-                img.save(cache_path)
-
-        channel = ShadertoyChannel(img, kind="texture", **inp["sampler"])
+                if response.status_code != 200:
+                    raise requests.exceptions.HTTPError(
+                        f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+                    )
+                img = Image.open(response.raw)
+                if use_cache:
+                    img.save(cache_path)
+            args = {"data": img}
+        else:
+            complete = False
+            continue  # skip the below rows
+        channel = ShadertoyChannel(
+            **args, ctype=inp["ctype"], channel_idx=inp["channel"], **inp["sampler"]
+        )
         channels[inp["channel"]] = channel
-    return list(channels.values()), complete
+    return channels, complete
 
 
 def _save_json(data, path):

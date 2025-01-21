@@ -23,6 +23,9 @@ Added:
 * Run shaders from the website API https://github.com/pygfx/shadertoy/pull/25
 * Additional Uniforms are now supported in `.screenshot()` https://github.com/pygfx/shadertoy/pull/37
 
+Changed:
+* `ShadertoyChannel` is now more specific `ShadertoyChannelTexture` https://github.com/pygfx/shadertoy/pull/40
+
 ### [v0.1.0] - 2024-01-21
 
 Fixed:

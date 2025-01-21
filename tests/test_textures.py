@@ -9,7 +9,7 @@ if not can_use_wgpu_lib:
 
 def test_textures_wgsl():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy, ShadertoyChannel
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannel, ShadertoyChannelTexture
 
     shader_code_wgsl = """
     fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{
@@ -26,8 +26,9 @@ def test_textures_wgsl():
         bytearray((i for i in range(0, 255, 8) for _ in range(4))) * 32
     ).cast("B", shape=[32, 32, 4])
 
-    channel0 = ShadertoyChannel(test_pattern, wrap="repeat", vflip=False)
-    channel1 = ShadertoyChannel(gradient)
+    # test both construction methods and different sampler settings
+    channel0 = ShadertoyChannelTexture(test_pattern, wrap="repeat", vflip=False)
+    channel1 = ShadertoyChannel(gradient, ctype="texture")
 
     shader = Shadertoy(
         shader_code_wgsl, resolution=(640, 480), inputs=[channel0, channel1]
@@ -35,19 +36,21 @@ def test_textures_wgsl():
     assert shader.resolution == (640, 480)
     assert shader.shader_code == shader_code_wgsl
     assert shader.shader_type == "wgsl"
-    assert shader.inputs[0] == channel0
-    assert np.array_equal(shader.inputs[0].data, test_pattern)
-    assert shader.inputs[0].sampler_settings["address_mode_u"] == "repeat"
-    assert shader.inputs[1] == channel1
-    assert np.array_equal(shader.inputs[1].data, gradient)
-    assert shader.inputs[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    # equivalence only holds true if we use the subclass.
+    assert shader.channels[0] == channel0
+    assert np.array_equal(shader.channels[0].data, test_pattern)
+    assert shader.channels[0].sampler_settings["address_mode_u"] == "repeat"
+    # we can instead make sure the subclass has been correctly inferred
+    assert type(shader.channels[1]) is ShadertoyChannelTexture
+    assert np.array_equal(shader.channels[1].data, gradient)
+    assert shader.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
 
     shader._draw_frame()
 
 
 def test_textures_glsl():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy, ShadertoyChannel
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannel, ShadertoyChannelTexture
 
     shader_code = """
     void mainImage( out vec4 fragColor, in vec2 fragCoord )
@@ -66,26 +69,29 @@ def test_textures_glsl():
         bytearray((i for i in range(0, 255, 8) for _ in range(4))) * 32
     ).cast("B", shape=[32, 32, 4])
 
-    channel0 = ShadertoyChannel(test_pattern, wrap="repeat", vflip="false")
-    channel1 = ShadertoyChannel(gradient)
+    # test both construction methods and different sampler settings
+    channel0 = ShadertoyChannelTexture(test_pattern, wrap="repeat", vflip="false")
+    channel1 = ShadertoyChannel(gradient, ctype="texture")
 
     shader = Shadertoy(shader_code, resolution=(640, 480), inputs=[channel0, channel1])
     assert shader.resolution == (640, 480)
     assert shader.shader_code == shader_code
     assert shader.shader_type == "glsl"
-    assert shader.inputs[0] == channel0
-    assert np.array_equal(shader.inputs[0].data, test_pattern)
-    assert shader.inputs[0].sampler_settings["address_mode_u"] == "repeat"
-    assert shader.inputs[1] == channel1
-    assert np.array_equal(shader.inputs[1].data, gradient)
-    assert shader.inputs[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    # equivalence only holds true if we use the subclass.
+    assert shader.channels[0] == channel0
+    assert np.array_equal(shader.channels[0].data, test_pattern)
+    assert shader.channels[0].sampler_settings["address_mode_u"] == "repeat"
+    # we can instead make sure the subclass has been correctly inferred
+    assert type(shader.channels[1]) is ShadertoyChannelTexture
+    assert np.array_equal(shader.channels[1].data, gradient)
+    assert shader.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
 
     shader._draw_frame()
 
 
 def test_channel_res_wgsl():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy, ShadertoyChannel
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannelTexture
 
     shader_code_wgsl = """
     fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{
@@ -106,10 +112,16 @@ def test_channel_res_wgsl():
     }
     """
     img = Image.open("./examples/screenshots/shadertoy_star.png")
-    channel0 = ShadertoyChannel(img.rotate(0, expand=True), wrap="clamp", vflip=True)
-    channel1 = ShadertoyChannel(img.rotate(90, expand=True), wrap="clamp", vflip=False)
-    channel2 = ShadertoyChannel(img.rotate(180, expand=True), wrap="repeat", vflip=True)
-    channel3 = ShadertoyChannel(
+    channel0 = ShadertoyChannelTexture(
+        img.rotate(0, expand=True), wrap="clamp", vflip=True
+    )
+    channel1 = ShadertoyChannelTexture(
+        img.rotate(90, expand=True), wrap="clamp", vflip=False
+    )
+    channel2 = ShadertoyChannelTexture(
+        img.rotate(180, expand=True), wrap="repeat", vflip=True
+    )
+    channel3 = ShadertoyChannelTexture(
         img.rotate(270, expand=True), wrap="repeat", vflip=False
     )
     shader = Shadertoy(
@@ -120,7 +132,7 @@ def test_channel_res_wgsl():
     assert shader.resolution == (1200, 900)
     assert shader.shader_code == shader_code_wgsl
     assert shader.shader_type == "wgsl"
-    assert len(shader.inputs) == 4
+    assert len(shader.channels) == 4
     assert shader._uniform_data["channel_res"] == [
         800.0,
         450.0,
@@ -143,7 +155,7 @@ def test_channel_res_wgsl():
 
 def test_channel_res_glsl():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy, ShadertoyChannel
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannelTexture
 
     shader_code = """
     void mainImage( out vec4 fragColor, in vec2 fragCoord )
@@ -166,10 +178,16 @@ def test_channel_res_glsl():
     }
     """
     img = Image.open("./examples/screenshots/shadertoy_star.png")
-    channel0 = ShadertoyChannel(img.rotate(0, expand=True), wrap="clamp", vflip=True)
-    channel1 = ShadertoyChannel(img.rotate(90, expand=True), wrap="clamp", vflip=False)
-    channel2 = ShadertoyChannel(img.rotate(180, expand=True), wrap="repeat", vflip=True)
-    channel3 = ShadertoyChannel(
+    channel0 = ShadertoyChannelTexture(
+        img.rotate(0, expand=True), wrap="clamp", vflip=True
+    )
+    channel1 = ShadertoyChannelTexture(
+        img.rotate(90, expand=True), wrap="clamp", vflip=False
+    )
+    channel2 = ShadertoyChannelTexture(
+        img.rotate(180, expand=True), wrap="repeat", vflip=True
+    )
+    channel3 = ShadertoyChannelTexture(
         img.rotate(270, expand=True), wrap="repeat", vflip=False
     )
     shader = Shadertoy(
@@ -180,7 +198,7 @@ def test_channel_res_glsl():
     assert shader.resolution == (1200, 900)
     assert shader.shader_code == shader_code
     assert shader.shader_type == "glsl"
-    assert len(shader.inputs) == 4
+    assert len(shader.channels) == 4
     assert shader._uniform_data["channel_res"] == [
         800.0,
         450.0,
