@@ -386,7 +386,7 @@ class Shadertoy:
 
     def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel]:
         """
-        Attach up to four input (channels) to a RenderPass. 
+        Attach up to four input (channels) to a RenderPass.
         Handles cases where input is detected but not provided by falling back a 8x8 black texture.
         Also skips inputs that aren't used.
         Returns a list of `ShadertoyChannel` subclass instances to be set as .channels of the renderpass
@@ -401,8 +401,7 @@ class Shadertoy:
 
         channel_pattern = re.compile(r"(?:iChannel|i_channel)(\d+)")
         detected_channels = [
-            int(c)
-            for c in set(channel_pattern.findall(self.common + self.shader_code))
+            int(c) for c in set(channel_pattern.findall(self.common + self.shader_code))
         ]
 
         channels = []

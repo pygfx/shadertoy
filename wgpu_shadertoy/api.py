@@ -6,7 +6,7 @@ from typing import Tuple
 import requests
 from PIL import Image
 
-from .inputs import ShadertoyChannel, ShadertoyChannelTexture
+from .inputs import ShadertoyChannel
 
 HEADERS = {"user-agent": "https://github.com/pygfx/shadertoy script"}
 
@@ -52,7 +52,9 @@ def _get_cache_dir(subdir="media") -> os.PathLike:
     return cache_dir
 
 
-def _download_media_channels(inputs: list, use_cache=True) -> Tuple[list["ShadertoyChannel"], bool]:
+def _download_media_channels(
+    inputs: list, use_cache=True
+) -> Tuple[list["ShadertoyChannel"], bool]:
     """
     Downloads media (currently just textures) from Shadertoy.com and returns a list of `ShadertoyChannel` subclasses to be directly used for `inputs`.
     Requires internet connection (API key not required).
@@ -81,8 +83,10 @@ def _download_media_channels(inputs: list, use_cache=True) -> Tuple[list["Shader
             args = {"data": img}
         else:
             complete = False
-            continue # skip the below rows
-        channel = ShadertoyChannel(**args, ctype=inp["ctype"], channel_idx=inp["channel"], **inp["sampler"])
+            continue  # skip the below rows
+        channel = ShadertoyChannel(
+            **args, ctype=inp["ctype"], channel_idx=inp["channel"], **inp["sampler"]
+        )
         channels[inp["channel"]] = channel
     return channels, complete
 

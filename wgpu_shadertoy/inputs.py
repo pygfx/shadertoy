@@ -21,7 +21,7 @@ class ShadertoyChannel:
         self._channel_idx = channel_idx
         self.args = args
         self.kwargs = kwargs
-        self.dynamic:bool = False
+        self.dynamic: bool = False
 
     @property
     def sampler_settings(self) -> dict:
@@ -40,7 +40,7 @@ class ShadertoyChannel:
         return settings
 
     @property
-    def parent(self) -> "RenderPass":
+    def parent(self):
         """
         Parent renderpass of this channel.
         """
@@ -78,9 +78,9 @@ class ShadertoyChannel:
         Tuple of (width, height, pixel_aspect=1, padding=-99)
         """
         return (self.size[1], self.size[0], 1, -99)
-    
+
     @property
-    def size(self) -> Tuple: #what shape tho?
+    def size(self) -> Tuple:  # what shape tho?
         """
         Size of the texture.
         """
@@ -185,6 +185,7 @@ class ShadertoyChannelTexture(ShadertoyChannel):
         wrap (str): The wrap mode, can be one of ("clamp-to-edge", "repeat", "clamp"). Default is "clamp-to-edge".
         vflip (str or bool): Whether to flip the texture vertically. Can be one of ("true", "false", True, False). Default is True.
     """
+
     # TODO: can we inherent the sampler args part of the docstring?
     def __init__(self, data=None, **kwargs):
         super().__init__(**kwargs)
@@ -240,8 +241,8 @@ class ShadertoyChannelTexture(ShadertoyChannel):
             },
             data=self.data,
             data_layout={
-                "bytes_per_row": self.data.strides[0], #multiple of 256
-                "rows_per_image": self.size[0], 
+                "bytes_per_row": self.data.strides[0],  # multiple of 256
+                "rows_per_image": self.size[0],
             },
             size=texture.size,
         )
@@ -253,7 +254,6 @@ class ShadertoyChannelTexture(ShadertoyChannel):
         )
 
         return binding_layout, bind_groups_layout_entry
-
 
 
 class ShadertoyChannelCubemap(ShadertoyChannel):

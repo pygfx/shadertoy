@@ -91,7 +91,7 @@ def test_textures_glsl():
 
 def test_channel_res_wgsl():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy, ShadertoyChannel, ShadertoyChannelTexture
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannelTexture
 
     shader_code_wgsl = """
     fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{
@@ -112,9 +112,15 @@ def test_channel_res_wgsl():
     }
     """
     img = Image.open("./examples/screenshots/shadertoy_star.png")
-    channel0 = ShadertoyChannelTexture(img.rotate(0, expand=True), wrap="clamp", vflip=True)
-    channel1 = ShadertoyChannelTexture(img.rotate(90, expand=True), wrap="clamp", vflip=False)
-    channel2 = ShadertoyChannelTexture(img.rotate(180, expand=True), wrap="repeat", vflip=True)
+    channel0 = ShadertoyChannelTexture(
+        img.rotate(0, expand=True), wrap="clamp", vflip=True
+    )
+    channel1 = ShadertoyChannelTexture(
+        img.rotate(90, expand=True), wrap="clamp", vflip=False
+    )
+    channel2 = ShadertoyChannelTexture(
+        img.rotate(180, expand=True), wrap="repeat", vflip=True
+    )
     channel3 = ShadertoyChannelTexture(
         img.rotate(270, expand=True), wrap="repeat", vflip=False
     )
@@ -149,7 +155,7 @@ def test_channel_res_wgsl():
 
 def test_channel_res_glsl():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy, ShadertoyChannel, ShadertoyChannelTexture
+    from wgpu_shadertoy import Shadertoy, ShadertoyChannelTexture
 
     shader_code = """
     void mainImage( out vec4 fragColor, in vec2 fragCoord )
@@ -172,9 +178,15 @@ def test_channel_res_glsl():
     }
     """
     img = Image.open("./examples/screenshots/shadertoy_star.png")
-    channel0 = ShadertoyChannelTexture(img.rotate(0, expand=True), wrap="clamp", vflip=True)
-    channel1 = ShadertoyChannelTexture(img.rotate(90, expand=True), wrap="clamp", vflip=False)
-    channel2 = ShadertoyChannelTexture(img.rotate(180, expand=True), wrap="repeat", vflip=True)
+    channel0 = ShadertoyChannelTexture(
+        img.rotate(0, expand=True), wrap="clamp", vflip=True
+    )
+    channel1 = ShadertoyChannelTexture(
+        img.rotate(90, expand=True), wrap="clamp", vflip=False
+    )
+    channel2 = ShadertoyChannelTexture(
+        img.rotate(180, expand=True), wrap="repeat", vflip=True
+    )
     channel3 = ShadertoyChannelTexture(
         img.rotate(270, expand=True), wrap="repeat", vflip=False
     )
