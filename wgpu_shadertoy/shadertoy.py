@@ -508,10 +508,8 @@ class Shadertoy:
             layout, layout_entry = channel.bind_texture(device=self._device)
             binding_layout.extend(layout)
             bind_groups_layout_entries.extend(layout_entry)
-            channel_res.append(channel.size[1])  # width
-            channel_res.append(channel.size[0])  # height
-            channel_res.append(1)  # always 1 for pixel aspect ratio
-            channel_res.append(-99)  # padding/tests
+            channel_res.extend(channel.channel_res)
+
         self._uniform_data["channel_res"] = tuple(channel_res)
         bind_group_layout = self._device.create_bind_group_layout(
             entries=binding_layout
