@@ -350,28 +350,6 @@ class Shadertoy:
         """The resolution of the shadertoy as a tuple (width, height) in pixels."""
         return tuple(self._uniform_data["resolution"])[:2]
 
-    @property
-    def shader_code(self) -> str:
-        """The shader code to use."""
-        return self._shader_code
-
-    @property
-    def shader_type(self) -> str:
-        """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
-        if self._shader_type in ("wgsl", "glsl"):
-            return self._shader_type
-
-        wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
-        glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
-        if wgsl_main_expr.search(self.shader_code):
-            return "wgsl"
-        elif glsl_main_expr.search(self.shader_code):
-            return "glsl"
-        else:
-            raise ValueError(
-                "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
-            )
-
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
         """Builds a `Shadertoy` instance from a JSON-like dict of Shadertoy.com shader data."""
@@ -383,53 +361,6 @@ class Shadertoy:
         """Builds a `Shadertoy` instance from a Shadertoy.com shader id or url. Requires API key to be set."""
         shader_data = shadertoy_from_id(id_or_url)
         return cls.from_json(shader_data, **kwargs)
-
-    def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel]:
-        """
-        Attach up to four input (channels) to a RenderPass.
-        Handles cases where input is detected but not provided by falling back a 8x8 black texture.
-        Also skips inputs that aren't used.
-        Returns a list of `ShadertoyChannel` subclass instances to be set as .channels of the renderpass
-        """
-
-        if len(inputs) > 4:
-            raise ValueError("Only 4 inputs supported")
-
-        # fill up with None to always have 4 inputs.
-        if len(inputs) < 4:
-            inputs.extend([None] * (4 - len(inputs)))
-
-        channel_pattern = re.compile(r"(?:iChannel|i_channel)(\d+)")
-        detected_channels = [
-            int(c) for c in set(channel_pattern.findall(self.common + self.shader_code))
-        ]
-
-        channels = []
-
-        for inp_idx, inp in enumerate(inputs):
-            if inp_idx not in detected_channels:
-                channel = None
-            elif type(inp) is ShadertoyChannel:
-                # case where the base class is provided
-                channel = inp.infer_subclass(parent=self, channel_idx=inp_idx)
-            elif isinstance(inp, ShadertoyChannel):
-                # case where a subclass is provided
-                inp.channel_idx = inp_idx
-                inp.parent = self
-                channel = inp
-            elif inp is None and inp_idx in detected_channels:
-                # this is the base case where we sample the black texture.
-                channel = ShadertoyChannelTexture(channel_idx=inp_idx)
-            else:
-                # do we even get here?
-                channel = None
-
-            # TODO: dynamic channels not yet implemented.
-            # if channel is not None:
-            #     self._input_headers += channel.get_header(shader_type=self.shader_type)
-            channels.append(channel)
-
-        return channels
 
     def _prepare_render(self):
         import wgpu.backends.auto
