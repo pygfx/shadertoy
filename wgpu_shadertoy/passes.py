@@ -6,7 +6,6 @@ import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelTexture
 
-
 # TODO: simplify all the shader code snippets
 vertex_code_glsl = """#version 450 core
 
@@ -216,11 +215,6 @@ class RenderPass:
             Defaults to "glsl".
         inputs (list): A list of :class:`ShadertoyChannel` objects. Each renderpass supports up to 4 inputs which then become .channel attributes.
             If used but not given, samples a black texture.
-
-    Attributes:
-        channels (list): A list of :class:`ShadertoyChannel` objects.
-        _format (wgpu.TextureFormat): texture format for the render target.
-
     """
     def __init__(self, main:None, code: str, shader_type: str = "glsl", inputs: list = []):
         self._main = main
@@ -307,7 +301,7 @@ class RenderPass:
                 # do we even get here?
                 channel = None
 
-            # TODO: dynamic channels not yet implemented.
+            # TODO: dynamic channel headers not yet implemented.
             # if channel is not None:
             #     self._input_headers += channel.get_header(shader_type=self.shader_type)
             channels.append(channel)
@@ -315,6 +309,7 @@ class RenderPass:
         return channels
 
     def _prepare_render(self):
+        # First assemble the shader code
         shader_type = self.shader_type
         if shader_type == "glsl":
             vertex_shader_code = vertex_code_glsl
@@ -340,7 +335,8 @@ class RenderPass:
             label="triangle_frag", code=frag_shader_code
         )
 
-        self.main._uniform_buffer = self._device.create_buffer(
+        # Uniforms are mainly global so the ._uniform_data object can be copied into a local uniform buffer
+        self._uniform_buffer = self._device.create_buffer(
             size=self.main._uniform_data.nbytes,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
@@ -349,7 +345,7 @@ class RenderPass:
             {
                 "binding": 0,
                 "resource": {
-                    "buffer": self.main._uniform_buffer,
+                    "buffer": self._uniform_buffer,
                     "offset": 0,
                     "size": self.main._uniform_data.nbytes,
                 },
@@ -363,8 +359,10 @@ class RenderPass:
                 "buffer": {"type": wgpu.BufferBindingType.uniform},
             },
         ]
+
+        # setup bind groups for the channels
         channel_res = []
-        for input_idx, channel in enumerate(self.channels):
+        for channel in self.channels:
             if channel is None:
                 channel_res.extend([0, 0, 1, -99])  # default values; quick hack
                 continue
@@ -374,7 +372,7 @@ class RenderPass:
             channel_res.extend(channel.channel_res)
 
         # this uniform data should be per renderpass
-        self.main._uniform_data["channel_res"] = tuple(channel_res)
+        self._channel_res = tuple(channel_res)
         bind_group_layout = self._device.create_bind_group_layout(
             entries=binding_layout
         )
@@ -413,10 +411,27 @@ class RenderPass:
 
     # can this be generalized?
     def draw(self) -> wgpu.GPUCommandBuffer:
-        command_encoder = self._device.create_command_encoder()
-        current_texture = self.get_current_texture()
+        """
+        Updates uniforms and encodes the draw calls for this renderpass.
+        Returns the command buffer.
+        """
+        # to keep channel_res per renderpass - we need to overwrite it? (really lazy implementation)
+        # channel_res can change with resizing, so it's not neccassarily constant
+        # we might be able to reorder the layout and then cleverly use offsets
+        # TODO: consider push constants https://github.com/pygfx/wgpu-py/pull/574
+        self.main._uniform_data["channel_res"] = self._channel_res
+        self._device.queue.write_buffer(
+            buffer=self._uniform_buffer,
+            buffer_offset=0,
+            data=self.main._uniform_data.mem,
+            data_offset=0,
+            size=self.main._uniform_data.nbytes,
+        )
 
-        render_pass = command_encoder.begin_render_pass(
+        command_encoder:wgpu.GPUCommandEncoder = self._device.create_command_encoder()
+        current_texture:wgpu.GPUTexture = self.get_current_texture()
+
+        render_pass:wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
             color_attachments=[
                 {
                     "view": current_texture.create_view(),
@@ -429,6 +444,7 @@ class RenderPass:
         )
 
         render_pass.set_pipeline(self._render_pipeline)
+        # self._bind_group might get generalized out for buffer
         render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
         render_pass.draw(3, 1, 0, 0)
         render_pass.end()

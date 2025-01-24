@@ -64,6 +64,12 @@ class UniformArray:
             for i in range(n):
                 m[i] = val[i]
 
+    def copy(self):
+        """
+        returns a copy of this object
+        """
+        return UniformArray
+
 
 class Shadertoy:
     """Provides a "screen pixel shader programming interface" similar to `shadertoy <https://www.shadertoy.com/>`_.
@@ -257,13 +263,6 @@ class Shadertoy:
         # Update uniform buffer
         if not self._offscreen:
             self._update()
-        self._device.queue.write_buffer(
-            self._uniform_buffer,
-            0,
-            self._uniform_data.mem,
-            0,
-            self._uniform_data.nbytes,
-        )
 
         image_pass = self.image.draw()
         self._device.queue.submit([image_pass])
