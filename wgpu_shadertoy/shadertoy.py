@@ -1,18 +1,15 @@
 import collections
 import ctypes
 import os
-import re
 import time
-from typing import List
 
-import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import ImageRenderPass
-from .inputs import ShadertoyChannel, ShadertoyChannelTexture
+
 
 class UniformArray:
     """Convenience class to create a uniform array.
@@ -63,12 +60,6 @@ class UniformArray:
             assert isinstance(val, (tuple, list))
             for i in range(n):
                 m[i] = val[i]
-
-    def copy(self):
-        """
-        returns a copy of this object
-        """
-        return UniformArray
 
 
 class Shadertoy:
@@ -155,7 +146,9 @@ class Shadertoy:
         self._bind_events()
 
         # setting up the renderpasses, inputs to the main class get handed to the .image pass
-        self.image = ImageRenderPass(main=self, code=shader_code, shader_type=shader_type, inputs=inputs)
+        self.image = ImageRenderPass(
+            main=self, code=shader_code, shader_type=shader_type, inputs=inputs
+        )
 
     @property
     def resolution(self):

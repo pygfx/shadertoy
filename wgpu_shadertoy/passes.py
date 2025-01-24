@@ -1,7 +1,6 @@
 import re
 from typing import List
 
-import numpy as np
 import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelTexture
@@ -216,7 +215,10 @@ class RenderPass:
         inputs (list): A list of :class:`ShadertoyChannel` objects. Each renderpass supports up to 4 inputs which then become .channel attributes.
             If used but not given, samples a black texture.
     """
-    def __init__(self, main:None, code: str, shader_type: str = "glsl", inputs: list = []):
+
+    def __init__(
+        self, main: None, code: str, shader_type: str = "glsl", inputs: list = []
+    ):
         self._main = main
         self._shader_code = code
         self._shader_type = shader_type
@@ -234,7 +236,7 @@ class RenderPass:
         return self._shader_code
 
     @property
-    def main(self) -> "Shadertoy":
+    def main(self):  # -> "Shadertoy": #TODO: how can be get this type hint?
         if self._main is not None:
             return self._main
         else:
@@ -278,7 +280,8 @@ class RenderPass:
 
         channel_pattern = re.compile(r"(?:iChannel|i_channel)(\d+)")
         detected_channels = [
-            int(c) for c in set(channel_pattern.findall(self.main.common + self.shader_code))
+            int(c)
+            for c in set(channel_pattern.findall(self.main.common + self.shader_code))
         ]
 
         channels = []
@@ -428,10 +431,10 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
         )
 
-        command_encoder:wgpu.GPUCommandEncoder = self._device.create_command_encoder()
-        current_texture:wgpu.GPUTexture = self.get_current_texture()
+        command_encoder: wgpu.GPUCommandEncoder = self._device.create_command_encoder()
+        current_texture: wgpu.GPUTexture = self.get_current_texture()
 
-        render_pass:wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
+        render_pass: wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
             color_attachments=[
                 {
                     "view": current_texture.create_view(),
@@ -451,10 +454,12 @@ class RenderPass:
 
         return command_encoder.finish()
 
+
 class ImageRenderPass(RenderPass):
     """
     The Image RenderPass of a Shadertoy. Renders to a canvas.
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -464,6 +469,7 @@ class ImageRenderPass(RenderPass):
         """
         # for the image pass this swap chain is handled by the context/canvas
         return self.main._present_context.get_current_texture()
+
 
 class BufferRenderPass(RenderPass):
     """
