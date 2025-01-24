@@ -34,16 +34,16 @@ def test_textures_wgsl():
         shader_code_wgsl, resolution=(640, 480), inputs=[channel0, channel1]
     )
     assert shader.resolution == (640, 480)
-    assert shader.shader_code == shader_code_wgsl
-    assert shader.shader_type == "wgsl"
+    assert shader.image.shader_code == shader_code_wgsl
+    assert shader.image.shader_type == "wgsl"
     # equivalence only holds true if we use the subclass.
-    assert shader.channels[0] == channel0
-    assert np.array_equal(shader.channels[0].data, test_pattern)
-    assert shader.channels[0].sampler_settings["address_mode_u"] == "repeat"
+    assert shader.image.channels[0] == channel0
+    assert np.array_equal(shader.image.channels[0].data, test_pattern)
+    assert shader.image.channels[0].sampler_settings["address_mode_u"] == "repeat"
     # we can instead make sure the subclass has been correctly inferred
-    assert type(shader.channels[1]) is ShadertoyChannelTexture
-    assert np.array_equal(shader.channels[1].data, gradient)
-    assert shader.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    assert type(shader.image.channels[1]) is ShadertoyChannelTexture
+    assert np.array_equal(shader.image.channels[1].data, gradient)
+    assert shader.image.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
 
     shader._draw_frame()
 
@@ -75,16 +75,16 @@ def test_textures_glsl():
 
     shader = Shadertoy(shader_code, resolution=(640, 480), inputs=[channel0, channel1])
     assert shader.resolution == (640, 480)
-    assert shader.shader_code == shader_code
-    assert shader.shader_type == "glsl"
+    assert shader.image.shader_code == shader_code
+    assert shader.image.shader_type == "glsl"
     # equivalence only holds true if we use the subclass.
-    assert shader.channels[0] == channel0
-    assert np.array_equal(shader.channels[0].data, test_pattern)
-    assert shader.channels[0].sampler_settings["address_mode_u"] == "repeat"
+    assert shader.image.channels[0] == channel0
+    assert np.array_equal(shader.image.channels[0].data, test_pattern)
+    assert shader.image.channels[0].sampler_settings["address_mode_u"] == "repeat"
     # we can instead make sure the subclass has been correctly inferred
-    assert type(shader.channels[1]) is ShadertoyChannelTexture
-    assert np.array_equal(shader.channels[1].data, gradient)
-    assert shader.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
+    assert type(shader.image.channels[1]) is ShadertoyChannelTexture
+    assert np.array_equal(shader.image.channels[1].data, gradient)
+    assert shader.image.channels[1].sampler_settings["address_mode_u"] == "clamp-to-edge"
 
     shader._draw_frame()
 
@@ -130,9 +130,14 @@ def test_channel_res_wgsl():
         inputs=[channel0, channel1, channel2, channel3],
     )
     assert shader.resolution == (1200, 900)
-    assert shader.shader_code == shader_code_wgsl
-    assert shader.shader_type == "wgsl"
-    assert len(shader.channels) == 4
+    assert shader.image.shader_code == shader_code_wgsl
+    assert shader.image.shader_type == "wgsl"
+    assert len(shader.image.channels) == 4
+    # the attribute is a tuple of ints
+    assert shader.image._channel_res == (800, 450, 1, -99, 450, 800, 1, -99, 800, 450, 1, -99, 450, 800, 1, -99)
+    shader._draw_frame() # this calls draw on all renderpasses (just image here)
+    # this is only written after the pass.draw was called
+    # the uniform data is a list of floats, from the last pass drawn (image pass in this case)
     assert shader._uniform_data["channel_res"] == [
         800.0,
         450.0,
@@ -196,9 +201,14 @@ def test_channel_res_glsl():
         inputs=[channel0, channel1, channel2, channel3],
     )
     assert shader.resolution == (1200, 900)
-    assert shader.shader_code == shader_code
-    assert shader.shader_type == "glsl"
-    assert len(shader.channels) == 4
+    assert shader.image.shader_code == shader_code
+    assert shader.image.shader_type == "glsl"
+    assert len(shader.image.channels) == 4
+    # the attribute is a tuple of ints
+    assert shader.image._channel_res == (800, 450, 1, -99, 450, 800, 1, -99, 800, 450, 1, -99, 450, 800, 1, -99)    
+    shader._draw_frame()
+    # this is only written after the pass.draw was called
+    # the uniform data is a list of floats
     assert shader._uniform_data["channel_res"] == [
         800.0,
         450.0,
