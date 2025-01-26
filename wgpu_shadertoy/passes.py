@@ -263,20 +263,18 @@ class RenderPass:
     @property
     def shader_type(self) -> str:
         """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
-        if self._shader_type in ("wgsl", "glsl"):
-            return self._shader_type
-
-        wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
-        glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
-        if wgsl_main_expr.search(self.shader_code):
-            # TODO: this should also set the ._shader_type attribute.
-            return "wgsl"
-        elif glsl_main_expr.search(self.shader_code):
-            return "glsl"
-        else:
-            raise ValueError(
-                "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
-            )
+        if self._shader_type not in ("wgsl", "glsl"):
+            wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
+            glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
+            if wgsl_main_expr.search(self.shader_code):
+                self._shader_type = "wgsl"
+            elif glsl_main_expr.search(self.shader_code):
+                self._shader_type = "glsl"
+            else:
+                raise ValueError(
+                    "Could not find valid entry point function in shader code. Unable to determine if it's wgsl or glsl."
+                )
+        return self._shader_type
 
     def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel]:
         """
