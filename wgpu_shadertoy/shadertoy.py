@@ -147,8 +147,10 @@ class Shadertoy:
 
         # setting up the renderpasses, inputs to the main class get handed to the .image pass
         self.image = ImageRenderPass(
-            main=self, code=shader_code, shader_type=shader_type, inputs=inputs
+            code=shader_code, shader_type=shader_type, inputs=inputs
         )
+        # setting main for passes triggers the inputs to be attached and the render prepared.
+        self.image.main = self
 
     @property
     def resolution(self):

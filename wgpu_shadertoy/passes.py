@@ -208,8 +208,8 @@ class RenderPass:
     """
     Base class for renderpass in a Shadertoy.
     Parameters:
-        main (Shadertoy): the main `Shadertoy` class of which this renderpass is part of. Defaults to None.
         code (str): Shadercode for this renderpass.
+        main (Shadertoy): the main `Shadertoy` class of which this renderpass is part of. Defaults to None.
         shader_type (str): either "wgsl" or "glsl" can also be "auto" - which then gets solved by a regular expression.
             Defaults to "glsl".
         inputs (list): A list of :class:`ShadertoyChannel` objects. Each renderpass supports up to 4 inputs which then become .channel attributes.
@@ -217,18 +217,21 @@ class RenderPass:
     """
 
     def __init__(
-        self, main: None, code: str, shader_type: str = "glsl", inputs: list = []
+        self, code: str, main=None, shader_type: str = "glsl", inputs: list = []
     ):
-        self._main = main
         self._shader_code = code
+        self._main = main
         self._shader_type = shader_type
+        # we keep track of the inputs before we can attach them as channels.
         self._inputs = inputs
-        self.channels = self._attach_inputs(inputs)
 
         # this is just a default - do we even need it?
         self._format: wgpu.TextureFormat = wgpu.TextureFormat.bgra8unorm
 
-        self._prepare_render()
+        # the render can only be prepared when main is set
+        if main is not None:
+            self._prepare_render()
+        # as long as main is not set, this renderpass is not ready to be used.
 
     @property
     def shader_code(self) -> str:
@@ -240,7 +243,18 @@ class RenderPass:
         if self._main is not None:
             return self._main
         else:
-            raise AttributeError("_main not set yet")
+            raise AttributeError(
+                "main not set yet and the renderpass isn't ready to be used"
+            )
+
+    @main.setter
+    def main(self, main_cls):
+        """
+        Register the main shadertoy class for this renderpass.
+        Also trigger _prepare_render() to finish initialization.
+        """
+        self._main = main_cls
+        self._prepare_render()
 
     @property
     def _device(self) -> wgpu.GPUDevice:
@@ -255,6 +269,7 @@ class RenderPass:
         wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
         glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
         if wgsl_main_expr.search(self.shader_code):
+            # TODO: this should also set the ._shader_type attribute.
             return "wgsl"
         elif glsl_main_expr.search(self.shader_code):
             return "glsl"
@@ -312,6 +327,14 @@ class RenderPass:
         return channels
 
     def _prepare_render(self):
+        """
+        This private method can only be called after the main Shadertoy class is set.
+        It attaches inputs, assembles the shadercode and creates the render pipeline.
+        """
+
+        # inputs can only be attached once the main class is set, so calling it here should do it.
+        self.channels = self._attach_inputs(self._inputs)
+
         # First assemble the shader code
         shader_type = self.shader_type
         if shader_type == "glsl":
@@ -412,7 +435,6 @@ class RenderPass:
             },
         )
 
-    # can this be generalized?
     def draw(self) -> wgpu.GPUCommandBuffer:
         """
         Updates uniforms and encodes the draw calls for this renderpass.
