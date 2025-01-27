@@ -24,8 +24,8 @@ def test_shadertoy_wgsl():
 
     shader = Shadertoy(shader_code, resolution=(800, 450))
     assert shader.resolution == (800, 450)
-    assert shader.shader_code == shader_code
-    assert shader.shader_type == "wgsl"
+    assert shader.image.shader_code == shader_code
+    assert shader.image.shader_type == "wgsl"
 
     shader._draw_frame()
 
@@ -49,8 +49,8 @@ def test_shadertoy_wgsl2():
 
     shader = Shadertoy(shader_code, shader_type="wgsl", resolution=(800, 450))
     assert shader.resolution == (800, 450)
-    assert shader.shader_code == shader_code
-    assert shader.shader_type == "wgsl"
+    assert shader.image.shader_code == shader_code
+    assert shader.image.shader_type == "wgsl"
 
     shader._draw_frame()
 
@@ -74,8 +74,8 @@ def test_shadertoy_glsl():
 
     shader = Shadertoy(shader_code, resolution=(800, 450))
     assert shader.resolution == (800, 450)
-    assert shader.shader_code == shader_code
-    assert shader.shader_type == "glsl"
+    assert shader.image.shader_code == shader_code
+    assert shader.image.shader_type == "glsl"
 
     shader._draw_frame()
 
@@ -99,8 +99,8 @@ def test_shadertoy_glsl2():
 
     shader = Shadertoy(shader_code, shader_type="glsl", resolution=(800, 450))
     assert shader.resolution == (800, 450)
-    assert shader.shader_code == shader_code
-    assert shader.shader_type == "glsl"
+    assert shader.image.shader_code == shader_code
+    assert shader.image.shader_type == "glsl"
 
     shader._draw_frame()
 
@@ -124,8 +124,8 @@ def test_shadertoy_glsl3():
 
     shader = Shadertoy(shader_code, resolution=(800, 450))
     assert shader.resolution == (800, 450)
-    assert shader.shader_code == shader_code
-    assert shader.shader_type == "glsl"
+    assert shader.image.shader_code == shader_code
+    assert shader.image.shader_type == "glsl"
 
     shader._draw_frame()
 
@@ -149,8 +149,8 @@ def test_shadertoy_offscreen():
 
     shader = Shadertoy(shader_code, resolution=(800, 450), offscreen=True)
     assert shader.resolution == (800, 450)
-    assert shader.shader_code == shader_code
-    assert shader.shader_type == "glsl"
+    assert shader.image.shader_code == shader_code
+    assert shader.image.shader_type == "glsl"
     assert shader._offscreen is True
 
 
@@ -210,8 +210,8 @@ def test_shadertoy_snapshot():
     )
 
     assert shader.resolution == (800, 450)
-    assert shader.shader_code == shader_code
-    assert shader.shader_type == "glsl"
+    assert shader.image.shader_code == shader_code
+    assert shader.image.shader_type == "glsl"
     assert shader._offscreen is True
     assert frame1a == frame1b
     assert frame2a == frame2b
