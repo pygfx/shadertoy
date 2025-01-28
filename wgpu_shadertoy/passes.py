@@ -37,15 +37,6 @@ float i_time_delta;
 int i_frame;
 float i_framerate;
 
-layout(binding = 1) uniform texture2D i_channel0;
-layout(binding = 2) uniform sampler sampler0;
-layout(binding = 3) uniform texture2D i_channel1;
-layout(binding = 4) uniform sampler sampler1;
-layout(binding = 5) uniform texture2D i_channel2;
-layout(binding = 6) uniform sampler sampler2;
-layout(binding = 7) uniform texture2D i_channel3;
-layout(binding = 8) uniform sampler sampler3;
-
 // Shadertoy compatibility, see we can use the same code copied from shadertoy website
 
 #define iChannel0 sampler2D(i_channel0, sampler0)
@@ -166,24 +157,6 @@ struct Varyings {
 @group(0) @binding(0)
 var<uniform> input: ShadertoyInput;
 
-@group(0) @binding(1)
-var i_channel0: texture_2d<f32>;
-@group(0) @binding(3)
-var i_channel1: texture_2d<f32>;
-@group(0) @binding(5)
-var i_channel2: texture_2d<f32>;
-@group(0) @binding(7)
-var i_channel3: texture_2d<f32>;
-
-@group(0) @binding(2)
-var sampler0: sampler;
-@group(0) @binding(4)
-var sampler1: sampler;
-@group(0) @binding(6)
-var sampler2: sampler;
-@group(0) @binding(8)
-var sampler3: sampler;
-
 @fragment
 fn main(in: Varyings) -> @location(0) vec4<f32> {
 
@@ -224,6 +197,7 @@ class RenderPass:
         self._shader_type = shader_type
         # we keep track of the inputs before we can attach them as channels.
         self._inputs = inputs
+        self._input_headers = ""
 
         # this is just a default - do we even need it?
         self._format: wgpu.TextureFormat = wgpu.TextureFormat.bgra8unorm
@@ -317,9 +291,8 @@ class RenderPass:
                 # do we even get here?
                 channel = None
 
-            # TODO: dynamic channel headers not yet implemented.
-            # if channel is not None:
-            #     self._input_headers += channel.get_header(shader_type=self.shader_type)
+            if channel is not None:
+                self._input_headers += channel.make_header(shader_type=self.shader_type)
             channels.append(channel)
 
         return channels
@@ -339,6 +312,7 @@ class RenderPass:
             vertex_shader_code = vertex_code_glsl
             frag_shader_code = (
                 builtin_variables_glsl
+                + self._input_headers
                 + self.main.common
                 + self.shader_code
                 + fragment_code_glsl
@@ -347,6 +321,7 @@ class RenderPass:
             vertex_shader_code = vertex_code_wgsl
             frag_shader_code = (
                 builtin_variables_wgsl
+                + self._input_headers
                 + self.main.common
                 + self.shader_code
                 + fragment_code_wgsl

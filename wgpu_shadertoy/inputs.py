@@ -131,6 +131,35 @@ class ShadertoyChannel:
             },
         ]
 
+    def make_header(self, shader_type: str) -> str:
+        """
+        Constructs the glsl or wgsl code snippet that for the sampler and texture bindings.
+        """
+        # does this fallback ever happen?
+        if not shader_type:
+            shader_type = self.parent.shader_type
+        shader_type = shader_type.lower()
+
+        input_idx = self.channel_idx
+        binding_id = self.texture_binding
+        sampler_id = self.sampler_binding
+        if shader_type == "glsl":
+            return f"""
+            layout(binding = {binding_id}) uniform texture2D i_channel{input_idx};
+            layout(binding = {sampler_id}) uniform sampler sampler{input_idx};
+            
+            #define iChannel{input_idx} sampler2D(i_channel{input_idx}, sampler{input_idx})
+            """
+        elif shader_type == "wgsl":
+            return f"""
+            @group(0) @binding({binding_id})
+            var i_channel{input_idx}: texture_2d<f32>;
+            @group(0) @binding({sampler_id})
+            var sampler{input_idx}: sampler;
+            """
+        else:
+            raise ValueError(f"Unknown shader type: {shader_type}")
+
     def __repr__(self):
         """
         Convenience method to get a representation of this object for debugging.
