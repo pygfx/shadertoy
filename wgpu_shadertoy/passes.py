@@ -285,7 +285,7 @@ class RenderPass:
         render_pass.end()
 
         return command_encoder.finish()
-    
+
     def construct_code(self) -> tuple[str, str]:
         """
         Public method to get the full vertex and fragment code for this renderpass.
