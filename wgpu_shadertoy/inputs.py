@@ -145,10 +145,10 @@ class ShadertoyChannel:
         sampler_id = self.sampler_binding
         if shader_type == "glsl":
             return f"""
-            layout(binding = {binding_id}) uniform texture2D i_channel{input_idx};
+            layout(binding = {binding_id}) uniform texture2D si_channel{input_idx};
             layout(binding = {sampler_id}) uniform sampler sampler{input_idx};
             
-            #define iChannel{input_idx} sampler2D(i_channel{input_idx}, sampler{input_idx})
+            #define iChannel{input_idx} sampler2D(si_channel{input_idx}, sampler{input_idx})
             """
         elif shader_type == "wgsl":
             return f"""
