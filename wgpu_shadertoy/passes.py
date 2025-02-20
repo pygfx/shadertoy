@@ -91,7 +91,7 @@ class RenderPass:
         Also trigger _prepare_render() to finish initialization. (moving this to first draw)
         """
         self._main = main_cls
-        # self._prepare_render()
+        self._prepare_render()
 
     @property
     def _device(self) -> wgpu.GPUDevice:
@@ -257,9 +257,9 @@ class RenderPass:
         Returns the command buffer.
         """
 
-        if not hasattr(self, "_render_pipeline"):
-            # basically this needs to be done before the first draw. (but we don't need to check this every single frame -.-)
-            self._prepare_render()
+        # if not hasattr(self, "_render_pipeline"):
+        #     # basically this needs to be done before the first draw. (but we don't need to check this every single frame -.-)
+        #     self._prepare_render()
 
         # to keep channel_res per renderpass - we need to overwrite it? (really lazy implementation)
         # channel_res can change with resizing, so it's not neccassarily constant

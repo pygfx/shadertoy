@@ -149,18 +149,21 @@ class Shadertoy:
         self.image = ImageRenderPass(
             code=shader_code, shader_type=shader_type, inputs=inputs
         )
-        # setting main for passes triggers the inputs to be attached and the render prepared.
-        self.image.main = self
         
-        # read all the buffers 
+        # register all the buffers
         # TODO: how do we get order correct and have the mapping from buffer_idx? default.OrderedDict maybe? a views dict? a getter function?
         self.buffers = {}
         if len(buffers) > 4:
             raise ValueError("Only 4 buffers are supported.")
         for buf in buffers:
-            buf.main = self # this setter will trigger _prepare_render and cause conflicts... need to pull that function apart a bit.
             self.buffers[buf.buffer_idx] = buf
-        # TODO: any error handling here for wrong types?
+
+        # finish the initialization by setting .main and triggering _prepare_render
+        for buf in self.buffers.values():
+            buf.main = self
+        # setting main for passes triggers the inputs to be attached and the render prepared.
+        self.image.main = self
+        
 
     @property
     def resolution(self):
