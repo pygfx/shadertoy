@@ -57,7 +57,7 @@ class RenderPass:
         self._input_headers = ""
 
         # this is just a default - do we even need it?
-        self._format: wgpu.TextureFormat = wgpu.TextureFormat.bgra8unorm
+        self.format: wgpu.TextureFormat = wgpu.TextureFormat.bgra8unorm
 
         # the render can only be prepared when main is set
         if main is not None:
@@ -245,7 +245,7 @@ class RenderPass:
                 "entry_point": "main",
                 "targets": [
                     {
-                        "format": wgpu.TextureFormat.bgra8unorm,
+                        "format": self.format,
                     },
                 ],
             },
@@ -453,6 +453,9 @@ class BufferRenderPass(RenderPass):
         The current (next) texture to draw to
         """
         # for the buffer pass we always draw the `back` and read from the `front` ?
+
+
+        
         return self._texture_back
 
     def draw(self) -> wgpu.GPUCommandBuffer:
@@ -463,6 +466,28 @@ class BufferRenderPass(RenderPass):
         # swap the textures
         self._texture_front, self._texture_back = self._texture_back, self._texture_front
         # update all bind groups? (is done in the draw_image function of the main class)
+
+    def _prepare_render(self):
+        """
+        This private method can only be called after the main Shadertoy class is set.
+        For the buffer pass it additionally needs to initialize the textures.
+        """
+        texture_size = (int(self.main.resolution[0]), int(self.main.resolution[1]), 1)
+
+        self._texture_front = self._device.create_texture(
+            label="front",
+            size=texture_size,
+            format=self.format,
+            usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING,
+        )
+        self._texture_back = self._device.create_texture(
+            label="back",
+            size=texture_size,
+            format=self.format,
+            usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING,
+        )
+
+        super()._prepare_render()
 
 class CubemapRenderPass(RenderPass):
     """

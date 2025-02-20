@@ -213,6 +213,11 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         self.dynamic = True
 
     @property
+    def size(self):
+        # access from there?
+        return self.renderpass._texture_front.size
+
+    @property
     def renderpass(self): # -> BufferRenderPass:
         if self._renderpass is None:
             self._renderpass = self.parent.main.buffers[self.buffer_idx]

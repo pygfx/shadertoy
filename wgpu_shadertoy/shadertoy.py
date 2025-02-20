@@ -3,6 +3,7 @@ import ctypes
 import os
 import time
 
+import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
@@ -142,6 +143,11 @@ class Shadertoy:
         if not self.complete:
             self.title += " (incomplete)"
 
+        device_features = []
+        if buffers:
+            device_features.append(wgpu.FeatureName.float32_filterable)
+        self._device = self._request_device(device_features)
+
         self._prepare_canvas()
         self._bind_events()
 
@@ -163,7 +169,7 @@ class Shadertoy:
             buf.main = self
         # setting main for passes triggers the inputs to be attached and the render prepared.
         self.image.main = self
-        
+
 
     @property
     def resolution(self):
@@ -182,6 +188,20 @@ class Shadertoy:
             # TODO: where will cube and sound go?
             self._renderpasses.append(self.image)
         return self._renderpasses
+
+    def _request_device(self, features) -> wgpu.GPUDevice:
+        """
+        returns the _global_device if no features are required
+        otherwise requests a new device with the required features
+        this logic is needed to pass unit tests due to how we run examples.
+        Might be deprecated in the future, ref: https://github.com/pygfx/wgpu-py/pull/517
+        """
+        if not features:
+            return wgpu.utils.get_default_device()
+
+        return wgpu.gpu.request_adapter(
+            power_preference="high-performance"
+        ).request_device(required_features=features)
 
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
@@ -206,8 +226,6 @@ class Shadertoy:
             self._canvas = WgpuCanvas(
                 title=self.title, size=self.resolution, max_fps=60
             )
-
-        self._device = wgpu.utils.device.get_default_device()
 
         self._present_context = self._canvas.get_context()
 
