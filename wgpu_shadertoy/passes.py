@@ -64,6 +64,12 @@ class RenderPass:
             self._prepare_render()
         # as long as main is not set, this renderpass is not ready to be used.
 
+    def get_current_texture(self) -> wgpu.GPUTexture:
+        """
+        The current (next) texture to draw to
+        """
+        raise NotImplementedError("This method should be implemented by subclasses")
+
     @property
     def shader_code(self) -> str:
         """The shader code to use."""
@@ -82,10 +88,10 @@ class RenderPass:
     def main(self, main_cls):
         """
         Register the main shadertoy class for this renderpass.
-        Also trigger _prepare_render() to finish initialization.
+        Also trigger _prepare_render() to finish initialization. (moving this to first draw)
         """
         self._main = main_cls
-        self._prepare_render()
+        # self._prepare_render()
 
     @property
     def _device(self) -> wgpu.GPUDevice:
@@ -250,6 +256,11 @@ class RenderPass:
         Updates uniforms and encodes the draw calls for this renderpass.
         Returns the command buffer.
         """
+
+        if not hasattr(self, "_render_pipeline"):
+            # basically this needs to be done before the first draw. (but we don't need to check this every single frame -.-)
+            self._prepare_render()
+
         # to keep channel_res per renderpass - we need to overwrite it? (really lazy implementation)
         # channel_res can change with resizing, so it's not neccassarily constant
         # we might be able to reorder the layout and then cleverly use offsets
@@ -423,8 +434,32 @@ class BufferRenderPass(RenderPass):
         buffer_idx (str): one of "A", "B", "C" or "D". Required.
     """
 
-    pass  # TODO at a later date
+    def __init__(self, buffer_idx: str, **kwargs):
+        super().__init__(**kwargs)
+        
+        self.buffer_idx = buffer_idx.lower()
+        if self.buffer_idx not in "abcd":
+            raise ValueError("buffer_idx must be one of 'A', 'B', 'C' or 'D'")
+        
+        self._texture_front = None
+        self._texture_back = None
+        self.format = wgpu.TextureFormat.rgba32float # requieres the feature wgpu.FeatureName.float32_filterable
 
+    def get_current_texture(self) -> wgpu.GPUTexture:
+        """
+        The current (next) texture to draw to
+        """
+        # for the buffer pass we always draw the `back` and read from the `front` ?
+        return self._texture_back
+
+    def draw(self) -> wgpu.GPUCommandBuffer:
+        """
+        the draw function for the buffer needs to additionally swap the textures
+        """
+        super().draw()
+        # swap the textures
+        self._texture_front, self._texture_back = self._texture_back, self._texture_front
+        # update all bind groups? (is done in the draw_image function of the main class)
 
 class CubemapRenderPass(RenderPass):
     """

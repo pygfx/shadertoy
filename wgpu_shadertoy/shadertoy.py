@@ -109,6 +109,7 @@ class Shadertoy:
         shader_type="auto",
         offscreen=None,
         inputs=[],
+        buffers=[],
         title: str = "Shadertoy",
         complete: bool = True,
     ) -> None:
@@ -150,11 +151,34 @@ class Shadertoy:
         )
         # setting main for passes triggers the inputs to be attached and the render prepared.
         self.image.main = self
+        
+        # read all the buffers 
+        # TODO: how do we get order correct and have the mapping from buffer_idx? default.OrderedDict maybe? a views dict? a getter function?
+        self.buffers = {}
+        if len(buffers) > 4:
+            raise ValueError("Only 4 buffers are supported.")
+        for buf in buffers:
+            buf.main = self # this setter will trigger _prepare_render and cause conflicts... need to pull that function apart a bit.
+            self.buffers[buf.buffer_idx] = buf
+        # TODO: any error handling here for wrong types?
 
     @property
     def resolution(self):
         """The resolution of the shadertoy as a tuple (width, height) in pixels."""
         return tuple(self._uniform_data["resolution"])[:2]
+    
+    # TODO: this should be part of __init__
+    @property
+    def renderpasses(self) -> list:
+        """returns a list of active renderpasses, in render order."""
+        if not hasattr(self, "_renderpasses"):
+            self._renderpasses = []
+            for buf in self.buffers.values():
+                if buf:
+                    self._renderpasses.append(buf)
+            # TODO: where will cube and sound go?
+            self._renderpasses.append(self.image)
+        return self._renderpasses
 
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
@@ -258,9 +282,13 @@ class Shadertoy:
         if not self._offscreen:
             self._update()
 
-        image_pass = self.image.draw()
-        self._device.queue.submit([image_pass])
+        # record all renderpasses into encoders
+        render_encoders = []
+        for rpass in self.renderpasses:
+            render_encoders.append(rpass.draw())
+            # TODO: update the texture bindings here?
 
+        self._device.queue.submit(render_encoders)
         self._canvas.request_draw()
 
     def show(self):

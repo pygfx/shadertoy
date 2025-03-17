@@ -197,7 +197,39 @@ class ShadertoyChannelSoundcloud(ShadertoyChannel):
 
 
 class ShadertoyChannelBuffer(ShadertoyChannel):
-    pass
+    def __init__(self, buffer, **kwargs):
+        super().__init__(**kwargs)
+
+        # TODO: should we even accept both options? (how do we do the circular definition?)
+        if isinstance(buffer, str):
+            # when the user gives a string, we don't have the associated buffer renderpass yet
+            self.buffer_idx = buffer.lower()[-1]
+            self._renderpass = None
+        else: #(assume BufferPass instance?)
+            self._renderpass = buffer
+            self.buffer_idx = buffer.buffer_idx
+
+        # mark that this channel needs to be updated every frame
+        self.dynamic = True
+
+    @property
+    def renderpass(self): # -> BufferRenderPass:
+        if self._renderpass is None:
+            self._renderpass = self.parent.main.buffers[self.buffer_idx]
+        return self._renderpass
+
+    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+        """
+        returns a tuple of binding_layout and binding_groups_layout_entries
+        takes the texture form `front` the buffer renderpass (last frame)
+        """
+        binding_layout = self._binding_layout()
+        texture = self.renderpass._texture_front
+        texture_view = texture.create_view()
+        sampler = device.create_sampler(**self.sampler_settings)
+        bind_groups_layout_entry = self._bind_groups_layout_entries(texture_view, sampler)
+        return binding_layout, bind_groups_layout_entry
+
 
 
 class ShadertoyChannelCubemapA(ShadertoyChannel):

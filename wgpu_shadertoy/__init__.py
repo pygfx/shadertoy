@@ -1,5 +1,5 @@
-from .inputs import ShadertoyChannel, ShadertoyChannelTexture
-from .passes import ImageRenderPass
+from .inputs import ShadertoyChannel, ShadertoyChannelTexture, ShadertoyChannelBuffer
+from .passes import ImageRenderPass, BufferRenderPass
 from .shadertoy import Shadertoy
 
 __version__ = "0.1.0"
