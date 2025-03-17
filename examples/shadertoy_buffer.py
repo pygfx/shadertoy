@@ -89,5 +89,5 @@ shader = Shadertoy(
     buffers=[buffer_a_pass_glsl],
 )
 if __name__ == "__main__":
-    print(shader.buffers["a"].construct_code()[0])
+    # print(shader.buffers["a"].construct_code()[0])
     shader.show()

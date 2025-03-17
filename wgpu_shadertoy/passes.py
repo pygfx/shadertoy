@@ -170,10 +170,10 @@ class RenderPass:
         self.channels = self._attach_inputs(self._inputs)
         vertex_shader_code, frag_shader_code = self.construct_code()
 
-        vertex_shader_program = self._device.create_shader_module(
-            label="shadertoy_vertex", code=vertex_shader_code
+        self._vertex_shader_module = self._device.create_shader_module(
+            label=f"shadertoy_vertex in {self}", code=vertex_shader_code
         )
-        frag_shader_program = self._device.create_shader_module(
+        self._frag_shader_module = self._device.create_shader_module(
             label=f"shadertoy_fragment {self}", code=frag_shader_code
         )
 
@@ -182,7 +182,12 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
+        self._setup_renderpipeline() # split in half so the next part can be reused.
 
+    def _setup_renderpipeline(self):
+        """
+        prepares the render pipeline and bind groups. Might be called every single frame.
+        """
         bind_groups_layout_entries = [
             {
                 "binding": 0,
@@ -225,11 +230,12 @@ class RenderPass:
         )
 
         self._render_pipeline = self._device.create_render_pipeline(
+            label=f"render_pipeline {self}",
             layout=self._device.create_pipeline_layout(
                 bind_group_layouts=[bind_group_layout]
             ),
             vertex={
-                "module": vertex_shader_program,
+                "module": self._vertex_shader_module,
                 "entry_point": "main",
                 "buffers": [],
             },
@@ -241,7 +247,7 @@ class RenderPass:
             depth_stencil=None,
             multisample=None,
             fragment={
-                "module": frag_shader_program,
+                "module": self._frag_shader_module,
                 "entry_point": "main",
                 "targets": [
                     {
@@ -278,6 +284,7 @@ class RenderPass:
         current_texture: wgpu.GPUTexture = self.get_current_texture()
 
         render_pass: wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
+            label=f"renderpass {self}", # for frame {self.main._uniform_data['frame']} # TODO: check if this is available.
             color_attachments=[
                 {
                     "view": current_texture.create_view(),
@@ -412,6 +419,12 @@ class RenderPass:
                 + fragment_code_wgsl
             )
         return vertex_shader_code, frag_shader_code
+    
+    def __repr__(self):
+        """
+        small representation for labels
+        """
+        return f"<{self.__class__.__name__}>"
 
 
 class ImageRenderPass(RenderPass):
@@ -453,19 +466,19 @@ class BufferRenderPass(RenderPass):
         The current (next) texture to draw to
         """
         # for the buffer pass we always draw the `back` and read from the `front` ?
-
-
-        
         return self._texture_back
 
     def draw(self) -> wgpu.GPUCommandBuffer:
         """
         the draw function for the buffer needs to additionally swap the textures
         """
-        super().draw()
+        command_buffer = super().draw()
         # swap the textures
         self._texture_front, self._texture_back = self._texture_back, self._texture_front
-        # update all bind groups? (is done in the draw_image function of the main class)
+        self._setup_renderpipeline() # this updates the bind groups, which get used in the next round?
+        # TODO: figure out what the correct order is here and if it matters because the
+        return command_buffer
+
 
     def _prepare_render(self):
         """
@@ -475,19 +488,24 @@ class BufferRenderPass(RenderPass):
         texture_size = (int(self.main.resolution[0]), int(self.main.resolution[1]), 1)
 
         self._texture_front = self._device.create_texture(
-            label="front",
+            label=f"front texture in buffer {self.buffer_idx}",
             size=texture_size,
             format=self.format,
             usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING,
         )
         self._texture_back = self._device.create_texture(
-            label="back",
+            label=f"back texture in buffer {self.buffer_idx}",
             size=texture_size,
             format=self.format,
             usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING,
         )
-
         super()._prepare_render()
+
+    def __repr__(self):
+        """
+        buffer repr also includes the buffer_idx
+        """
+        return f"<{self.__class__.__name__} {self.buffer_idx}>"
 
 class CubemapRenderPass(RenderPass):
     """

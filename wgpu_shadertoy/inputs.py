@@ -230,7 +230,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         """
         binding_layout = self._binding_layout()
         texture = self.renderpass._texture_front
-        texture_view = texture.create_view()
+        texture_view = texture.create_view(usage=wgpu.TextureUsage.TEXTURE_BINDING)
         sampler = device.create_sampler(**self.sampler_settings)
         bind_groups_layout_entry = self._bind_groups_layout_entries(texture_view, sampler)
         return binding_layout, bind_groups_layout_entry
