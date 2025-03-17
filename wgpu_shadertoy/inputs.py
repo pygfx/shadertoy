@@ -21,7 +21,8 @@ class ShadertoyChannel:
         self._channel_idx = channel_idx
         self.args = args
         self.kwargs = kwargs
-        self.dynamic: bool = False
+        self.dynamic: bool = False # is this still needed? should it be private?
+        self._parent = kwargs.get("parent", None)
 
     @property
     def sampler_settings(self) -> dict:
@@ -44,7 +45,7 @@ class ShadertoyChannel:
         """
         Parent renderpass of this channel.
         """
-        if not hasattr(self, "_parent"):
+        if self._parent is None:
             raise AttributeError("Parent not set.")
         return self._parent
 
@@ -97,6 +98,8 @@ class ShadertoyChannel:
             raise NotImplementedError("Can't dynamically infer the ctype yet")
         if self.ctype == "texture":
             return ShadertoyChannelTexture(*args, **kwargs)
+        elif self.ctype == "buffer":
+            return ShadertoyChannelBuffer(*args, **kwargs)
         else:
             raise NotImplementedError(f"Doesn't support {self.ctype=} yet")
 
