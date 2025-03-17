@@ -5,128 +5,17 @@ import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelTexture
 
-# TODO: simplify all the shader code snippets
-vertex_code_glsl = """#version 450 core
-
-layout(location = 0) out vec2 vert_uv;
-
-void main(void){
-    int index = int(gl_VertexID);
-    if (index == 0) {
-        gl_Position = vec4(-1.0, -1.0, 0.0, 1.0);
-        vert_uv = vec2(0.0, 1.0);
-    } else if (index == 1) {
-        gl_Position = vec4(3.0, -1.0, 0.0, 1.0);
-        vert_uv = vec2(2.0, 1.0);
-    } else {
-        gl_Position = vec4(-1.0, 3.0, 0.0, 1.0);
-        vert_uv = vec2(0.0, -1.0);
-    }
-}
-"""
-
-
 builtin_variables_glsl = """#version 450 core
 
-vec4 i_mouse;
-vec4 i_date;
-vec3 i_resolution;
-float i_time;
-vec3 i_channel_resolution[4];
-float i_time_delta;
-int i_frame;
-float i_framerate;
-
-layout(binding = 1) uniform texture2D i_channel0;
-layout(binding = 2) uniform sampler sampler0;
-layout(binding = 3) uniform texture2D i_channel1;
-layout(binding = 4) uniform sampler sampler1;
-layout(binding = 5) uniform texture2D i_channel2;
-layout(binding = 6) uniform sampler sampler2;
-layout(binding = 7) uniform texture2D i_channel3;
-layout(binding = 8) uniform sampler sampler3;
-
-// Shadertoy compatibility, see we can use the same code copied from shadertoy website
-
-#define iChannel0 sampler2D(i_channel0, sampler0)
-#define iChannel1 sampler2D(i_channel1, sampler1)
-#define iChannel2 sampler2D(i_channel2, sampler2)
-#define iChannel3 sampler2D(i_channel3, sampler3)
-
-#define iMouse i_mouse
-#define iDate i_date
-#define iResolution i_resolution
-#define iTime i_time
-#define iChannelResolution i_channel_resolution
-#define iTimeDelta i_time_delta
-#define iFrame i_frame
-#define iFrameRate i_framerate
-
-#define mainImage shader_main
+vec4 iMouse;
+vec4 iDate;
+vec3 iResolution;
+float iTime;
+vec3 iChannelResolution[4];
+float iTimeDelta;
+int iFrame;
+float iFrameRate;
 """
-
-
-fragment_code_glsl = """
-layout(location = 0) in vec2 vert_uv;
-
-struct ShadertoyInput {
-    vec4 si_mouse;
-    vec4 si_date;
-    vec3 si_resolution;
-    float si_time;
-    vec3 si_channel_res[4];
-    float si_time_delta;
-    int si_frame;
-    float si_framerate;
-};
-
-layout(binding = 0) uniform ShadertoyInput input;
-out vec4 FragColor;
-void main(){
-
-    i_mouse = input.si_mouse;
-    i_date = input.si_date;
-    i_resolution = input.si_resolution;
-    i_time = input.si_time;
-    i_channel_resolution = input.si_channel_res;
-    i_time_delta = input.si_time_delta;
-    i_frame = input.si_frame;
-    i_framerate = input.si_framerate;
-    vec2 frag_uv = vec2(vert_uv.x, 1.0 - vert_uv.y);
-    vec2 frag_coord = frag_uv * i_resolution.xy;
-
-    shader_main(FragColor, frag_coord);
-
-}
-
-"""
-
-
-vertex_code_wgsl = """
-
-struct Varyings {
-    @builtin(position) position : vec4<f32>,
-    @location(0) vert_uv : vec2<f32>,
-};
-
-@vertex
-fn main(@builtin(vertex_index) index: u32) -> Varyings {
-    var out: Varyings;
-    if (index == u32(0)) {
-        out.position = vec4<f32>(-1.0, -1.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(0.0, 1.0);
-    } else if (index == u32(1)) {
-        out.position = vec4<f32>(3.0, -1.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(2.0, 1.0);
-    } else {
-        out.position = vec4<f32>(-1.0, 3.0, 0.0, 1.0);
-        out.vert_uv = vec2<f32>(0.0, -1.0);
-    }
-    return out;
-
-}
-"""
-
 
 builtin_variables_wgsl = """
 
@@ -141,65 +30,6 @@ var<private> i_framerate: f32;
 
 // TODO: more global variables
 // var<private> i_frag_coord: vec2<f32>;
-
-"""
-
-
-fragment_code_wgsl = """
-
-struct ShadertoyInput {
-    si_mouse: vec4<f32>,
-    si_date: vec4<f32>,
-    si_resolution: vec3<f32>,
-    si_time: f32,
-    si_channel_res: array<vec4<f32>,4>,
-    si_time_delta: f32,
-    si_frame: u32,
-    si_framerate: f32,
-};
-
-struct Varyings {
-    @builtin(position) position : vec4<f32>,
-    @location(0) vert_uv : vec2<f32>,
-};
-
-@group(0) @binding(0)
-var<uniform> input: ShadertoyInput;
-
-@group(0) @binding(1)
-var i_channel0: texture_2d<f32>;
-@group(0) @binding(3)
-var i_channel1: texture_2d<f32>;
-@group(0) @binding(5)
-var i_channel2: texture_2d<f32>;
-@group(0) @binding(7)
-var i_channel3: texture_2d<f32>;
-
-@group(0) @binding(2)
-var sampler0: sampler;
-@group(0) @binding(4)
-var sampler1: sampler;
-@group(0) @binding(6)
-var sampler2: sampler;
-@group(0) @binding(8)
-var sampler3: sampler;
-
-@fragment
-fn main(in: Varyings) -> @location(0) vec4<f32> {
-
-    i_mouse = input.si_mouse;
-    i_date = input.si_date;
-    i_resolution = input.si_resolution;
-    i_time = input.si_time;
-    i_channel_resolution = input.si_channel_res;
-    i_time_delta = input.si_time_delta;
-    i_frame = input.si_frame;
-    i_framerate = input.si_framerate;
-    let frag_uv = vec2<f32>(in.vert_uv.x, 1.0 - in.vert_uv.y);
-    let frag_coord = frag_uv * i_resolution.xy;
-
-    return shader_main(frag_coord);
-}
 
 """
 
@@ -224,6 +54,7 @@ class RenderPass:
         self._shader_type = shader_type
         # we keep track of the inputs before we can attach them as channels.
         self._inputs = inputs
+        self._input_headers = ""
 
         # this is just a default - do we even need it?
         self._format: wgpu.TextureFormat = wgpu.TextureFormat.bgra8unorm
@@ -265,7 +96,7 @@ class RenderPass:
         """The shader type, automatically detected from the shader code, can be "wgsl" or "glsl"."""
         if self._shader_type not in ("wgsl", "glsl"):
             wgsl_main_expr = re.compile(r"fn(?:\s)+shader_main")
-            glsl_main_expr = re.compile(r"void(?:\s)+(?:shader_main|mainImage)")
+            glsl_main_expr = re.compile(r"void(?:\s)+mainImage")
             if wgsl_main_expr.search(self.shader_code):
                 self._shader_type = "wgsl"
             elif glsl_main_expr.search(self.shader_code):
@@ -317,9 +148,8 @@ class RenderPass:
                 # do we even get here?
                 channel = None
 
-            # TODO: dynamic channel headers not yet implemented.
-            # if channel is not None:
-            #     self._input_headers += channel.get_header(shader_type=self.shader_type)
+            if channel is not None:
+                self._input_headers += channel.make_header(shader_type=self.shader_type)
             channels.append(channel)
 
         return channels
@@ -332,31 +162,13 @@ class RenderPass:
 
         # inputs can only be attached once the main class is set, so calling it here should do it.
         self.channels = self._attach_inputs(self._inputs)
-
-        # First assemble the shader code
-        shader_type = self.shader_type
-        if shader_type == "glsl":
-            vertex_shader_code = vertex_code_glsl
-            frag_shader_code = (
-                builtin_variables_glsl
-                + self.main.common
-                + self.shader_code
-                + fragment_code_glsl
-            )
-        elif shader_type == "wgsl":
-            vertex_shader_code = vertex_code_wgsl
-            frag_shader_code = (
-                builtin_variables_wgsl
-                + self.main.common
-                + self.shader_code
-                + fragment_code_wgsl
-            )
+        vertex_shader_code, frag_shader_code = self.construct_code()
 
         vertex_shader_program = self._device.create_shader_module(
-            label="triangle_vert", code=vertex_shader_code
+            label="shadertoy_vertex", code=vertex_shader_code
         )
         frag_shader_program = self._device.create_shader_module(
-            label="triangle_frag", code=frag_shader_code
+            label="shadertoy_fragment", code=frag_shader_code
         )
 
         # Uniforms are mainly global so the ._uniform_data object can be copied into a local uniform buffer
@@ -473,6 +285,119 @@ class RenderPass:
         render_pass.end()
 
         return command_encoder.finish()
+
+    def construct_code(self) -> tuple[str, str]:
+        """
+        Public method to get the full vertex and fragment code for this renderpass.
+        assembles the code templates for the vertext and fragment stages.
+        """
+        # left public since it has use outside of using it in the renderpass,
+        # for example getting valid glsl from just a shadertoy image pass to use in naga validation.
+
+        if self.shader_type == "glsl":
+            vertex_shader_code = """
+                #version 450 core
+                vec2 pos[3] = vec2[3](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+                void main() {
+                    int index = int(gl_VertexID);
+                    gl_Position = vec4(pos[index], 0.0, 1.0);
+                }
+                """
+            # the image pass needs to be yflipped, buffers not. However dFdy is still violated. (https://github.com/pygfx/shadertoy/issues/38)
+            fragment_code_glsl = f"""
+                uniform struct ShadertoyInput {{
+                    vec4 si_mouse;
+                    vec4 si_date;
+                    vec3 si_resolution;
+                    float si_time;
+                    vec3 si_channel_res[4];
+                    float si_time_delta;
+                    int si_frame;
+                    float si_framerate;
+                }};
+
+                layout(binding = 0) uniform ShadertoyInput input;
+                out vec4 FragColor;
+                void main(){{
+                    iMouse = input.si_mouse;
+                    iDate = input.si_date;
+                    iResolution = input.si_resolution;
+                    iTime = input.si_time;
+                    iChannelResolution = input.si_channel_res;
+                    iTimeDelta = input.si_time_delta;
+                    iFrame = input.si_frame;
+                    iFrameRate = input.si_framerate;
+                    
+                    // handle the YFLIP part for just the Image pass?
+                    vec2 fragcoord=vec2(gl_FragCoord.x, {"iResolution.y-" if isinstance(self, ImageRenderPass) else ""}gl_FragCoord.y);
+                    mainImage(FragColor, fragcoord);
+                }}
+                """
+            frag_shader_code = (
+                builtin_variables_glsl
+                + self._input_headers
+                + self.main.common
+                + self.shader_code
+                + fragment_code_glsl
+            )
+        elif self.shader_type == "wgsl":
+            vertex_shader_code = """
+                struct VertexOut {
+                    @builtin(position) position : vec4<f32>
+                }
+                
+                @vertex
+                fn main(@builtin(vertex_index) vertIndex: u32) -> VertexOut {
+                    var pos = array(
+                        vec2<f32>(-1.0, -1.0),
+                        vec2<f32>(3.0, -1.0),
+                        vec2<f32>(-1.0, 3.0)
+                    );
+                    var out: VertexOut;
+                    out.position = vec4<f32>(pos[vertIndex], 0.0, 1.0);
+                    return out;
+                }
+                """
+            fragment_code_wgsl = f"""
+                struct ShadertoyInput {{
+                    si_mouse: vec4<f32>,
+                    si_date: vec4<f32>,
+                    si_resolution: vec3<f32>,
+                    si_time: f32,
+                    si_channel_res: array<vec4<f32>,4>,
+                    si_time_delta: f32,
+                    si_frame: u32,
+                    si_framerate: f32,
+                }};
+                struct VertexOut {{
+                    @builtin(position) position : vec4<f32>,
+                }};
+                @group(0) @binding(0)
+                var<uniform> input: ShadertoyInput;
+                @fragment
+                fn main(in: VertexOut) -> @location(0) vec4<f32> {{
+                    i_mouse = input.si_mouse;
+                    i_date = input.si_date;
+                    i_resolution = input.si_resolution;
+                    i_time = input.si_time;
+                    i_channel_resolution = input.si_channel_res;
+                    i_time_delta = input.si_time_delta;
+                    i_frame = input.si_frame;
+                    i_framerate = input.si_framerate;
+
+                    // Yflip for the image pass (not the correct solution)
+                    let frag_coord = vec2f(in.position.x, {"i_resolution.y-" if isinstance(self, ImageRenderPass) else ""}in.position.y);
+                    return shader_main(frag_coord);
+                }}
+                """
+            frag_shader_code = (
+                builtin_variables_wgsl
+                + self._input_headers
+                + self.main.common
+                + self.shader_code
+                + fragment_code_wgsl
+            )
+        return vertex_shader_code, frag_shader_code
 
 
 class ImageRenderPass(RenderPass):

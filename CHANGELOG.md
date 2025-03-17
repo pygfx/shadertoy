@@ -26,6 +26,9 @@ Added:
 Changed:
 * `ShadertoyChannel` is now more specific `ShadertoyChannelTexture` https://github.com/pygfx/shadertoy/pull/40
 
+Removed:
+* Removed GLSL uniform aliases in favor of just Shadertoy syntax https://github.com/pygfx/shadertoy/pull/42
+
 ### [v0.1.0] - 2024-01-21
 
 Fixed:
