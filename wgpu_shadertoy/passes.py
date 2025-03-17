@@ -174,7 +174,7 @@ class RenderPass:
             label="shadertoy_vertex", code=vertex_shader_code
         )
         frag_shader_program = self._device.create_shader_module(
-            label="shadertoy_fragment", code=frag_shader_code
+            label=f"shadertoy_fragment {self}", code=frag_shader_code
         )
 
         # Uniforms are mainly global so the ._uniform_data object can be copied into a local uniform buffer
@@ -301,6 +301,9 @@ class RenderPass:
         """
         Public method to get the full vertex and fragment code for this renderpass.
         assembles the code templates for the vertext and fragment stages.
+        Returns:
+            vertex_shader_code (str): the vertex shader code
+            frag_shader_code (str): the fragment shader code
         """
         # left public since it has use outside of using it in the renderpass,
         # for example getting valid glsl from just a shadertoy image pass to use in naga validation.

@@ -208,10 +208,14 @@ class Shadertoy:
 
         self._present_context = self._canvas.get_context()
 
-        # We use "bgra8unorm" not "bgra8unorm-srgb" here because we want to let the shader fully control the color-space.
-        self._present_context.configure(
-            device=self._device, format=wgpu.TextureFormat.bgra8unorm
-        )
+        # We use non srgb variants, because we want to let the shader fully control the color-space.
+        # Defaults usually return the srgb variant, but a non srgb option is usually available
+        # comparable: https://docs.rs/wgpu/latest/wgpu/enum.TextureFormat.html#method.remove_srgb_suffix
+        self._format = self._present_context.get_preferred_format(
+            adapter=self._device.adapter
+        ).removesuffix("-srgb")
+
+        self._present_context.configure(device=self._device, format=self._format)
 
     def _bind_events(self):
         def on_resize(event):

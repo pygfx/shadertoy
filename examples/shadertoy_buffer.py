@@ -77,10 +77,17 @@ buffer_a_pass_wgsl = BufferRenderPass(
     buffer_idx="a", code=buffer_code_wgsl, inputs=[buffer_a_channel], shader_type="wgsl"
 )
 
+buffer_a_pass_glsl = BufferRenderPass(
+    buffer_idx="a", code=buffer_code, inputs=[buffer_a_channel]
+)
+
+
 shader = Shadertoy(
     image_code,
     inputs=[buffer_a_channel],
-    buffers=[buffer_a_pass_wgsl],
+    # buffers=[buffer_a_pass_wgsl],
+    buffers=[buffer_a_pass_glsl],
 )
 if __name__ == "__main__":
-    shader.show() 
+    print(shader.buffers["a"].construct_code()[0])
+    shader.show()
