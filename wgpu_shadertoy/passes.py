@@ -88,10 +88,11 @@ class RenderPass:
     def main(self, main_cls):
         """
         Register the main shadertoy class for this renderpass.
-        Also trigger _prepare_render() to finish initialization. (moving this to first draw)
         """
         self._main = main_cls
-        self._prepare_render()
+        # Also trigger _prepare_render() to finish initialization. (moving this to first draw)
+        # self._prepare_render()
+        # never liked this behaviour anyway... 
 
     @property
     def _device(self) -> wgpu.GPUDevice:
@@ -287,7 +288,7 @@ class RenderPass:
             label=f"renderpass {self}", # for frame {self.main._uniform_data['frame']} # TODO: check if this is available.
             color_attachments=[
                 {
-                    "view": current_texture.create_view(),
+                    "view": current_texture.create_view(usage=wgpu.TextureUsage.RENDER_ATTACHMENT),
                     "resolve_target": None,
                     "clear_value": (0, 0, 0, 1),
                     "load_op": wgpu.LoadOp.clear,
@@ -461,12 +462,31 @@ class BufferRenderPass(RenderPass):
         self._texture_back = None
         self.format = wgpu.TextureFormat.rgba32float # requieres the feature wgpu.FeatureName.float32_filterable
 
+
+    @property
+    def texture_front(self) -> wgpu.GPUTexture:
+        """
+        Front texture is the result from last frame, to sampled as a texture.
+        """
+        if self._texture_front is None:
+            self._texture_front = self._init_texture("front ")
+        return self._texture_front
+    
+    @property
+    def texture_back(self) -> wgpu.GPUTexture:
+        """
+        Back texture is the target for the current frame.
+        """
+        if self._texture_back is None:
+            self._texture_back = self._init_texture("back ")
+        return self._texture_back
+
     def get_current_texture(self) -> wgpu.GPUTexture:
         """
         The current (next) texture to draw to
         """
         # for the buffer pass we always draw the `back` and read from the `front` ?
-        return self._texture_back
+        return self.texture_back
 
     def draw(self) -> wgpu.GPUCommandBuffer:
         """
@@ -479,26 +499,26 @@ class BufferRenderPass(RenderPass):
         # TODO: figure out what the correct order is here and if it matters because the
         return command_buffer
 
+    def _init_texture(self, name=""):
+        """
+        Textures can only be initialized after main is set because we need to know the resolution.
+        """
+
+        texture_size = (int(self.main.resolution[0]), int(self.main.resolution[1]), 1)
+
+        texture = self._device.create_texture(
+            label=f"{name}texture in {self}",
+            size=texture_size,
+            format=self.format,
+            usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING,
+        )
+        return texture
 
     def _prepare_render(self):
         """
         This private method can only be called after the main Shadertoy class is set.
         For the buffer pass it additionally needs to initialize the textures.
         """
-        texture_size = (int(self.main.resolution[0]), int(self.main.resolution[1]), 1)
-
-        self._texture_front = self._device.create_texture(
-            label=f"front texture in buffer {self.buffer_idx}",
-            size=texture_size,
-            format=self.format,
-            usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING,
-        )
-        self._texture_back = self._device.create_texture(
-            label=f"back texture in buffer {self.buffer_idx}",
-            size=texture_size,
-            format=self.format,
-            usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING,
-        )
         super()._prepare_render()
 
     def __repr__(self):

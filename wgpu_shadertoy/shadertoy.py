@@ -158,17 +158,20 @@ class Shadertoy:
         
         # register all the buffers
         # TODO: how do we get order correct and have the mapping from buffer_idx? default.OrderedDict maybe? a views dict? a getter function?
-        self.buffers = {}
+        self.buffers = {} # str -> BufferRenderPass
         if len(buffers) > 4:
             raise ValueError("Only 4 buffers are supported.")
         for buf in buffers:
             self.buffers[buf.buffer_idx] = buf
 
-        # finish the initialization by setting .main and triggering _prepare_render
-        for buf in self.buffers.values():
-            buf.main = self
-        # setting main for passes triggers the inputs to be attached and the render prepared.
-        self.image.main = self
+        # # finish the initialization by setting .main _prepare_render
+        for rp in self.renderpasses:
+            rp.main = self
+        # only after main has been set, we can _prepare_render(), there is complex cross-references
+        # TODO: maybe just do a global for main?
+        for rp in self.renderpasses:
+            rp._prepare_render()
+
 
 
     @property

@@ -218,7 +218,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
     @property
     def size(self):
         # access from there?
-        return self.renderpass._texture_front.size
+        return self.renderpass.texture_front.size
 
     @property
     def renderpass(self): # -> BufferRenderPass:
@@ -232,7 +232,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         takes the texture form `front` the buffer renderpass (last frame)
         """
         binding_layout = self._binding_layout()
-        texture = self.renderpass._texture_front
+        texture:wgpu.GPUTexture = self.renderpass.texture_front
         texture_view = texture.create_view(usage=wgpu.TextureUsage.TEXTURE_BINDING)
         sampler = device.create_sampler(**self.sampler_settings)
         bind_groups_layout_entry = self._bind_groups_layout_entries(texture_view, sampler)
