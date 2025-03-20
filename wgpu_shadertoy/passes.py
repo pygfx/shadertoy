@@ -57,7 +57,7 @@ class RenderPass:
         self._input_headers = ""
 
         # this is just a default - do we even need it?
-        self.format: wgpu.TextureFormat = wgpu.TextureFormat.bgra8unorm
+        # self.format: wgpu.TextureFormat = wgpu.TextureFormat.bgra8unorm
 
         # the render can only be prepared when main is set
         if main is not None:
@@ -435,6 +435,13 @@ class ImageRenderPass(RenderPass):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    @property
+    def format(self) -> wgpu.TextureFormat:
+        """texture format for the image renderpass, should be the same as set for the canvas.
+        accessed via the main class.
+        """
+        return self.main._format
 
     def get_current_texture(self) -> wgpu.GPUTexture:
         """
