@@ -3,6 +3,7 @@ import ctypes
 import os
 import time
 
+import wgpu
 from wgpu.gui.auto import WgpuCanvas, run
 from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
@@ -109,6 +110,7 @@ class Shadertoy:
         shader_type="auto",
         offscreen=None,
         inputs=[],
+        buffers=[],
         title: str = "Shadertoy",
         complete: bool = True,
     ) -> None:
@@ -141,6 +143,11 @@ class Shadertoy:
         if not self.complete:
             self.title += " (incomplete)"
 
+        device_features = []
+        if buffers:
+            device_features.append(wgpu.FeatureName.float32_filterable)
+        self._device = self._request_device(device_features)
+
         self._prepare_canvas()
         self._bind_events()
 
@@ -148,13 +155,56 @@ class Shadertoy:
         self.image = ImageRenderPass(
             code=shader_code, shader_type=shader_type, inputs=inputs
         )
-        # setting main for passes triggers the inputs to be attached and the render prepared.
-        self.image.main = self
+        
+        # register all the buffers
+        # TODO: how do we get order correct and have the mapping from buffer_idx? default.OrderedDict maybe? a views dict? a getter function?
+        self.buffers = {} # str -> BufferRenderPass
+        if len(buffers) > 4:
+            raise ValueError("Only 4 buffers are supported.")
+        for buf in buffers:
+            self.buffers[buf.buffer_idx] = buf
+
+        # # finish the initialization by setting .main _prepare_render
+        for rp in self.renderpasses:
+            rp.main = self
+        # only after main has been set, we can _prepare_render(), there is complex cross-references
+        # TODO: maybe just do a global for main?
+        for rp in self.renderpasses:
+            rp._prepare_render()
+
+
 
     @property
     def resolution(self):
         """The resolution of the shadertoy as a tuple (width, height) in pixels."""
         return tuple(self._uniform_data["resolution"])[:2]
+    
+    # TODO: this should be part of __init__
+    @property
+    def renderpasses(self) -> list:
+        """returns a list of active renderpasses, in render order."""
+        if not hasattr(self, "_renderpasses"):
+            self._renderpasses = []
+            for buf in self.buffers.values():
+                if buf:
+                    self._renderpasses.append(buf)
+            # TODO: where will cube and sound go?
+            self._renderpasses.append(self.image)
+        return self._renderpasses
+
+    def _request_device(self, features) -> wgpu.GPUDevice:
+        """
+        returns the _global_device if no features are required
+        otherwise requests a new device with the required features
+        this logic is needed to pass unit tests due to how we run examples.
+        Might be deprecated in the future, ref: https://github.com/pygfx/wgpu-py/pull/517
+        """
+        if not features:
+            return wgpu.utils.get_default_device()
+
+        return wgpu.gpu.request_adapter(
+            power_preference="high-performance"
+        ).request_device(required_features=features)
 
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
@@ -180,14 +230,16 @@ class Shadertoy:
                 title=self.title, size=self.resolution, max_fps=60
             )
 
-        self._device = wgpu.utils.device.get_default_device()
-
         self._present_context = self._canvas.get_context()
 
-        # We use "bgra8unorm" not "bgra8unorm-srgb" here because we want to let the shader fully control the color-space.
-        self._present_context.configure(
-            device=self._device, format=wgpu.TextureFormat.bgra8unorm
-        )
+        # We use non srgb variants, because we want to let the shader fully control the color-space.
+        # Defaults usually return the srgb variant, but a non srgb option is usually available
+        # comparable: https://docs.rs/wgpu/latest/wgpu/enum.TextureFormat.html#method.remove_srgb_suffix
+        self._format = self._present_context.get_preferred_format(
+            adapter=self._device.adapter
+        ).removesuffix("-srgb")
+
+        self._present_context.configure(device=self._device, format=self._format)
 
     def _bind_events(self):
         def on_resize(event):
@@ -258,9 +310,13 @@ class Shadertoy:
         if not self._offscreen:
             self._update()
 
-        image_pass = self.image.draw()
-        self._device.queue.submit([image_pass])
+        # record all renderpasses into encoders
+        render_encoders = []
+        for rpass in self.renderpasses:
+            render_encoders.append(rpass.draw())
+            # TODO: update the texture bindings here?
 
+        self._device.queue.submit(render_encoders)
         self._canvas.request_draw()
 
     def show(self):

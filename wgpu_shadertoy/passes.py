@@ -3,7 +3,7 @@ from typing import List
 
 import wgpu
 
-from .inputs import ShadertoyChannel, ShadertoyChannelTexture
+from .inputs import ShadertoyChannel, ShadertoyChannelTexture, ShadertoyChannelBuffer
 
 builtin_variables_glsl = """#version 450 core
 
@@ -57,12 +57,18 @@ class RenderPass:
         self._input_headers = ""
 
         # this is just a default - do we even need it?
-        self._format: wgpu.TextureFormat = wgpu.TextureFormat.bgra8unorm
+        # self.format: wgpu.TextureFormat = wgpu.TextureFormat.bgra8unorm
 
         # the render can only be prepared when main is set
         if main is not None:
             self._prepare_render()
         # as long as main is not set, this renderpass is not ready to be used.
+
+    def get_current_texture(self) -> wgpu.GPUTexture:
+        """
+        The current (next) texture to draw to
+        """
+        raise NotImplementedError("This method should be implemented by subclasses")
 
     @property
     def shader_code(self) -> str:
@@ -82,10 +88,11 @@ class RenderPass:
     def main(self, main_cls):
         """
         Register the main shadertoy class for this renderpass.
-        Also trigger _prepare_render() to finish initialization.
         """
         self._main = main_cls
-        self._prepare_render()
+        # Also trigger _prepare_render() to finish initialization. (moving this to first draw)
+        # self._prepare_render()
+        # never liked this behaviour anyway... 
 
     @property
     def _device(self) -> wgpu.GPUDevice:
@@ -148,6 +155,11 @@ class RenderPass:
                 # do we even get here?
                 channel = None
 
+            # special case where a channel for a bufferpass is selected, but the buffer doesn't exist as renderpass
+            if type(channel) is ShadertoyChannelBuffer and channel.buffer_idx not in self.main.buffers.keys():
+                    # print(f"Buffer {channel.buffer_idx} not found in main buffers. Replacing with black texture.")
+                    # TODO: how do we do these warnings?
+                    channel = ShadertoyChannelTexture(channel_idx=inp_idx)
             if channel is not None:
                 self._input_headers += channel.make_header(shader_type=self.shader_type)
             channels.append(channel)
@@ -164,11 +176,11 @@ class RenderPass:
         self.channels = self._attach_inputs(self._inputs)
         vertex_shader_code, frag_shader_code = self.construct_code()
 
-        vertex_shader_program = self._device.create_shader_module(
-            label="shadertoy_vertex", code=vertex_shader_code
+        self._vertex_shader_module = self._device.create_shader_module(
+            label=f"shadertoy_vertex in {self}", code=vertex_shader_code
         )
-        frag_shader_program = self._device.create_shader_module(
-            label="shadertoy_fragment", code=frag_shader_code
+        self._frag_shader_module = self._device.create_shader_module(
+            label=f"shadertoy_fragment {self}", code=frag_shader_code
         )
 
         # Uniforms are mainly global so the ._uniform_data object can be copied into a local uniform buffer
@@ -176,7 +188,12 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
+        self._setup_renderpipeline() # split in half so the next part can be reused.
 
+    def _setup_renderpipeline(self):
+        """
+        prepares the render pipeline and bind groups. Might be called every single frame.
+        """
         bind_groups_layout_entries = [
             {
                 "binding": 0,
@@ -219,11 +236,12 @@ class RenderPass:
         )
 
         self._render_pipeline = self._device.create_render_pipeline(
+            label=f"render_pipeline {self}",
             layout=self._device.create_pipeline_layout(
                 bind_group_layouts=[bind_group_layout]
             ),
             vertex={
-                "module": vertex_shader_program,
+                "module": self._vertex_shader_module,
                 "entry_point": "main",
                 "buffers": [],
             },
@@ -235,11 +253,11 @@ class RenderPass:
             depth_stencil=None,
             multisample=None,
             fragment={
-                "module": frag_shader_program,
+                "module": self._frag_shader_module,
                 "entry_point": "main",
                 "targets": [
                     {
-                        "format": wgpu.TextureFormat.bgra8unorm,
+                        "format": self.format,
                     },
                 ],
             },
@@ -250,6 +268,11 @@ class RenderPass:
         Updates uniforms and encodes the draw calls for this renderpass.
         Returns the command buffer.
         """
+
+        # if not hasattr(self, "_render_pipeline"):
+        #     # basically this needs to be done before the first draw. (but we don't need to check this every single frame -.-)
+        #     self._prepare_render()
+
         # to keep channel_res per renderpass - we need to overwrite it? (really lazy implementation)
         # channel_res can change with resizing, so it's not neccassarily constant
         # we might be able to reorder the layout and then cleverly use offsets
@@ -267,9 +290,10 @@ class RenderPass:
         current_texture: wgpu.GPUTexture = self.get_current_texture()
 
         render_pass: wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
+            label=f"renderpass {self}", # for frame {self.main._uniform_data['frame']} # TODO: check if this is available.
             color_attachments=[
                 {
-                    "view": current_texture.create_view(),
+                    "view": current_texture.create_view(usage=wgpu.TextureUsage.RENDER_ATTACHMENT),
                     "resolve_target": None,
                     "clear_value": (0, 0, 0, 1),
                     "load_op": wgpu.LoadOp.clear,
@@ -290,6 +314,9 @@ class RenderPass:
         """
         Public method to get the full vertex and fragment code for this renderpass.
         assembles the code templates for the vertext and fragment stages.
+        Returns:
+            vertex_shader_code (str): the vertex shader code
+            frag_shader_code (str): the fragment shader code
         """
         # left public since it has use outside of using it in the renderpass,
         # for example getting valid glsl from just a shadertoy image pass to use in naga validation.
@@ -398,6 +425,12 @@ class RenderPass:
                 + fragment_code_wgsl
             )
         return vertex_shader_code, frag_shader_code
+    
+    def __repr__(self):
+        """
+        small representation for labels
+        """
+        return f"<{self.__class__.__name__}>"
 
 
 class ImageRenderPass(RenderPass):
@@ -407,6 +440,13 @@ class ImageRenderPass(RenderPass):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    @property
+    def format(self) -> wgpu.TextureFormat:
+        """texture format for the image renderpass, should be the same as set for the canvas.
+        accessed via the main class.
+        """
+        return self.main._format
 
     def get_current_texture(self) -> wgpu.GPUTexture:
         """
@@ -423,8 +463,81 @@ class BufferRenderPass(RenderPass):
         buffer_idx (str): one of "A", "B", "C" or "D". Required.
     """
 
-    pass  # TODO at a later date
+    def __init__(self, buffer_idx: str, **kwargs):
+        super().__init__(**kwargs)
+        
+        self.buffer_idx = buffer_idx.lower()
+        if self.buffer_idx not in "abcd":
+            raise ValueError("buffer_idx must be one of 'A', 'B', 'C' or 'D'")
+        
+        self._texture_front = None
+        self._texture_back = None
+        self.format = wgpu.TextureFormat.rgba32float # requieres the feature wgpu.FeatureName.float32_filterable
 
+
+    @property
+    def texture_front(self) -> wgpu.GPUTexture:
+        """
+        Front texture is the result from last frame, to sampled as a texture.
+        """
+        if self._texture_front is None:
+            self._texture_front = self._init_texture("front ")
+        return self._texture_front
+    
+    @property
+    def texture_back(self) -> wgpu.GPUTexture:
+        """
+        Back texture is the target for the current frame.
+        """
+        if self._texture_back is None:
+            self._texture_back = self._init_texture("back ")
+        return self._texture_back
+
+    def get_current_texture(self) -> wgpu.GPUTexture:
+        """
+        The current (next) texture to draw to
+        """
+        # for the buffer pass we always draw the `back` and read from the `front` ?
+        return self.texture_back
+
+    def draw(self) -> wgpu.GPUCommandBuffer:
+        """
+        the draw function for the buffer needs to additionally swap the textures
+        """
+        command_buffer = super().draw()
+        # swap the textures
+        self._texture_front, self._texture_back = self._texture_back, self._texture_front
+        self._setup_renderpipeline() # this updates the bind groups, which get used in the next round?
+        # TODO: figure out what the correct order is here and if it matters because the
+        return command_buffer
+
+    def _init_texture(self, name=""):
+        """
+        Textures can only be initialized after main is set because we need to know the resolution.
+        """
+
+        texture_size = (int(self.main.resolution[0]), int(self.main.resolution[1]), 1)
+
+        texture = self._device.create_texture(
+            label=f"{name}texture in {self}",
+            size=texture_size,
+            format=self.format,
+            usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING,
+        )
+        return texture
+
+    def _prepare_render(self):
+        """
+        This private method can only be called after the main Shadertoy class is set.
+        For the buffer pass it additionally needs to initialize the textures.
+        """
+        super()._prepare_render()
+
+    def __repr__(self):
+        """
+        buffer repr also includes the buffer_idx
+        """
+        return f"<{self.__class__.__name__} {self.buffer_idx}>"
 
 class CubemapRenderPass(RenderPass):
     """
