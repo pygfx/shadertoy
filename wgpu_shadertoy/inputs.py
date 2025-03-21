@@ -38,6 +38,15 @@ class ShadertoyChannel:
         settings["address_mode_v"] = wrap
         # we don't do 3D textures yet, but I guess setting this too is fine.
         settings["address_mode_w"] = wrap
+
+        filter = self.kwargs.get("filter", "linear")
+        # wgpu.FilterMode is either "linear" or "nearest", "mipmap" requires special attention
+        if filter not in ("linear", "nearest"):
+            filter = "linear" # work around to avoid mipmap mode for now
+        
+        # both min and mag will use the same filter.
+        settings["mag_filter"] = filter
+        settings["min_filter"] = filter
         return settings
 
     @property
