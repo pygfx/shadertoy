@@ -3,7 +3,7 @@ from typing import List
 
 import wgpu
 
-from .inputs import ShadertoyChannel, ShadertoyChannelTexture
+from .inputs import ShadertoyChannel, ShadertoyChannelTexture, ShadertoyChannelBuffer
 
 builtin_variables_glsl = """#version 450 core
 
@@ -155,6 +155,11 @@ class RenderPass:
                 # do we even get here?
                 channel = None
 
+            # special case where a channel for a bufferpass is selected, but the buffer doesn't exist as renderpass
+            if type(channel) is ShadertoyChannelBuffer and channel.buffer_idx not in self.main.buffers.keys():
+                    # print(f"Buffer {channel.buffer_idx} not found in main buffers. Replacing with black texture.")
+                    # TODO: how do we do these warnings?
+                    channel = ShadertoyChannelTexture(channel_idx=inp_idx)
             if channel is not None:
                 self._input_headers += channel.make_header(shader_type=self.shader_type)
             channels.append(channel)
