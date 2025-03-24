@@ -9,7 +9,7 @@ from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
-from .passes import ImageRenderPass
+from .passes import ImageRenderPass, RenderPass
 
 
 class UniformArray:
@@ -136,10 +136,8 @@ class Shadertoy:
             offscreen = True
         self._offscreen = offscreen
 
-        # self.channels = self._attach_inputs(inputs)
         self.title = title
         self.complete = complete
-
         if not self.complete:
             self.title += " (incomplete)"
 
@@ -157,8 +155,8 @@ class Shadertoy:
         )
         
         # register all the buffers
-        # TODO: how do we get order correct and have the mapping from buffer_idx? default.OrderedDict maybe? a views dict? a getter function?
-        self.buffers = {} # str -> BufferRenderPass
+        # TODO: how do we get order correct and have the mapping from buffer_idx? collections.OrderedDict maybe? a views dict? a getter function?
+        self.buffers = {} # str -> BufferRenderPass // Dict[str, BufferRenderPass]
         if len(buffers) > 4:
             raise ValueError("Only 4 buffers are supported.")
         for buf in buffers:
@@ -181,7 +179,7 @@ class Shadertoy:
     
     # TODO: this should be part of __init__
     @property
-    def renderpasses(self) -> list:
+    def renderpasses(self) -> list[RenderPass]:
         """returns a list of active renderpasses, in render order."""
         if not hasattr(self, "_renderpasses"):
             self._renderpasses = []
@@ -313,8 +311,8 @@ class Shadertoy:
         # record all renderpasses into encoders
         render_encoders = []
         for rpass in self.renderpasses:
-            render_encoders.append(rpass.draw())
-            # TODO: update the texture bindings here?
+            pass_encoder_buffer = rpass.draw()
+            render_encoders.append(pass_encoder_buffer)
 
         self._device.queue.submit(render_encoders)
         self._canvas.request_draw()

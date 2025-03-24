@@ -301,7 +301,7 @@ class RenderPass:
                 }
             ],
         )
-
+        self._setup_renderpipeline()
         render_pass.set_pipeline(self._render_pipeline)
         # self._bind_group might get generalized out for buffer
         render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
@@ -507,8 +507,6 @@ class BufferRenderPass(RenderPass):
         command_buffer = super().draw()
         # swap the textures
         self._texture_front, self._texture_back = self._texture_back, self._texture_front
-        self._setup_renderpipeline() # this updates the bind groups, which get used in the next round?
-        # TODO: figure out what the correct order is here and if it matters because the
         return command_buffer
 
     def _init_texture(self, name=""):
