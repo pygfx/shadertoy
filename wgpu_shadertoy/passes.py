@@ -531,17 +531,21 @@ class BufferRenderPass(RenderPass):
         """
         super()._prepare_render()
 
-    def resize_buffer(self, new_x:int, new_y:int):
+    def resize_buffer(self):
         """
         Use copy_texture_to_texture to replace the front and back texture during the on_resize event callback.
         Matches Shadertoy.com behaviour by keeping the bottom left corner.
         """
         # x = width, y = height
         old_x, old_y = self.texture_back.size[0:2]
+        new_x, new_y = int(self.main.resolution[0]), int(self.main.resolution[1])
+        if old_x == new_x and old_y == new_y:
+            # no need to resize, the event might be called faster than input are coming in.
+            return
+
         # _init_texture function takes the resolution values directly from main... which is updated already
         new_front = self._init_texture(name="front ")
         new_back = self._init_texture(name="back ")
-
         # copy the front texture to the new one
         copy_encoder = self._device.create_command_encoder()
         copy_encoder.copy_texture_to_texture(
@@ -559,7 +563,7 @@ class BufferRenderPass(RenderPass):
                 },
             copy_size=(min(old_x, new_x), min(old_y, new_y), 1),
         )
-        # the copy size can't be outside the bounds of the new texture, so downsizing requires us to simply use the smaller value
+        # the copy size can't be outside the bounds of the new texture, simply use the smaller value
         copy_encoder.copy_texture_to_texture(
             source={
                 "texture": self.texture_back,

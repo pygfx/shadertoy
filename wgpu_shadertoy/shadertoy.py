@@ -244,7 +244,9 @@ class Shadertoy:
             w, h = event["width"], event["height"]
             self._uniform_data["resolution"] = (w, h, 1)
             for buf in self.buffers.values():
-                buf.resize_buffer(int(w), int(h))
+                # TODO: do we want to call this every single time or only when the resize is done?
+                # render loop is suspended during any window interaction anyway - will be fixed with rendercanvas: https://github.com/pygfx/rendercanvas/issues/69
+                buf.resize_buffer()
 
         def on_mouse_move(event):
             if event["button"] == 1 or 1 in event["buttons"]:
