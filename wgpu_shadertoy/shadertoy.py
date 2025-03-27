@@ -9,7 +9,7 @@ from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
-from .passes import ImageRenderPass, RenderPass
+from .passes import BufferRenderPass, ImageRenderPass, RenderPass
 
 
 class UniformArray:
@@ -110,7 +110,7 @@ class Shadertoy:
         shader_type="auto",
         offscreen=None,
         inputs=[],
-        buffers=[],
+        buffers: list[BufferRenderPass] = [],
         title: str = "Shadertoy",
         complete: bool = True,
     ) -> None:
@@ -156,7 +156,7 @@ class Shadertoy:
         
         # register all the buffers
         # TODO: how do we get order correct and have the mapping from buffer_idx? collections.OrderedDict maybe? a views dict? a getter function?
-        self.buffers = {} # str -> BufferRenderPass // Dict[str, BufferRenderPass]
+        self.buffers: dict[str, BufferRenderPass] = {}
         if len(buffers) > 4:
             raise ValueError("Only 4 buffers are supported.")
         for buf in buffers:
@@ -243,6 +243,8 @@ class Shadertoy:
         def on_resize(event):
             w, h = event["width"], event["height"]
             self._uniform_data["resolution"] = (w, h, 1)
+            for buf in self.buffers.values():
+                buf.resize_buffer(int(w), int(h))
 
         def on_mouse_move(event):
             if event["button"] == 1 or 1 in event["buttons"]:

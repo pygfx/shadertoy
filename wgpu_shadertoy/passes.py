@@ -517,10 +517,10 @@ class BufferRenderPass(RenderPass):
         texture_size = (int(self.main.resolution[0]), int(self.main.resolution[1]), 1)
 
         texture = self._device.create_texture(
-            label=f"{name}texture in {self}",
+            label=f"{name}texture in {self} sized {texture_size[0:2]}",
             size=texture_size,
             format=self.format,
-            usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING,
+            usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_SRC | wgpu.TextureUsage.COPY_DST,
         )
         return texture
 
@@ -530,6 +530,58 @@ class BufferRenderPass(RenderPass):
         For the buffer pass it additionally needs to initialize the textures.
         """
         super()._prepare_render()
+
+    def resize_buffer(self, new_x:int, new_y:int):
+        """
+        Use copy_texture_to_texture to replace the front and back texture during the on_resize event callback.
+        Matches Shadertoy.com behaviour by keeping the bottom left corner.
+        """
+        # x = width, y = height
+        old_x, old_y = self.texture_back.size[0:2]
+        # _init_texture function takes the resolution values directly from main... which is updated already
+        new_front = self._init_texture(name="front ")
+        new_back = self._init_texture(name="back ")
+
+        # copy the front texture to the new one
+        copy_encoder = self._device.create_command_encoder()
+        copy_encoder.copy_texture_to_texture(
+            source={
+                "texture": self.texture_front,
+                "mip_level": 0,
+                "origin":(0, 0, 0),
+                "aspect": wgpu.TextureAspect.all,
+                },
+            destination={
+                "texture": new_front,
+                "mip_level": 0,
+                "origin": (0, 0, 0),
+                "aspect": wgpu.TextureAspect.all,
+                },
+            copy_size=(min(old_x, new_x), min(old_y, new_y), 1),
+        )
+        # the copy size can't be outside the bounds of the new texture, so downsizing requires us to simply use the smaller value
+        copy_encoder.copy_texture_to_texture(
+            source={
+                "texture": self.texture_back,
+                "mip_level": 0,
+                "origin":(0, 0, 0),
+                "aspect": wgpu.TextureAspect.all,
+                },
+            destination={
+                "texture": new_back,
+                "mip_level": 0,
+                "origin": (0, 0, 0),
+                "aspect": wgpu.TextureAspect.all,
+                },
+            copy_size=(min(old_x, new_x), min(old_y, new_y), 1),
+        )
+        copy_encoder_buffer = copy_encoder.finish()
+        self._device.queue.submit([copy_encoder_buffer])
+
+        # replace the actual textures
+        self._texture_front = new_front
+        self._texture_back = new_back
+
 
     def __repr__(self):
         """
