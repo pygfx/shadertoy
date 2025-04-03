@@ -22,6 +22,7 @@ Possible sections in each release:
 Added:
 * Run shaders from the website API https://github.com/pygfx/shadertoy/pull/25
 * Additional Uniforms are now supported in `.screenshot()` https://github.com/pygfx/shadertoy/pull/37
+* Multipass shaders using `BufferRenderPass` and `ShadertoyChannelBuffer` https://github.com/pygfx/shadertoy/pull/43
 
 Changed:
 * `ShadertoyChannel` is now more specific `ShadertoyChannelTexture` https://github.com/pygfx/shadertoy/pull/40
