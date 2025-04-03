@@ -217,8 +217,6 @@ class Shadertoy:
         return cls.from_json(shader_data, **kwargs)
 
     def _prepare_canvas(self):
-        import wgpu.backends.auto
-
         if self._offscreen:
             self._canvas = OffscreenCanvas(
                 title=self.title, size=self.resolution, max_fps=60
