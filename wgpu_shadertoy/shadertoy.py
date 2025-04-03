@@ -155,7 +155,6 @@ class Shadertoy:
         )
 
         # register all the buffers
-        # TODO: how do we get order correct and have the mapping from buffer_idx? collections.OrderedDict maybe? a views dict? a getter function?
         self.buffers: dict[str, BufferRenderPass] = {}
         if len(buffers) > 4:
             raise ValueError("Only 4 buffers are supported.")
@@ -165,7 +164,7 @@ class Shadertoy:
         # # finish the initialization by setting .main _prepare_render
         for rp in self.renderpasses:
             rp.main = self
-        # only after main has been set, we can _prepare_render(), there is complex cross-references
+        # only after main has been set, we can _prepare_render(), there can be complex cross-references
         # TODO: maybe just do a global for main?
         for rp in self.renderpasses:
             rp._prepare_render()
@@ -175,7 +174,7 @@ class Shadertoy:
         """The resolution of the shadertoy as a tuple (width, height) in pixels."""
         return tuple(self._uniform_data["resolution"])[:2]
 
-    # TODO: this should be part of __init__
+    # TODO: this could be part of __init__
     @property
     def renderpasses(self) -> list[RenderPass]:
         """returns a list of active renderpasses, in render order."""

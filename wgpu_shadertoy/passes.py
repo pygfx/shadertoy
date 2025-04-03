@@ -56,14 +56,6 @@ class RenderPass:
         self._inputs = inputs
         self._input_headers = ""
 
-        # this is just a default - do we even need it?
-        # self.format: wgpu.TextureFormat = wgpu.TextureFormat.bgra8unorm
-
-        # the render can only be prepared when main is set
-        if main is not None:
-            self._prepare_render()
-        # as long as main is not set, this renderpass is not ready to be used.
-
     def get_current_texture(self) -> wgpu.GPUTexture:
         """
         The current (next) texture to draw to
@@ -90,9 +82,6 @@ class RenderPass:
         Register the main shadertoy class for this renderpass.
         """
         self._main = main_cls
-        # Also trigger _prepare_render() to finish initialization. (moving this to first draw)
-        # self._prepare_render()
-        # never liked this behaviour anyway...
 
     @property
     def _device(self) -> wgpu.GPUDevice:
@@ -160,8 +149,6 @@ class RenderPass:
                 type(channel) is ShadertoyChannelBuffer
                 and channel.buffer_idx not in self.main.buffers.keys()
             ):
-                # print(f"Buffer {channel.buffer_idx} not found in main buffers. Replacing with black texture.")
-                # TODO: how do we do these warnings?
                 channel = ShadertoyChannelTexture(channel_idx=inp_idx)
             if channel is not None:
                 self._input_headers += channel.make_header(shader_type=self.shader_type)
@@ -271,10 +258,6 @@ class RenderPass:
         Updates uniforms and encodes the draw calls for this renderpass.
         Returns the command buffer.
         """
-
-        # if not hasattr(self, "_render_pipeline"):
-        #     # basically this needs to be done before the first draw. (but we don't need to check this every single frame -.-)
-        #     self._prepare_render()
 
         # to keep channel_res per renderpass - we need to overwrite it? (really lazy implementation)
         # channel_res can change with resizing, so it's not neccassarily constant
@@ -479,7 +462,7 @@ class BufferRenderPass(RenderPass):
         self._texture_back = None
         self.format = (
             wgpu.TextureFormat.rgba32float
-        )  # requieres the feature wgpu.FeatureName.float32_filterable
+        )  # requires the feature wgpu.FeatureName.float32_filterable
 
     @property
     def texture_front(self) -> wgpu.GPUTexture:
@@ -503,7 +486,7 @@ class BufferRenderPass(RenderPass):
         """
         The current (next) texture to draw to
         """
-        # for the buffer pass we always draw the `back` and read from the `front` ?
+        # for the buffer pass we always draw to the `back` texture and read from the `front`texture
         return self.texture_back
 
     def draw(self) -> wgpu.GPUCommandBuffer:
@@ -535,13 +518,6 @@ class BufferRenderPass(RenderPass):
             | wgpu.TextureUsage.COPY_DST,
         )
         return texture
-
-    def _prepare_render(self):
-        """
-        This private method can only be called after the main Shadertoy class is set.
-        For the buffer pass it additionally needs to initialize the textures.
-        """
-        super()._prepare_render()
 
     def resize_buffer(self):
         """

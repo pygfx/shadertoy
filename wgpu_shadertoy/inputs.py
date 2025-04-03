@@ -212,7 +212,6 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
     def __init__(self, buffer, **kwargs):
         super().__init__(**kwargs)
 
-        # TODO: should we even accept both options? (how do we do the circular definition?)
         if isinstance(buffer, str):
             # when the user gives a string, we don't have the associated buffer renderpass yet
             self.buffer_idx = buffer.lower()[-1]
@@ -226,7 +225,9 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
 
     @property
     def size(self):
-        # access from there?
+        """
+        texture size of the front texture
+        """
         return self.renderpass.texture_front.size
 
     @property
