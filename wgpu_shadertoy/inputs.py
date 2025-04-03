@@ -21,7 +21,7 @@ class ShadertoyChannel:
         self._channel_idx = channel_idx
         self.args = args
         self.kwargs = kwargs
-        self.dynamic: bool = False # is this still needed? should it be private?
+        self.dynamic: bool = False  # is this still needed? should it be private?
         self._parent = kwargs.get("parent", None)
 
     @property
@@ -42,8 +42,8 @@ class ShadertoyChannel:
         filter = self.kwargs.get("filter", "linear")
         # wgpu.FilterMode is either "linear" or "nearest", "mipmap" requires special attention
         if filter not in ("linear", "nearest"):
-            filter = "linear" # work around to avoid mipmap mode for now
-        
+            filter = "linear"  # work around to avoid mipmap mode for now
+
         # both min and mag will use the same filter.
         settings["mag_filter"] = filter
         settings["min_filter"] = filter
@@ -217,7 +217,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
             # when the user gives a string, we don't have the associated buffer renderpass yet
             self.buffer_idx = buffer.lower()[-1]
             self._renderpass = None
-        else: #(assume BufferPass instance?)
+        else:  # (assume BufferPass instance?)
             self._renderpass = buffer
             self.buffer_idx = buffer.buffer_idx
 
@@ -230,7 +230,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         return self.renderpass.texture_front.size
 
     @property
-    def renderpass(self): # -> BufferRenderPass:
+    def renderpass(self):  # -> BufferRenderPass:
         if self._renderpass is None:
             self._renderpass = self.parent.main.buffers[self.buffer_idx]
         return self._renderpass
@@ -241,12 +241,13 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         takes the texture form `front` the buffer renderpass (last frame)
         """
         binding_layout = self._binding_layout()
-        texture:wgpu.GPUTexture = self.renderpass.texture_front
+        texture: wgpu.GPUTexture = self.renderpass.texture_front
         texture_view = texture.create_view(usage=wgpu.TextureUsage.TEXTURE_BINDING)
         sampler = device.create_sampler(**self.sampler_settings)
-        bind_groups_layout_entry = self._bind_groups_layout_entries(texture_view, sampler)
+        bind_groups_layout_entry = self._bind_groups_layout_entries(
+            texture_view, sampler
+        )
         return binding_layout, bind_groups_layout_entry
-
 
 
 class ShadertoyChannelCubemapA(ShadertoyChannel):

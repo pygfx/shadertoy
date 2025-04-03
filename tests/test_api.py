@@ -63,6 +63,7 @@ def test_shadertoy_from_id_without_cache(api_available):
     assert shader.common.startswith("//Common pass loaded!")
     assert shader.image.channels != []
 
+
 def test_buffers_from_api(api_available):
     # Import here, because it imports the wgpu.gui.auto
     from wgpu_shadertoy import Shadertoy, ShadertoyChannelBuffer

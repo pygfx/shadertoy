@@ -286,11 +286,11 @@ def test_shadertoy_with_buffers():
     )
 
     assert shader.resolution == (800, 450)
-    assert buffer_pass_a is shader.renderpasses[0] # check that order is preserved!
+    assert buffer_pass_a is shader.renderpasses[0]  # check that order is preserved!
     assert buffer_pass_b is shader.renderpasses[1]
     assert buffer_pass_c in shader.renderpasses
     assert buffer_pass_d in shader.renderpasses
-    assert shader.image is shader.renderpasses[-1] # last renderpass is the image pass
+    assert shader.image is shader.renderpasses[-1]  # last renderpass is the image pass
     assert shader.buffers["a"].shader_code == buffer_code_a
     assert shader.buffers["b"].shader_code == buffer_code_b
     assert shader.buffers["c"].shader_code == buffer_code_c
@@ -303,13 +303,19 @@ def test_shadertoy_with_buffers():
     assert (
         shader.image.channels[3].sampler_settings["address_mode_u"] == "clamp-to-edge"
     )
-    assert shader.image.channels[0].sampler_settings["min_filter"] == "linear" # default
+    assert (
+        shader.image.channels[0].sampler_settings["min_filter"] == "linear"
+    )  # default
     assert shader.image.channels[2].sampler_settings["mag_filter"] == "nearest"
-    assert shader.image.channels[1].sampler_settings["mag_filter"] is shader.image.channels[1].sampler_settings["min_filter"]
+    assert (
+        shader.image.channels[1].sampler_settings["mag_filter"]
+        is shader.image.channels[1].sampler_settings["min_filter"]
+    )
 
 
 def test_shadertoy_buffers_reflexive():
     from wgpu_shadertoy import BufferRenderPass, Shadertoy, ShadertoyChannelBuffer
+
     # this test is meant to check if more complex self references are correctly assembled.
     # ref: https://www.shadertoy.com/view/tXlGR7
     image_code = """
@@ -349,8 +355,12 @@ def test_shadertoy_buffers_reflexive():
     # when you not using different samplers, apparently it's fine to reuse the same channels across multiple passes.
     channel0 = ShadertoyChannelBuffer(buffer="a")
     channel1 = ShadertoyChannelBuffer(buffer="b")
-    buffer_a_pass = BufferRenderPass(buffer_idx="a", code=buffer_a_code, inputs = [channel0, channel1])
-    buffer_b_pass = BufferRenderPass(buffer_idx="b", code=buffer_b_code, inputs = [channel0, channel1])
+    buffer_a_pass = BufferRenderPass(
+        buffer_idx="a", code=buffer_a_code, inputs=[channel0, channel1]
+    )
+    buffer_b_pass = BufferRenderPass(
+        buffer_idx="b", code=buffer_b_code, inputs=[channel0, channel1]
+    )
 
     shader = Shadertoy(
         shader_code=image_code,

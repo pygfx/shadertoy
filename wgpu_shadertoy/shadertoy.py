@@ -153,7 +153,7 @@ class Shadertoy:
         self.image = ImageRenderPass(
             code=shader_code, shader_type=shader_type, inputs=inputs
         )
-        
+
         # register all the buffers
         # TODO: how do we get order correct and have the mapping from buffer_idx? collections.OrderedDict maybe? a views dict? a getter function?
         self.buffers: dict[str, BufferRenderPass] = {}
@@ -170,13 +170,11 @@ class Shadertoy:
         for rp in self.renderpasses:
             rp._prepare_render()
 
-
-
     @property
     def resolution(self):
         """The resolution of the shadertoy as a tuple (width, height) in pixels."""
         return tuple(self._uniform_data["resolution"])[:2]
-    
+
     # TODO: this should be part of __init__
     @property
     def renderpasses(self) -> list[RenderPass]:

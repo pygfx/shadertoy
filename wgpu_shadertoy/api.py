@@ -83,7 +83,9 @@ def _download_media_channels(
                     img.save(cache_path)
             args = {"data": img}
         elif inp["ctype"] == "buffer":
-            args = {"buffer": "abcd"[int(inp["src"][-5])]} # hack with the preview image to get the buffer index
+            args = {
+                "buffer": "abcd"[int(inp["src"][-5])]
+            }  # hack with the preview image to get the buffer index
         else:
             complete = False
             continue  # skip the below rows
@@ -162,8 +164,12 @@ def shader_args_from_json(dict_or_path, **kwargs) -> dict:
             buffer_inputs, inputs_complete = _download_media_channels(
                 r_pass["inputs"], use_cache=use_cache
             )
-            buffer_idx = r_pass["name"].lower()[-1] # some really old Shadertoys could mess this up one day.
-            buffer_pass = BufferRenderPass(code=r_pass["code"], inputs=buffer_inputs, buffer_idx=buffer_idx)
+            buffer_idx = r_pass["name"].lower()[
+                -1
+            ]  # some really old Shadertoys could mess this up one day.
+            buffer_pass = BufferRenderPass(
+                code=r_pass["code"], inputs=buffer_inputs, buffer_idx=buffer_idx
+            )
             buffers.append(buffer_pass)
         else:
             complete = False

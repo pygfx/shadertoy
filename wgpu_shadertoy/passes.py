@@ -3,7 +3,7 @@ from typing import List
 
 import wgpu
 
-from .inputs import ShadertoyChannel, ShadertoyChannelTexture, ShadertoyChannelBuffer
+from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
 
 builtin_variables_glsl = """#version 450 core
 
@@ -92,7 +92,7 @@ class RenderPass:
         self._main = main_cls
         # Also trigger _prepare_render() to finish initialization. (moving this to first draw)
         # self._prepare_render()
-        # never liked this behaviour anyway... 
+        # never liked this behaviour anyway...
 
     @property
     def _device(self) -> wgpu.GPUDevice:
@@ -156,10 +156,13 @@ class RenderPass:
                 channel = None
 
             # special case where a channel for a bufferpass is selected, but the buffer doesn't exist as renderpass
-            if type(channel) is ShadertoyChannelBuffer and channel.buffer_idx not in self.main.buffers.keys():
-                    # print(f"Buffer {channel.buffer_idx} not found in main buffers. Replacing with black texture.")
-                    # TODO: how do we do these warnings?
-                    channel = ShadertoyChannelTexture(channel_idx=inp_idx)
+            if (
+                type(channel) is ShadertoyChannelBuffer
+                and channel.buffer_idx not in self.main.buffers.keys()
+            ):
+                # print(f"Buffer {channel.buffer_idx} not found in main buffers. Replacing with black texture.")
+                # TODO: how do we do these warnings?
+                channel = ShadertoyChannelTexture(channel_idx=inp_idx)
             if channel is not None:
                 self._input_headers += channel.make_header(shader_type=self.shader_type)
             channels.append(channel)
@@ -188,7 +191,7 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
-        self._setup_renderpipeline() # split in half so the next part can be reused.
+        self._setup_renderpipeline()  # split in half so the next part can be reused.
 
     def _setup_renderpipeline(self):
         """
@@ -290,10 +293,12 @@ class RenderPass:
         current_texture: wgpu.GPUTexture = self.get_current_texture()
 
         render_pass: wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
-            label=f"renderpass {self}", # for frame {self.main._uniform_data['frame']} # TODO: check if this is available.
+            label=f"renderpass {self}",  # for frame {self.main._uniform_data['frame']} # TODO: check if this is available.
             color_attachments=[
                 {
-                    "view": current_texture.create_view(usage=wgpu.TextureUsage.RENDER_ATTACHMENT),
+                    "view": current_texture.create_view(
+                        usage=wgpu.TextureUsage.RENDER_ATTACHMENT
+                    ),
                     "resolve_target": None,
                     "clear_value": (0, 0, 0, 1),
                     "load_op": wgpu.LoadOp.clear,
@@ -425,7 +430,7 @@ class RenderPass:
                 + fragment_code_wgsl
             )
         return vertex_shader_code, frag_shader_code
-    
+
     def __repr__(self):
         """
         small representation for labels
@@ -465,15 +470,16 @@ class BufferRenderPass(RenderPass):
 
     def __init__(self, buffer_idx: str, **kwargs):
         super().__init__(**kwargs)
-        
+
         self.buffer_idx = buffer_idx.lower()
         if self.buffer_idx not in "abcd":
             raise ValueError("buffer_idx must be one of 'A', 'B', 'C' or 'D'")
-        
+
         self._texture_front = None
         self._texture_back = None
-        self.format = wgpu.TextureFormat.rgba32float # requieres the feature wgpu.FeatureName.float32_filterable
-
+        self.format = (
+            wgpu.TextureFormat.rgba32float
+        )  # requieres the feature wgpu.FeatureName.float32_filterable
 
     @property
     def texture_front(self) -> wgpu.GPUTexture:
@@ -483,7 +489,7 @@ class BufferRenderPass(RenderPass):
         if self._texture_front is None:
             self._texture_front = self._init_texture("front ")
         return self._texture_front
-    
+
     @property
     def texture_back(self) -> wgpu.GPUTexture:
         """
@@ -506,7 +512,10 @@ class BufferRenderPass(RenderPass):
         """
         command_buffer = super().draw()
         # swap the textures
-        self._texture_front, self._texture_back = self._texture_back, self._texture_front
+        self._texture_front, self._texture_back = (
+            self._texture_back,
+            self._texture_front,
+        )
         return command_buffer
 
     def _init_texture(self, name=""):
@@ -520,7 +529,10 @@ class BufferRenderPass(RenderPass):
             label=f"{name}texture in {self} sized {texture_size[0:2]}",
             size=texture_size,
             format=self.format,
-            usage=wgpu.TextureUsage.RENDER_ATTACHMENT | wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_SRC | wgpu.TextureUsage.COPY_DST,
+            usage=wgpu.TextureUsage.RENDER_ATTACHMENT
+            | wgpu.TextureUsage.TEXTURE_BINDING
+            | wgpu.TextureUsage.COPY_SRC
+            | wgpu.TextureUsage.COPY_DST,
         )
         return texture
 
@@ -552,15 +564,15 @@ class BufferRenderPass(RenderPass):
             source={
                 "texture": self.texture_front,
                 "mip_level": 0,
-                "origin":(0, 0, 0),
+                "origin": (0, 0, 0),
                 "aspect": wgpu.TextureAspect.all,
-                },
+            },
             destination={
                 "texture": new_front,
                 "mip_level": 0,
                 "origin": (0, 0, 0),
                 "aspect": wgpu.TextureAspect.all,
-                },
+            },
             copy_size=(min(old_x, new_x), min(old_y, new_y), 1),
         )
         # the copy size can't be outside the bounds of the new texture, simply use the smaller value
@@ -568,15 +580,15 @@ class BufferRenderPass(RenderPass):
             source={
                 "texture": self.texture_back,
                 "mip_level": 0,
-                "origin":(0, 0, 0),
+                "origin": (0, 0, 0),
                 "aspect": wgpu.TextureAspect.all,
-                },
+            },
             destination={
                 "texture": new_back,
                 "mip_level": 0,
                 "origin": (0, 0, 0),
                 "aspect": wgpu.TextureAspect.all,
-                },
+            },
             copy_size=(min(old_x, new_x), min(old_y, new_y), 1),
         )
         copy_encoder_buffer = copy_encoder.finish()
@@ -586,12 +598,12 @@ class BufferRenderPass(RenderPass):
         self._texture_front = new_front
         self._texture_back = new_back
 
-
     def __repr__(self):
         """
         buffer repr also includes the buffer_idx
         """
         return f"<{self.__class__.__name__} {self.buffer_idx}>"
+
 
 class CubemapRenderPass(RenderPass):
     """
