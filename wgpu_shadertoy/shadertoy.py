@@ -334,6 +334,7 @@ class Shadertoy:
     ) -> memoryview:
         """
         Returns an image of the specified time. (Only available when ``offscreen=True``), you can set the uniforms manually via the parameters.
+        Snapshots will be saved in the channel order of self._format.
 
         Parameters:
             time_float (float): The time to snapshot. It essentially sets ``i_time`` to a specific number. (Default is 0.0)
