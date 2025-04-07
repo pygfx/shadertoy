@@ -73,21 +73,21 @@ fn shader_main(frag_coord: vec2<f32>) -> vec4<f32>{
 
 buffer_a_channel = ShadertoyChannelBuffer(buffer="a", wrap="repeat")
 # using the wgsl translated code for the buffer pass
+# as mixing passes between glsl and wgsl works
 buffer_a_pass_wgsl = BufferRenderPass(
     buffer_idx="a", code=buffer_code_wgsl, inputs=[buffer_a_channel], shader_type="wgsl"
 )
 
-buffer_a_pass_glsl = BufferRenderPass(
-    buffer_idx="a", code=buffer_code, inputs=[buffer_a_channel]
-)
+# buffer_a_pass_glsl = BufferRenderPass(
+#     buffer_idx="a", code=buffer_code, inputs=[buffer_a_channel]
+# )
 
 
 shader = Shadertoy(
     image_code,
     inputs=[buffer_a_channel],
-    # buffers=[buffer_a_pass_wgsl],
-    buffers=[buffer_a_pass_glsl],
+    buffers=[buffer_a_pass_wgsl],
+    # buffers=[buffer_a_pass_glsl],
 )
 if __name__ == "__main__":
-    # print(shader.buffers["a"].construct_code()[0])
     shader.show()
