@@ -197,9 +197,9 @@ class Shadertoy:
         if not features:
             return wgpu.utils.get_default_device()
 
-        return wgpu.gpu.request_adapter(
+        return wgpu.gpu.request_adapter_sync(
             power_preference="high-performance"
-        ).request_device(required_features=features)
+        ).request_device_sync(required_features=features)
 
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
