@@ -134,7 +134,10 @@ class Shadertoy:
 
         # if no explicit offscreen option was given
         # inherit wgpu-py force offscreen option
-        if offscreen is None and os.environ.get("RENDERCANVAS_FORCE_OFFSCREEN") == "true":
+        if (
+            offscreen is None
+            and os.environ.get("RENDERCANVAS_FORCE_OFFSCREEN") == "true"
+        ):
             offscreen = True
         self._offscreen = offscreen
 
