@@ -76,6 +76,7 @@ class Shadertoy:
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
+        canvas (RenderCanvas): Optionally provide the canvas the image pass will render too. Defaults to None (means auto?)
 
     The shader code must contain a entry point function:
 
@@ -112,6 +113,7 @@ class Shadertoy:
         buffers: list[BufferRenderPass] = [],
         title: str = "Shadertoy",
         complete: bool = True,
+        canvas=None,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -151,7 +153,7 @@ class Shadertoy:
             device_features.append(wgpu.FeatureName.float32_filterable)
         self._device = self._request_device(device_features)
 
-        self._prepare_canvas()
+        self._prepare_canvas(canvas=canvas)
         self._bind_events()
 
         # setting up the renderpasses, inputs to the main class get handed to the .image pass
@@ -218,9 +220,12 @@ class Shadertoy:
         shader_data = shadertoy_from_id(id_or_url)
         return cls.from_json(shader_data, **kwargs)
 
-    def _prepare_canvas(self):
+    def _prepare_canvas(self, canvas=None):
         # TODO: refactor to accept a canvas class as a keyword argument
-        if self._offscreen:
+
+        if canvas:
+            self._canvas = canvas
+        elif self._offscreen:
             self._canvas = OffscreenCanvas(
                 title=self.title, size=self.resolution, max_fps=60
             )
