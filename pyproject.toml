@@ -10,6 +10,7 @@ name = "wgpu-shadertoy"
 dynamic = ["version", "readme"]
 dependencies = [
   "wgpu>=0.21.1",
+  "rendercanvas",
   "requests",
   "numpy",
   "Pillow",

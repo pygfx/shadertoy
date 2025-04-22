@@ -147,7 +147,7 @@ def update_diffs(module, is_similar, img, stored_img):
 
 if __name__ == "__main__":
     # Enable tweaking in an IDE by running in an interactive session.
-    os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+    os.environ["RENDERCANVAS_FORCE_OFFSCREEN"] = "true"
     pytest.getoption = lambda x: False
     is_lavapipe = True
     test_examples_screenshots("validate_volume", pytest, None, None)

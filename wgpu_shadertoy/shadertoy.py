@@ -4,9 +4,9 @@ import os
 import time
 
 import wgpu
-from wgpu.gui.auto import WgpuCanvas, run
-from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
-from wgpu.gui.offscreen import run as run_offscreen
+from rendercanvas.auto import RenderCanvas, loop
+from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
+from rendercanvas.offscreen import loop as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
@@ -132,7 +132,7 @@ class Shadertoy:
 
         # if no explicit offscreen option was given
         # inherit wgpu-py force offscreen option
-        if offscreen is None and os.environ.get("WGPU_FORCE_OFFSCREEN") == "true":
+        if offscreen is None and os.environ.get("RENDERCANVAS_FORCE_OFFSCREEN") == "true":
             offscreen = True
         self._offscreen = offscreen
 
@@ -214,16 +214,17 @@ class Shadertoy:
         return cls.from_json(shader_data, **kwargs)
 
     def _prepare_canvas(self):
+        # TODO: refactor to accept a canvas class as a keyword argument
         if self._offscreen:
             self._canvas = OffscreenCanvas(
                 title=self.title, size=self.resolution, max_fps=60
             )
         else:
-            self._canvas = WgpuCanvas(
+            self._canvas = RenderCanvas(
                 title=self.title, size=self.resolution, max_fps=60
             )
 
-        self._present_context = self._canvas.get_context()
+        self._present_context = self._canvas.get_context("wgpu")
 
         # We use non srgb variants, because we want to let the shader fully control the color-space.
         # Defaults usually return the srgb variant, but a non srgb option is usually available
@@ -319,9 +320,10 @@ class Shadertoy:
     def show(self):
         self._canvas.request_draw(self._draw_frame)
         if self._offscreen:
-            run_offscreen()
+            # this actually doesn't do anything - just provided for compatibility with test syntax for now.
+            run_offscreen.run()
         else:
-            run()
+            loop.run()
 
     def snapshot(
         self,
