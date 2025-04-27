@@ -81,6 +81,8 @@ def _download_media_channels(
                 if use_cache:
                     img.save(cache_path)
             args = {"data": img}
+        elif inp["ctype"] == "mic":
+            args = {}
         else:
             complete = False
             continue  # skip the below rows

@@ -9,7 +9,7 @@ from wgpu.gui.offscreen import run as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import ImageRenderPass
-
+from .audio_devices import AudioDevice, NullAudioDevice
 
 class UniformArray:
     """Convenience class to create a uniform array.
@@ -111,6 +111,7 @@ class Shadertoy:
         inputs=[],
         title: str = "Shadertoy",
         complete: bool = True,
+        audio_device: AudioDevice = None,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -127,6 +128,7 @@ class Shadertoy:
         self.common = common + "\n"
         self._uniform_data["resolution"] = (*resolution, 1)
         self._shader_type = shader_type.lower()
+        self.audio_device = audio_device if audio_device is not None else NullAudioDevice(44100)
 
         # if no explicit offscreen option was given
         # inherit wgpu-py force offscreen option
