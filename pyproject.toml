@@ -13,6 +13,7 @@ dependencies = [
   "requests",
   "numpy",
   "Pillow",
+  "sounddevice",
 ]
 description = "Shadertoy implementation based on wgpu-py"
 license = {file = "LICENSE"}
