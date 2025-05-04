@@ -10,6 +10,7 @@ from rendercanvas.offscreen import loop as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
+from .imgui import parse_constants
 
 
 class UniformArray:
@@ -77,6 +78,7 @@ class Shadertoy:
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
         canvas (RenderCanvas): Optionally provide the canvas the image pass will render too. Defaults to None (means auto?)
+        imgui (bool): Automatiicaly parse constants and provide a imgui interface to change them. Default is False.
 
     The shader code must contain a entry point function:
 
@@ -114,6 +116,7 @@ class Shadertoy:
         title: str = "Shadertoy",
         complete: bool = True,
         canvas=None,
+        imgui: bool = False,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -149,6 +152,9 @@ class Shadertoy:
             self.title += " (incomplete)"
 
         self.title += " $fps FPS"
+
+        if imgui:
+            self._constants = parse_constants(shader_code, self.common)
 
         device_features = []
         if buffers:
