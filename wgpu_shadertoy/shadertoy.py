@@ -10,6 +10,7 @@ from wgpu.gui.offscreen import run as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
+from .imgui import parse_constants
 
 
 class UniformArray:
@@ -76,6 +77,7 @@ class Shadertoy:
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
+        imgui (bool): Automatiicaly parse constants and provide a imgui interface to change them. Default is False.
 
     The shader code must contain a entry point function:
 
@@ -113,6 +115,7 @@ class Shadertoy:
         buffers: list[BufferRenderPass] = [],
         title: str = "Shadertoy",
         complete: bool = True,
+        imgui: bool = False,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -140,6 +143,9 @@ class Shadertoy:
         self.complete = complete
         if not self.complete:
             self.title += " (incomplete)"
+
+        if imgui:
+            self._constants = parse_constants(shader_code, self.common)
 
         device_features = []
         if buffers:
