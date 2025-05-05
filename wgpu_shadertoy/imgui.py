@@ -119,9 +119,10 @@ def gui(constants, constants_data):
     for const in constants:
         li, name, value, dtype = const
         if dtype == "f":
-            _, constants_data[name] = ig.slider_float(name, constants_data[name], 0, (value//10)+1.0)
+            _, constants_data[name] = ig.slider_float(name, constants_data[name], 0, ((value//10)+1.0)*10.0)
         elif dtype == "I":
-            _, constants_data[name] = ig.slider_int(name, constants_data[name], 0, (value//10)+1)
+            _, constants_data[name] = ig.slider_int(name, constants_data[name], 0, ((value//10)+1)*10)
+            # TODO: improve min/max for negatives
 
     ig.end()
     ig.end_frame()
