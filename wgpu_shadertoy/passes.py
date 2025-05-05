@@ -4,6 +4,7 @@ from typing import List
 import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
+from .imgui import construct_imports
 
 builtin_variables_glsl = """#version 450 core
 
@@ -291,6 +292,15 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
         )
 
+        if self.main._imgui:
+            self._device.queue.write_buffer(
+                buffer = self.main._constants_buffer,
+                buffer_offset = 0,
+                data = self.main._constants_data.mem,
+                data_offset = 0,
+                size = self.main._constants_buffer.size,
+            )
+
         command_encoder: wgpu.GPUCommandEncoder = self._device.create_command_encoder()
         current_texture: wgpu.GPUTexture = self.get_current_texture()
 
@@ -375,6 +385,10 @@ class RenderPass:
                     line_number = const[0]
                     shader_code_lines[line_number] = "// " + shader_code_lines[line_number]
                 self._shader_code = "\n".join(shader_code_lines)
+
+                constant_headers = construct_imports(self.main._constants)
+                # TODO use a new variable instead in the block below!
+                self._shader_code = constant_headers + "\n" + self.shader_code
 
             frag_shader_code = (
                 builtin_variables_glsl

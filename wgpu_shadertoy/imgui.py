@@ -39,6 +39,7 @@ def parse_constants(code:str, common_code) -> list[tuple[int, str, int|float, st
             constants.append((li, name, value, dtype)) # what about line to remove?
             print(f"In line {li} found constant: {name} with value: {value} of dtype {dtype}")
 
+    # maybe just named tuple instead of dataclass?
     return constants
 
 def make_uniform(constants) -> UniformArray:
@@ -47,6 +48,11 @@ def make_uniform(constants) -> UniformArray:
         _, name, value, dtype = constant
         arr_data.append(tuple([name, dtype, 1]))
     data = UniformArray(*arr_data)
+
+    # init data
+    for constant in constants:
+        _, name, value, dtype = constant
+        data[name] = value
     
     # TODO:
     # is there issues with padding? (maybe solve in the class)
