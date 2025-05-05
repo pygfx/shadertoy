@@ -10,6 +10,9 @@ class UniformArray:
     """
 
     def __init__(self, *args):
+        """
+        *args is an iterable with (name, format, dim)
+        """
         # Analyse incoming fields
         fields = []
         byte_offset = 0

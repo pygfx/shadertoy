@@ -8,8 +8,8 @@ from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
 from rendercanvas.offscreen import loop as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
+from .imgui import parse_constants, make_uniform
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
-from .imgui import parse_constants
 from .utils import UniformArray
 
 
@@ -103,13 +103,20 @@ class Shadertoy:
 
         self.title += " $fps FPS"
 
-        if imgui:
-            self._constants = parse_constants(shader_code, self.common)
-
         device_features = []
         if buffers:
             device_features.append(wgpu.FeatureName.float32_filterable)
         self._device = self._request_device(device_features)
+
+        if imgui:
+            self._constants = parse_constants(shader_code, self.common)
+            self._constants_data = make_uniform(self._constants)
+            self._constants_buffer = self._device.create_buffer(
+                label="constant buffer for imgui overlay",
+                size=self._constants_data.nbytes, 
+                usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
+            )
+
 
         self._prepare_canvas(canvas=canvas)
         self._bind_events()
