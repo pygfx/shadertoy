@@ -236,6 +236,8 @@ class Shadertoy:
                 # TODO: do we want to call this every single time or only when the resize is done?
                 # render loop is suspended during any window interaction anyway - will be fixed with rendercanvas: https://github.com/pygfx/rendercanvas/issues/69
                 buf.resize_buffer()
+            if self._imgui:
+                self._imgui_backend.io.display_size(w,h)
 
         def on_mouse_move(event):
             if event["button"] == 1 or 1 in event["buttons"]:
@@ -243,6 +245,8 @@ class Shadertoy:
                 ratio = self._uniform_data["resolution"][2]
                 x1, y1 = event["x"] * ratio, self.resolution[1] - event["y"] * ratio
                 self._uniform_data["mouse"] = x1, y1, abs(x2), -abs(y2)
+            if self._imgui:
+                self._imgui_backend.io.add_mouse_pos_event(event["x"], event["y"])
 
         def on_mouse_down(event):
             if event["button"] == 1 or 1 in event["buttons"]:
@@ -255,10 +259,17 @@ class Shadertoy:
                 x1, y1, x2, y2 = self._uniform_data["mouse"]
                 self._uniform_data["mouse"] = x1, y1, -abs(x2), -abs(y2)
 
+        def on_mouse(event):
+            event_type = event["event_type"]
+            down = event_type == "pointer_down"
+            if self._imgui:
+                self._imgui_backend.io.add_mouse_button_event(event["button"] - 1, down)
+
         self._canvas.add_event_handler(on_resize, "resize")
         self._canvas.add_event_handler(on_mouse_move, "pointer_move")
         self._canvas.add_event_handler(on_mouse_down, "pointer_down")
         self._canvas.add_event_handler(on_mouse_up, "pointer_up")
+        self._canvas.add_event_handler(on_mouse, "pointer_up", "pointer_down")
 
     def _update(self):
         now = time.perf_counter()
