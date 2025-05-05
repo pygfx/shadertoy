@@ -367,6 +367,15 @@ class RenderPass:
                     mainImage(FragColor, fragcoord);
                 }}
                 """
+            
+            if self.main._imgui:
+                # comment out existing constants
+                shader_code_lines = self.shader_code.splitlines()
+                for const in self.main._constants:
+                    line_number = const[0]
+                    shader_code_lines[line_number] = "// " + shader_code_lines[line_number]
+                self._shader_code = "\n".join(shader_code_lines)
+
             frag_shader_code = (
                 builtin_variables_glsl
                 + self._input_headers
