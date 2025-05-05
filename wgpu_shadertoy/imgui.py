@@ -1,5 +1,8 @@
 import re
+from imgui_bundle import imgui as ig #TODO: rename (git mv) the file instead.
 from .utils import UniformArray
+from wgpu.utils.imgui import ImguiWgpuBackend
+
 
 # could imgui become just another RenderPass after Image? I got to understand backend vs renderer first.
 # make become part of .passes??
@@ -100,3 +103,42 @@ def update_gui():
     # todo: look at exmaples nad largely copy nad paste, will be called in the draw_frame function I think.
 
     pass
+
+
+def gui(constants, constants_data):
+    ig.new_frame()
+    ig.set_next_window_pos((0, 0), ig.Cond_.appearing)
+    ig.set_next_window_size((400, 0), ig.Cond_.appearing)
+    ig.begin("Shader constants", None)
+
+    ig.text('in-dev imgui overlay\n')
+    if ig.is_item_hovered():
+        ig.set_tooltip("TODO")
+
+    # create the sliders?
+    for const in constants:
+        li, name, value, dtype = const
+        if dtype == "f":
+            _, constants_data[name] = ig.slider_float(name, constants_data[name], 0, (value//10)+1.0)
+        elif dtype == "I":
+            _, constants_data[name] = ig.slider_int(name, constants_data[name], 0, (value//10)+1)
+
+    ig.end()
+    ig.end_frame()
+    ig.render()
+    return ig.get_draw_data()
+
+def get_backend(device, canvas, render_texture_format):
+    """
+    copied from backend example, held here to avoid clutter in the main class
+    """
+
+    # init imgui backend
+    ig.create_context()
+    imgui_backend = ImguiWgpuBackend(device, render_texture_format)
+    imgui_backend.io.display_size = canvas.get_logical_size()
+    imgui_backend.io.display_framebuffer_scale = (
+        canvas.get_pixel_ratio(),
+        canvas.get_pixel_ratio(),
+    )
+    return imgui_backend

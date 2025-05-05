@@ -8,7 +8,7 @@ from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
 from wgpu.gui.offscreen import run as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
-from .imgui import parse_constants, make_uniform, construct_imports
+from .imgui import parse_constants, make_uniform, construct_imports, get_backend
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
 from .utils import UniformArray
 
@@ -109,8 +109,6 @@ class Shadertoy:
                 size=self._constants_data.nbytes, 
                 usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
             )
-            import_code = construct_imports(self._constants)
-            print(import_code)
 
         self._prepare_canvas()
         self._bind_events()
@@ -199,6 +197,9 @@ class Shadertoy:
         ).removesuffix("-srgb")
 
         self._present_context.configure(device=self._device, format=self._format)
+
+        if self._imgui:
+            self._imgui_backend = get_backend(self._device, self._canvas, self._format)
 
     def _bind_events(self):
         def on_resize(event):

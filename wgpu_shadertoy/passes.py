@@ -4,7 +4,7 @@ from typing import List
 import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
-from .imgui import construct_imports
+from .imgui import construct_imports, gui
 
 builtin_variables_glsl = """#version 450 core
 
@@ -323,8 +323,14 @@ class RenderPass:
         # self._bind_group might get generalized out for buffer
         render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
         render_pass.draw(3, 1, 0, 0)
-        render_pass.end()
 
+        if self.main._imgui:
+            psize = self.main._canvas.get_physical_size()
+            # TODO: refactor as this only needs to happen in the main class? maybe I can get the .end and .finish externally...
+            imgui_data = gui(self.main._constants, self.main._constants_data)
+            self.main._imgui_backend.render(imgui_data, render_pass, psize)
+
+        render_pass.end()
         return command_encoder.finish()
 
     def construct_code(self) -> tuple[str, str]:
