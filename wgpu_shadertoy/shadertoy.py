@@ -8,7 +8,7 @@ from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
 from rendercanvas.offscreen import loop as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
-from .imgui import parse_constants, make_uniform
+from .imgui import parse_constants, make_uniform, construct_imports
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
 from .utils import UniformArray
 
@@ -108,7 +108,9 @@ class Shadertoy:
             device_features.append(wgpu.FeatureName.float32_filterable)
         self._device = self._request_device(device_features)
 
-        if imgui:
+
+        self._imgui = imgui
+        if self._imgui:
             self._constants = parse_constants(shader_code, self.common)
             self._constants_data = make_uniform(self._constants)
             self._constants_buffer = self._device.create_buffer(
@@ -116,7 +118,8 @@ class Shadertoy:
                 size=self._constants_data.nbytes, 
                 usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
             )
-
+            import_code = construct_imports(self._constants)
+            print(import_code)
 
         self._prepare_canvas(canvas=canvas)
         self._bind_events()

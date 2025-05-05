@@ -203,6 +203,25 @@ class RenderPass:
             },
         ]
 
+        if self.main._imgui:
+            bind_groups_layout_entries.append(
+                {
+                    "binding": 10,
+                    "resource": {
+                        "buffer": self.main._constants_buffer,
+                        "offset": 0,
+                        "size": self.main._constants_buffer.size,
+                    },
+                },
+            )
+            binding_layout.append(
+                {
+                    "binding": 10,
+                    "visibility": wgpu.ShaderStage.FRAGMENT,
+                    "buffer": {"type": wgpu.BufferBindingType.uniform},
+                },
+            )
+
         # setup bind groups for the channels
         channel_res = []
         for channel in self.channels:
