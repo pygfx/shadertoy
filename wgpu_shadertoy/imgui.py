@@ -20,7 +20,7 @@ def parse_constants(code:str, common_code) -> list[tuple[int, str, int|float, st
 
     # for multipass shader this might need to be per pass (rpass.value) ?
     # mataches the macro: #define NAME VALUE
-    define_pattern = re.compile(r"#define\s+(\w+)\s+(.+)")
+    define_pattern = re.compile(r"#define\s+(\w+)\s+([\d.]+)")
 
     constants = []
     for li, line in enumerate(code.splitlines()):
@@ -119,9 +119,9 @@ def gui(constants, constants_data):
     for const in constants:
         li, name, value, dtype = const
         if dtype == "f":
-            _, constants_data[name] = ig.slider_float(name, constants_data[name], 0, ((value//10)+1.0)*10.0)
+            _, constants_data[name] = ig.slider_float(name, constants_data[name], 0, value*2.0)
         elif dtype == "I":
-            _, constants_data[name] = ig.slider_int(name, constants_data[name], 0, ((value//10)+1)*10)
+            _, constants_data[name] = ig.slider_int(name, constants_data[name], 0, value*2)
             # TODO: improve min/max for negatives
 
     ig.end()
