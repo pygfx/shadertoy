@@ -1,0 +1,384 @@
+{
+  "Shader": {
+    "ver": "0.1",
+    "info": {
+      "id": "3tBGzh",
+      "date": "1558411135",
+      "viewed": 5986,
+      "name": "Biological Particles",
+      "username": "wyatt",
+      "description": "From free particles emerged all things. ",
+      "likes": 139,
+      "published": 3,
+      "flags": 32,
+      "usePreview": 0,
+      "tags": [
+        "fluid",
+        "particles",
+        "dynamics",
+        "naturalselection"
+      ],
+      "hasliked": 0
+    },
+    "renderpass": [
+      {
+        "inputs": [
+          {
+            "id": 257,
+            "src": "/media/previz/buffer00.png",
+            "ctype": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 258,
+            "src": "/media/previz/buffer01.png",
+            "ctype": "buffer",
+            "channel": 1,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 259,
+            "src": "/media/previz/buffer02.png",
+            "ctype": "buffer",
+            "channel": 2,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 260,
+            "src": "/media/previz/buffer03.png",
+            "ctype": "buffer",
+            "channel": 3,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 37,
+            "channel": 0
+          }
+        ],
+        "code": "/*\n\n\tFluid dynamics controls velocity field.\n\tParticles translate with the velocity field.\n\tParticles reproduce as they move. \n\tParticles diffuse  4  hormones. \n\tDiffusion is mediated by a 2 pass multi-scale gaussian blur.\n\tParticles experience a force from each hormone.\n\tThe force is proportional to their own hormone signature. \n\tEach hormone diffuses with a different radius. \n\tEach initial particle has its own hormone signature.\n\tThen they battle it out! \n\n*/\nvoid mainImage( out vec4 Q, in vec2 U)\n{\n    vec4 b = B(U);\n    vec4 h = (hash(b.w));\n    Q = smoothstep(2.,0.,length(b.xy-U))*(.5+2.*h);\n\t//Q = abs(D(U));\n}",
+        "name": "Image",
+        "description": "",
+        "type": "image"
+      },
+      {
+        "inputs": [
+          {
+            "id": 257,
+            "src": "/media/previz/buffer00.png",
+            "ctype": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 258,
+            "src": "/media/previz/buffer01.png",
+            "ctype": "buffer",
+            "channel": 1,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 259,
+            "src": "/media/previz/buffer02.png",
+            "ctype": "buffer",
+            "channel": 2,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 260,
+            "src": "/media/previz/buffer03.png",
+            "ctype": "buffer",
+            "channel": 3,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 257,
+            "channel": 0
+          }
+        ],
+        "code": "// FLUID DYNAMICS\n// FORCE on FLUID = (PARTICLE)*(GRADIENT OF BUFFER D)\n\n#define R iResolution.xy\n#define A(U) texture(iChannel0, (U)/R)\n#define B(U) texture(iChannel1, (U)/R)\nvec4 T (vec2 U) {return A(U-A(U).xy);}\nvoid mainImage( out vec4 Q, in vec2 U)\n{\n    Q = T(U);\n    vec4 // neighborhood\n        n = T(U+vec2(0,1)),\n        e = T(U+vec2(1,0)),\n        s = T(U-vec2(0,1)),\n        w = T(U-vec2(1,0));\n   // FLUID DYNAMICS\n   Q.x -= (0.25*(e.z-w.z-Q.w*(n.w-s.w)));\n   Q.y -= (0.25*(n.z-s.z-Q.w*(e.w-w.w)));\n   Q.z += (0.25*((s.y-n.y+w.x-e.x)+(n.z+e.z+s.z+w.z))-Q.z);\n   Q.w += (0.25*(s.x-n.x+w.y-e.y)-Q.w);\n   // COMPUTE HORMONE FEILD\n   n = D(U+vec2(0,1));\n   e = D(U+vec2(1,0));\n   s = D(U-vec2(0,1));\n   w = D(U-vec2(1,0));\n   // THIS PARTICLE\n   vec4 b = B(U);\n   // COMPUTE HORMONE SIGNATURE\n   vec4 h = hash(b.w);\n   // SUM HORMONE FORCE\n   vec2 v = vec2(0);\n   v += h.x*vec2(e.x-w.x,n.x-s.x);\n   v += h.y*vec2(e.y-w.y,n.y-s.y);\n   v += h.z*vec2(e.z-w.z,n.z-s.z);\n   v += h.w*vec2(e.w-w.w,n.w-s.w);\n   // APPLY HORMONE FORCE TO THIS PARTICLE\n   Q.xy += v*smoothstep(1.,0.,length(U-b.xy));\n   // BOUNDARY CONDITIONS\n   if (fract(.1*iTime)<.2)Q.xy += .03*smoothstep(20.,0.,length(U-0.5*R+0.3*R*hash(floor(.1*iTime)).xy))*vec2(cos(floor(.1*iTime)),sin(floor(.1*iTime)));\n   if (U.x<1.||U.y<1.||R.x-U.x<1.||R.y-U.y<1.||iFrame<1)\n       Q.xyw = vec3(0);\n   \n}",
+        "name": "Buffer A",
+        "description": "",
+        "type": "buffer"
+      },
+      {
+        "inputs": [
+          {
+            "id": 257,
+            "src": "/media/previz/buffer00.png",
+            "ctype": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 258,
+            "src": "/media/previz/buffer01.png",
+            "ctype": "buffer",
+            "channel": 1,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 259,
+            "src": "/media/previz/buffer02.png",
+            "ctype": "buffer",
+            "channel": 2,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 260,
+            "src": "/media/previz/buffer03.png",
+            "ctype": "buffer",
+            "channel": 3,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 258,
+            "channel": 0
+          }
+        ],
+        "code": "// SPACIALLY SORT VORONOI PARTICLES\n// ALLOW MOVING PARTICLES TO LEAVE A TRAIL OF CLONES\nvoid swap (inout vec4 Q, vec2 U, vec2 r) {\n\tvec4 n = B(U+r);\n    if (length(U-n.xy)<length(U-Q.xy)) Q = n;\n}\nvoid mainImage( out vec4 Q, in vec2 U)\n{\n    // FIND NEAREST PARTICLE\n    Q = B(U);\n    swap(Q,U,vec2(1,0));\n    swap(Q,U,vec2(0,1));\n    swap(Q,U,vec2(-1,0));\n    swap(Q,U,vec2(0,-1));\n    swap(Q,U,vec2(1,1));\n    swap(Q,U,vec2(1,-1));\n    swap(Q,U,vec2(-1,1));\n    swap(Q,U,vec2(-1,-1));\n    // LEAVE A TRIAL OF CLONES AS PARTICLE TRANSLATES\n    Q.xy += A(mix(U,Q.xy,0.7)).xy;\n    // BOUNDARY CONDITIONS\n    if ((iMouse.z>0.&&length(iMouse.xy-U)<30.)||iFrame < 1) {\n    \tQ = vec4(U,0,0);\n        Q.w = .1*(Q.x+R.x*Q.y+dot(iDate,vec4(1)));\n    }\n   \n}",
+        "name": "Buffer B",
+        "description": "",
+        "type": "buffer"
+      },
+      {
+        "inputs": [
+          {
+            "id": 257,
+            "src": "/media/previz/buffer00.png",
+            "ctype": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 258,
+            "src": "/media/previz/buffer01.png",
+            "ctype": "buffer",
+            "channel": 1,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 259,
+            "src": "/media/previz/buffer02.png",
+            "ctype": "buffer",
+            "channel": 2,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 260,
+            "src": "/media/previz/buffer03.png",
+            "ctype": "buffer",
+            "channel": 3,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 259,
+            "channel": 0
+          }
+        ],
+        "code": "// BLUR PARTICLES PASS 1\nvoid mainImage( out vec4 Q, in vec2 U )\n{\n    Q = vec4(0);\n    for (float i = -I; i <= I; i++) {\n        vec2 x = U+vec2(i,0);\n        vec4 b = B(x);\n    \tQ += hash(b.w)*M*exp(-i*i*O)*smoothstep(1.,0.,length(b.xy-x));\n    }\n    \n}",
+        "name": "Buffer C",
+        "description": "",
+        "type": "buffer"
+      },
+      {
+        "inputs": [
+          {
+            "id": 257,
+            "src": "/media/previz/buffer00.png",
+            "ctype": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 258,
+            "src": "/media/previz/buffer01.png",
+            "ctype": "buffer",
+            "channel": 1,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 259,
+            "src": "/media/previz/buffer02.png",
+            "ctype": "buffer",
+            "channel": 2,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          },
+          {
+            "id": 260,
+            "src": "/media/previz/buffer03.png",
+            "ctype": "buffer",
+            "channel": 3,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": 260,
+            "channel": 0
+          }
+        ],
+        "code": "// BLUR PASS 2\nvoid mainImage( out vec4 Q, in vec2 U )\n{\n    Q = 0.5*D(U);\n    for (float i = -I; i <= I; i++) {\n        vec4 c = C(U+vec2(0,i));\n    \tQ += c*M*exp(-O*i*i);\n    }\n    if(iFrame<1) Q = vec4(0);\n}",
+        "name": "Buffer D",
+        "description": "",
+        "type": "buffer"
+      },
+      {
+        "inputs": [],
+        "outputs": [],
+        "code": "#define R iResolution.xy\n#define A(U) texture(iChannel0, (U)/R)\n#define B(U) texture(iChannel1, (U)/R)\n#define C(U) texture(iChannel2, (U)/R)\n#define D(U) texture(iChannel3, (U)/R)\n\n\n#define S vec4(2,4,6,8)\n#define M .1*vec4(4,3,2,1)\n#define O .5/S/S\n#define I 12.\n\nvec4 hash (float p) // Dave (Hash)kins\n{\n\tvec4 p4 = fract(vec4(p) * vec4(.1031, .1030, .0973, .1099));\n    p4 += dot(p4, p4.wzxy+19.19);\n    return fract((p4.xxyz+p4.yzzw)*p4.zywx)*2.-1.;\n    \n}",
+        "name": "Common",
+        "description": "",
+        "type": "common"
+      }
+    ]
+  }
+}

@@ -21,7 +21,8 @@ class ShadertoyChannel:
         self._channel_idx = channel_idx
         self.args = args
         self.kwargs = kwargs
-        self.dynamic: bool = False
+        self.dynamic: bool = False  # is this still needed? should it be private?
+        self._parent = kwargs.get("parent", None)
 
     @property
     def sampler_settings(self) -> dict:
@@ -37,6 +38,15 @@ class ShadertoyChannel:
         settings["address_mode_v"] = wrap
         # we don't do 3D textures yet, but I guess setting this too is fine.
         settings["address_mode_w"] = wrap
+
+        filter = self.kwargs.get("filter", "linear")
+        # wgpu.FilterMode is either "linear" or "nearest", "mipmap" requires special attention
+        if filter not in ("linear", "nearest"):
+            filter = "linear"  # work around to avoid mipmap mode for now
+
+        # both min and mag will use the same filter.
+        settings["mag_filter"] = filter
+        settings["min_filter"] = filter
         return settings
 
     @property
@@ -44,7 +54,7 @@ class ShadertoyChannel:
         """
         Parent renderpass of this channel.
         """
-        if not hasattr(self, "_parent"):
+        if self._parent is None:
             raise AttributeError("Parent not set.")
         return self._parent
 
@@ -97,6 +107,8 @@ class ShadertoyChannel:
             raise NotImplementedError("Can't dynamically infer the ctype yet")
         if self.ctype == "texture":
             return ShadertoyChannelTexture(*args, **kwargs)
+        elif self.ctype == "buffer":
+            return ShadertoyChannelBuffer(*args, **kwargs)
         else:
             raise NotImplementedError(f"Doesn't support {self.ctype=} yet")
 
@@ -197,7 +209,46 @@ class ShadertoyChannelSoundcloud(ShadertoyChannel):
 
 
 class ShadertoyChannelBuffer(ShadertoyChannel):
-    pass
+    def __init__(self, buffer, **kwargs):
+        super().__init__(**kwargs)
+
+        if isinstance(buffer, str):
+            # when the user gives a string, we don't have the associated buffer renderpass yet
+            self.buffer_idx = buffer.lower()[-1]
+            self._renderpass = None
+        else:  # (assume BufferPass instance?)
+            self._renderpass = buffer
+            self.buffer_idx = buffer.buffer_idx
+
+        # mark that this channel needs to be updated every frame
+        self.dynamic = True
+
+    @property
+    def size(self):
+        """
+        texture size of the front texture
+        """
+        return self.renderpass.texture_front.size
+
+    @property
+    def renderpass(self):  # -> BufferRenderPass:
+        if self._renderpass is None:
+            self._renderpass = self.parent.main.buffers[self.buffer_idx]
+        return self._renderpass
+
+    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+        """
+        returns a tuple of binding_layout and binding_groups_layout_entries
+        takes the texture form `front` the buffer renderpass (last frame)
+        """
+        binding_layout = self._binding_layout()
+        texture: wgpu.GPUTexture = self.renderpass.texture_front
+        texture_view = texture.create_view(usage=wgpu.TextureUsage.TEXTURE_BINDING)
+        sampler = device.create_sampler(**self.sampler_settings)
+        bind_groups_layout_entry = self._bind_groups_layout_entries(
+            texture_view, sampler
+        )
+        return binding_layout, bind_groups_layout_entry
 
 
 class ShadertoyChannelCubemapA(ShadertoyChannel):

@@ -66,6 +66,7 @@ shader = Shadertoy.from_id("NslGRN")
 ```
 
 When passing `off_screen=True` the `.snapshot()` method allows you to render individual frames with chosen uniforms.
+Be aware that based on your device and backend, the preferred format might be BRGA, so the channels need to be swapped to get an RGBA image.
 ```python
 shader = Shadertoy(shader_code, resolution=(800, 450), off_screen=True)
 frame0_data = shader.snapshot()
