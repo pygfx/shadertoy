@@ -4,9 +4,9 @@ import os
 import time
 
 import wgpu
-from wgpu.gui.auto import WgpuCanvas, run
-from wgpu.gui.offscreen import WgpuCanvas as OffscreenCanvas
-from wgpu.gui.offscreen import run as run_offscreen
+from rendercanvas.auto import RenderCanvas, loop
+from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
+from rendercanvas.offscreen import loop as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
@@ -76,6 +76,7 @@ class Shadertoy:
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
+        canvas (RenderCanvas): Optionally provide the canvas the image pass will render too. Defaults to None (means auto?)
 
     The shader code must contain a entry point function:
 
@@ -113,6 +114,7 @@ class Shadertoy:
         buffers: list[BufferRenderPass] = [],
         title: str = "Shadertoy",
         complete: bool = True,
+        canvas=None,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -132,7 +134,10 @@ class Shadertoy:
 
         # if no explicit offscreen option was given
         # inherit wgpu-py force offscreen option
-        if offscreen is None and os.environ.get("WGPU_FORCE_OFFSCREEN") == "true":
+        if (
+            offscreen is None
+            and os.environ.get("RENDERCANVAS_FORCE_OFFSCREEN") == "true"
+        ):
             offscreen = True
         self._offscreen = offscreen
 
@@ -146,7 +151,7 @@ class Shadertoy:
             device_features.append(wgpu.FeatureName.float32_filterable)
         self._device = self._request_device(device_features)
 
-        self._prepare_canvas()
+        self._prepare_canvas(canvas=canvas)
         self._bind_events()
 
         # setting up the renderpasses, inputs to the main class get handed to the .image pass
@@ -213,17 +218,21 @@ class Shadertoy:
         shader_data = shadertoy_from_id(id_or_url)
         return cls.from_json(shader_data, **kwargs)
 
-    def _prepare_canvas(self):
-        if self._offscreen:
+    def _prepare_canvas(self, canvas=None):
+        # TODO: refactor to accept a canvas class as a keyword argument
+
+        if canvas:
+            self._canvas = canvas
+        elif self._offscreen:
             self._canvas = OffscreenCanvas(
                 title=self.title, size=self.resolution, max_fps=60
             )
         else:
-            self._canvas = WgpuCanvas(
+            self._canvas = RenderCanvas(
                 title=self.title, size=self.resolution, max_fps=60
             )
 
-        self._present_context = self._canvas.get_context()
+        self._present_context = self._canvas.get_context("wgpu")
 
         # We use non srgb variants, because we want to let the shader fully control the color-space.
         # Defaults usually return the srgb variant, but a non srgb option is usually available
@@ -319,9 +328,10 @@ class Shadertoy:
     def show(self):
         self._canvas.request_draw(self._draw_frame)
         if self._offscreen:
-            run_offscreen()
+            # this actually doesn't do anything - just provided for compatibility with test syntax for now.
+            run_offscreen.run()
         else:
-            run()
+            loop.run()
 
     def snapshot(
         self,
