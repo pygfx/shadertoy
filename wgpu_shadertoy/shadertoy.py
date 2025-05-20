@@ -237,7 +237,7 @@ class Shadertoy:
                 # render loop is suspended during any window interaction anyway - will be fixed with rendercanvas: https://github.com/pygfx/rendercanvas/issues/69
                 buf.resize_buffer()
             if self._imgui:
-                self._imgui_backend.io.display_size(w,h)
+                self._imgui_backend.io.display_size = (w,h)
 
         def on_mouse_move(event):
             if event["button"] == 1 or 1 in event["buttons"]:

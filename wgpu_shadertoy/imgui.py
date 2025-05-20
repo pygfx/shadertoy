@@ -20,6 +20,7 @@ def parse_constants(code:str, common_code) -> list[tuple[int, str, int|float, st
 
     # for multipass shader this might need to be per pass (rpass.value) ?
     # mataches the macro: #define NAME VALUE
+    # TODO there can be characters in numerical literals, such as x and o for hex and octal representation or e for scientific notation
     define_pattern = re.compile(r"#define\s+(\w+)\s+([\d.]+)")
 
     constants = []
