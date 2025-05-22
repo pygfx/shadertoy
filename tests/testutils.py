@@ -117,7 +117,7 @@ def get_default_adapter_summary():
 def find_examples(query=None, negative_query=None, return_stems=False):
     result = []
     for example_path in examples_dir.glob("*.py"):
-        example_code = example_path.read_text()
+        example_code = example_path.read_text(encoding="utf-8")
         query_match = query is None or query in example_code
         negative_query_match = (
             negative_query is None or negative_query not in example_code
