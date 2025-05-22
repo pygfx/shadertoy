@@ -21,13 +21,21 @@ def parse_constants(code:str, common_code) -> list[tuple[int, str, int|float, st
     # for multipass shader this might need to be per pass (rpass.value) ?
     # mataches the macro: #define NAME VALUE
     # TODO there can be characters in numerical literals, such as x and o for hex and octal representation or e for scientific notation
+    # technically the macros can also be an expression that is evaluated to be a number... such as # define DOF 10..0/30.0 - so how do we deal with that?
     define_pattern = re.compile(r"#define\s+(\w+)\s+([\d.]+)")
+    if_def_template = r"#(el)?if\s+" #preprocessor ifdef blocks can't become uniforms. replacing these dynamically will be difficult.
 
     constants = []
     for li, line in enumerate(code.splitlines()):
         match = define_pattern.match(line.rstrip())
         if match:
             name, value = match.groups()
+            if_def_pattern = re.compile(if_def_template + name)
+            if if_def_pattern.findall(code):
+                #.findall over .match because because not only the beginning matters here
+                print(f"skipping constant {name}, it needs to stay a macro")
+                continue
+
             if "." in value: #value.isdecimal?
                 # TODO: wgsl needs to be more specific (f32 for example?) - but there is no preprocessor anyways...
                 dtype = "f" #default float (32bit)
