@@ -81,6 +81,11 @@ jobs:
         EXPECT_LAVAPIPE: true
       run: |
           pytest -vvvs examples
+    - uses: actions/upload-artifact@v4
+      if: ${{ failure() }}
+      with:
+        name: screenshots{{ matrix.pyversion }}
+        path: examples/screenshots
 
   test-builds:
     name: ${{ matrix.name }}
