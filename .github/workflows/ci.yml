@@ -125,13 +125,10 @@ jobs:
       - name: Install dev dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -U flit build twine
-      - name: Create source distribution
-        run: |
-          python -m build -n -s
+          pip install -U twine
       - name: Build wheel
         run: |
-          python -m build -n -w
+          pip wheel -w dist --no-deps .
       - name: Twine check
         run: |
           twine check dist/*
