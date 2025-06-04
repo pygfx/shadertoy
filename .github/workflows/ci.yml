@@ -143,6 +143,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint-build, test-examples-build, test-builds, release-build]
     if: success() && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      # needed for pypi publishing without password!
+      id-token: write
     steps:
     - uses: actions/checkout@v4
     - name: Download assets
