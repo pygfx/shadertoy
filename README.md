@@ -1,5 +1,5 @@
-[![CI](https://github.com/pygfx/shadertoy/workflows/CI/badge.svg)](https://github.com/pygfx/shadertoy/actions)
-[![PyPI version](https://badge.fury.io/py/wgpu-shadertoy.svg)](https://badge.fury.io/py/wgpu-shadertoy)
+[![CI](https://github.com/pygfx/shadertoy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pygfx/shadertoy/actions)
+[![PyPI version](https://badge.fury.io/py/wgpu-shadertoy.svg)](https://pypi.org/project/wgpu-shadertoy/)
 
 # shadertoy
 
