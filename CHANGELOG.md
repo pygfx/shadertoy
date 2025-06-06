@@ -1,8 +1,6 @@
 # Changelog / release notes
 
-WebGPU and wgpu-native are still changing fast, and with that we do to. We do
-not yet attempt to make things backwards compatible. Instead we try to
-be precise about tracking changes to the public API.
+This changelog documents major user facing changes, for all changes see the diff on GitHub.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -16,12 +14,17 @@ Possible sections in each release:
 * Fixed: for any bug fixes.
 * Security: in case of vulnerabilities.
 
+### [unreleased]
 
-### [Unreleased]
+### [v0.2.0] - 2025-06-06
 
 Added:
-* Run shaders from the website API https://github.com/pygfx/shadertoy/pull/25
-* Additional Uniforms are now supported in `.screenshot()` https://github.com/pygfx/shadertoy/pull/37
+* `iChannelResolution` uniform https://github.com/pygfx/shadertoy/pull/18
+* "Common" tab support https://github.com/pygfx/shadertoy/pull/19
+* Run shaders from the website API and CLI https://github.com/pygfx/shadertoy/pull/25
+* `vflip` option for channel inputs https://github.com/pygfx/shadertoy/pull/26
+* Attribute `.complete` to mark if shaders use unsupported features https://github.com/pygfx/shadertoy/pull/29
+* Additional Uniforms are now supported in `.snapshot()` https://github.com/pygfx/shadertoy/pull/37
 * Multipass shaders using `BufferRenderPass` and `ShadertoyChannelBuffer` https://github.com/pygfx/shadertoy/pull/43
 
 Changed:
