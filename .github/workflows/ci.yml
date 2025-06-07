@@ -148,7 +148,7 @@ jobs:
     needs: [lint-build, test-examples-build, test-builds, release-build]
     if: success() && startsWith(github.ref, 'refs/tags/v')
     permissions:
-      # Requesting one permission disables the others: 
+      # WARNING: Requesting one permission disables the others: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/controlling-permissions-for-github_token
       # required to do the release
       contents: write
       # needed for pypi publishing without password!
