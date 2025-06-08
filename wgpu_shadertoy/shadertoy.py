@@ -100,7 +100,6 @@ class Shadertoy:
     """
 
     # todo: add remaining built-in variables (i_channel_time)
-    # todo: support multiple render passes (`i_channel0`, `i_channel1`, etc.)
 
     def __init__(
         self,
@@ -222,7 +221,7 @@ class Shadertoy:
             self._canvas = WgpuCanvas(
                 title=self.title, size=self.resolution, max_fps=60
             )
-
+        self._uniform_data["resolution"][2] = self._canvas.get_pixel_ratio()
         self._present_context = self._canvas.get_context()
 
         # We use non srgb variants, because we want to let the shader fully control the color-space.
@@ -236,8 +235,8 @@ class Shadertoy:
 
     def _bind_events(self):
         def on_resize(event):
-            w, h = event["width"], event["height"]
-            self._uniform_data["resolution"] = (w, h, 1)
+            w, h, ratio = event["width"], event["height"], event["pixel_ratio"]
+            self._uniform_data["resolution"] = (w, h, ratio)
             for buf in self.buffers.values():
                 # TODO: do we want to call this every single time or only when the resize is done?
                 # render loop is suspended during any window interaction anyway - will be fixed with rendercanvas: https://github.com/pygfx/rendercanvas/issues/69
