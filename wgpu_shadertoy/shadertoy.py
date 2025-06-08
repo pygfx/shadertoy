@@ -224,7 +224,6 @@ class Shadertoy:
         psize = self._canvas.get_physical_size()
         # in case of display scaling, we need to overwrite these values, which we only know after the canvas is created
         self._uniform_data["resolution"] = tuple([float(psize[0]), float(psize[1]), self._canvas.get_pixel_ratio()])
-        print(f"{self.resolution=}, {self._canvas.get_pixel_ratio()=}, {self._canvas.get_physical_size()=}, {self._canvas.get_logical_size()=}")
         self._present_context = self._canvas.get_context()
 
         # We use non srgb variants, because we want to let the shader fully control the color-space.
@@ -237,9 +236,10 @@ class Shadertoy:
         self._present_context.configure(device=self._device, format=self._format)
 
     def _bind_events(self):
+        # event spec: https://jupyter-rfb.readthedocs.io/en/stable/events.html
+        # events returns logical size, so we can multiply by the pixel ratio to get physical size!
         def on_resize(event):
             w, h, ratio = event["width"], event["height"], event["pixel_ratio"]
-            # the event returns logical size, so we can multiply by the pixel ratio to get physical size!
             self._uniform_data["resolution"] = (w*ratio, h*ratio, ratio)
             for buf in self.buffers.values():
                 # TODO: do we want to call this every single time or only when the resize is done?
@@ -249,12 +249,14 @@ class Shadertoy:
         def on_mouse_move(event):
             if event["button"] == 1 or 1 in event["buttons"]:
                 _, _, x2, y2 = self._uniform_data["mouse"]
-                x1, y1 = event["x"], self.resolution[1] - event["y"]
+                ratio = self._uniform_data["resolution"][2]
+                x1, y1 = event["x"]*ratio, self.resolution[1] - event["y"]*ratio
                 self._uniform_data["mouse"] = x1, y1, abs(x2), -abs(y2)
 
         def on_mouse_down(event):
             if event["button"] == 1 or 1 in event["buttons"]:
-                x, y = event["x"], self.resolution[1] - event["y"]
+                ratio = self._uniform_data["resolution"][2]
+                x, y = event["x"]*ratio, self.resolution[1] - event["y"]*ratio
                 self._uniform_data["mouse"] = (x, y, abs(x), abs(y))
 
         def on_mouse_up(event):
