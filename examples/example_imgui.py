@@ -1,155 +1,101 @@
 from wgpu_shadertoy import Shadertoy
 
-# shadertoy source: https://www.shadertoy.com/view/dllyzH by timmaffett at CC-BY-NC-SA 3.0 (
+# shadertoy source: https://www.shadertoy.com/view/Wf3SWn by Xor CC-BY-NC-SA 3.0
+# modified in Line73 to disassemble the for loop due to: https://github.com/gfx-rs/wgpu/issues/6208
 
-
-shader_code = """
-// Fork of "圆形烟花" by houkinglong. https://shadertoy.com/view/dlsyRr
-// 2023-07-27 05:32:56
-
-#define HARDNESS 60.0
-#define AMOUNT 90
-#define MAX_DISTANCE 20.0
-#define SPEED 0.15
-
-#define PI  3.14159265359
-#define TAU 6.28318530717
-vec3 hsb2rgb( in vec3 c )
-{
-    vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),
-                             6.0)-3.0)-1.0,
-                     0.0,
-                     1.0 );
-    rgb = rgb*rgb*(3.0-2.0*rgb);
-    return (c.z * mix( vec3(1.0), rgb, c.y));
-}
-
-
-// https://iquilezles.org/articles/smin
-float smin(float a, float b, float k) {
-    float res = exp2(-k * a) + exp2(-k * b);
-    return -log2(res) / k;
-}
-
-float sdCircle(vec2 uv, vec2 pos, float radius) {
-    return length(uv - pos) - radius;
-}
-
-float sdLine(vec2 uv, vec2 start, vec2 end) {
-    return 0.0;
-}
-
-float randomSingle(vec2 p) {
-    p = fract(p * vec2(233.34, 851.73));
-    p += dot(p, p + 23.45);
-    return fract(p.x * p.y);
-}
-
-vec4 randomPoint(vec2 p) {
-    float x = randomSingle(p);
-    float y = randomSingle(vec2(x, p.x));
-    return vec4(x, y, randomSingle(vec2(y, x)), randomSingle(vec2(x, y)));
-}
-
-float Star(vec2 uv, float dist, vec2 id) {
-    vec4 rand = randomPoint(id);
-
-    float progress = fract(iTime * SPEED + rand.z);
-
-    vec2 dir = 2.0 * (normalize(rand.xy) - 0.5);
-
-    rand.w = clamp((rand.w - 0.5) * 999.0, -1.0, 1.0);
-    dir *= rand.w;
-
-    return smin(dist, sdCircle(uv, dir * progress * MAX_DISTANCE, 0.001) / (progress + 0.7), 200.0);
-}
-
-float Graph(vec2 uv, float r) {
-    float dist = sdCircle(uv, vec2(0.0, 0.0), r);
-
-    dist = Star(uv, dist, vec2(1.0, 1.0));
-
-    for (int s = 1; s < AMOUNT; ++s)
-        dist = Star(uv, dist, vec2(-1.0, s));
-
-    dist *= HARDNESS;
-
-    dist = max(dist, 0.0);
-    dist = 1.0 / (dist + 0.001);
-    dist *= clamp(0.8, 0.98, length(uv));
-
-    return dist;
-}
-
-void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-    vec2 uv = (fragCoord * 2.0 - iResolution.xy) / iResolution.y;
-
-
-    float angle = iTime * 0.4;
-
-    // compute angle for pixel and to hsv color
-    vec2 center = iResolution.xy /2.0;
-    vec2 toRing = normalize(fragCoord.xy - center);
-    float ringValue = atan(toRing.x, -toRing.y);
-    ringValue /= PI;
-    ringValue = 1. - ringValue;
-    float ringAngle = ringValue / 2.0; // scale to hsv func
-    vec3 hsv = hsb2rgb(vec3(ringAngle+angle, 0.85, 0.96));
+shader_code = """//glsl
+/*
+    "Sunset" by @XorDev
     
-    // 一个像素的大小
-    float scale = 1.0 / iResolution.y;
+    Expanded and clarified version of my Sunset shader:
+    https://www.shadertoy.com/view/wXjSRt
+    
+    Based on my tweet shader:
+    https://x.com/XorDev/status/1918764164153049480
+*/
 
-    // 外圆半径
-    float outerRadius = 0.99;
-    // 内圆半径
-    float innerRadius = 0.3;
+//Output image brightness
+#define BRIGHTNESS 1.0
 
-    // 色值声明
+//Base brightness (higher = brighter, less saturated)
+#define COLOR_BASE 1.5
+//Color cycle speed (radians per second)
+#define COLOR_SPEED 0.5
+//RGB color phase shift (in radians)
+#define RGB vec3(0.0, 1.0, 2.0)
+//Color translucency strength
+#define COLOR_WAVE 14.0
+//Color direction and (magnitude = frequency)
+#define COLOR_DOT vec3(1,-1,0)
+
+//Wave iterations (higher = slower)
+#define WAVE_STEPS 8.0
+//Starting frequency
+#define WAVE_FREQ 5.0
+//Wave amplitude
+#define WAVE_AMP 0.6
+//Scaling exponent factor
+#define WAVE_EXP 1.8
+//Movement direction
+#define WAVE_VELOCITY vec3(0.2)
+
+
+//Cloud thickness (lower = denser)
+#define PASSTHROUGH 0.2
+
+//Cloud softness
+#define SOFTNESS 0.005
+//Raymarch step
+#define STEPS 100.0
+//Sky brightness factor (finicky)
+#define SKY 10.0
+//Camera fov ratio (tan(fov_y/2))
+#define FOV 1.0
+
+void mainImage(out vec4 fragColor, in vec2 fragCoord)
+{
+    //Raymarch depth
+    float z = 0.0;
+    
+    //Step distance
+    float d = 0.0;
+    //Signed distance
+    float s = 0.0;
+    
+    //Ray direction
+    vec3 dir = normalize( vec3(2.0*fragCoord - iResolution.xy, - FOV * iResolution.y));
+    
+    //Output color
     vec3 col = vec3(0);
-    //vec3 colR = vec3(1.0, 0.0, 0.0);
-    //vec3 colG = vec3(0.0, 0.3, 0.0);
-    vec3 colB = vec3(0.2);//vec3(0.01, 0.13, 0.32);// hsv*0.1;//rotate outer ring color
-
-    float dis = length(uv);
-
-    // 圆底
-    float bg = smoothstep(scale, -scale, sdCircle(uv, vec2(0.0, 0.0), outerRadius));
-    col = mix( vec3(0.0), colB, bg);
-
-    // 渐变环
-    float ring = smoothstep(outerRadius - 0.2, outerRadius, dis);
-    col *= ring;
-
-    if (dis > outerRadius) {
-        fragColor = vec4(hsv,1.) * 0.1;//vec4(0.0);
-        return;
+    
+    //Clear fragcolor and raymarch with 100 iterations
+    for(float i = 0.0; i<STEPS; i++)
+    {
+        //Compute raymarch sample point
+        vec3 p = z * dir;
+        
+        //Turbulence loop
+        //https://www.shadertoy.com/view/3XXSWS
+        float j, f = WAVE_FREQ;
+        for(j = 0.0; j<WAVE_STEPS; j++) {
+            p += WAVE_AMP*sin(p*f - WAVE_VELOCITY*iTime).yzx / f;
+            f *= WAVE_EXP;
+        }
+        //Compute distance to top and bottom planes
+        s = 0.3 - abs(p.y);
+        //Soften and scale inside the clouds
+        d = SOFTNESS + max(s, -s*PASSTHROUGH) / 4.0;
+        //Step forward
+        z += d;
+        //Coloring with signed distance, position and cycle time
+        float phase = COLOR_WAVE * s + dot(p,COLOR_DOT) + COLOR_SPEED*iTime;
+        //Apply RGB phase shifts, add base brightness and correct for sky
+        col += (cos(phase - RGB) + COLOR_BASE) * exp(s*SKY) / d;
     }
-
-
-
-#define COLORCENTER
-#ifdef COLORCENTER
-     if (dis < innerRadius/2.9) {
-         fragColor = vec4(hsb2rgb(vec3(ringAngle+angle, 0.85, 0.96)),1.0);//vec4(0.0, 0.1, 0.2, 1.);
-         return;
-     }
-#endif
-
-    // 增加旋转
-    float sinA = sin(angle);
-    float cosA = cos(angle);
-    mat2 rot = mat2(cosA, -sinA, sinA, cosA);
-    uv *= rot;
-
-    uv *= 3.0;
-
-    float m = Graph(uv, innerRadius);
-
-    vec3 tint = hsb2rgb(vec3(ringAngle+angle, 0.85, 0.96));//hsv;//vec3(0.0, 0.0, 1.0);
-
-    col += m * mix(tint, tint*0.8/*vec3(1.0, 1.0, 1.0)*/, m);
-
-    fragColor = vec4(col, 1.0);
+    //Tanh tonemapping
+    //https://www.shadertoy.com/view/ms3BD7
+    col *= SOFTNESS / STEPS * BRIGHTNESS;
+    fragColor = vec4(tanh(col * col), 1.0);
 }
 """
 
