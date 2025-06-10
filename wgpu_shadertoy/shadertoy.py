@@ -70,7 +70,7 @@ class Shadertoy:
     Parameters:
         shader_code (str): The shader code to use.
         common (str): The common shaderpass code gets executed before all other shaderpasses (buffers/image/sound). Defaults to empty string.
-        resolution (tuple): The resolution of the shadertoy in (width, height), will be changed by display scaling! Defaults to (800, 450).
+        resolution (tuple): Resolution in logical size (width, height), the actual canvas will run in physical size due to GUI scaling. Defaults to (800, 450).
         shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.

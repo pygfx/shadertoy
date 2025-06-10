@@ -16,6 +16,10 @@ Possible sections in each release:
 
 ### [unreleased]
 
+Fixed:
+* Behaviour with GUI scaling https://github.com/pygfx/shadertoy/pull/51
+
+
 ### [v0.2.0] - 2025-06-06
 
 Added:
