@@ -229,11 +229,19 @@ class Shadertoy:
             self._canvas = canvas
         elif self._offscreen:
             self._canvas = OffscreenCanvas(
-                title=self.title, size=self.resolution, update_mode="manual", vsync=False, min_fps=0
+                title=self.title,
+                size=self.resolution,
+                update_mode="manual",
+                vsync=False,
+                min_fps=0,
             )
         else:
             self._canvas = RenderCanvas(
-                title=self.title, size=self.resolution, max_fps=60, update_mode="fastest", vsync=True
+                title=self.title,
+                size=self.resolution,
+                max_fps=60,
+                update_mode="fastest",
+                vsync=True,
             )
         psize = self._canvas.get_physical_size()
         # in case of display scaling, we need to overwrite these values, which we only know after the canvas is created
