@@ -39,7 +39,7 @@ def test_shadertoy_from_id(api_available):
     # shadertoy source: https://www.shadertoy.com/view/l3fXWN by Vipitis
     shader = Shadertoy.from_id("l3fXWN")
 
-    assert shader.title == '"API test for CI" by jakel101'
+    assert shader.title == '"API test for CI" by jakel101 $fps FPS'
     assert shader.image.shader_type == "glsl"
     assert shader.image.shader_code.startswith("//Confirm API working!")
     assert shader.common.startswith("//Common pass loaded!")
@@ -57,7 +57,7 @@ def test_shadertoy_from_id_without_cache(api_available):
     # shadertoy source: https://www.shadertoy.com/view/l3fXWN by Vipitis
     shader = Shadertoy.from_id("l3fXWN", use_cache=False)
 
-    assert shader.title == '"API test for CI" by jakel101'
+    assert shader.title == '"API test for CI" by jakel101 $fps FPS'
     assert shader.image.shader_type == "glsl"
     assert shader.image.shader_code.startswith("//Confirm API working!")
     assert shader.common.startswith("//Common pass loaded!")
@@ -72,7 +72,7 @@ def test_buffers_from_api(api_available):
     # shadertoy source: https://www.shadertoy.com/view/4X33D2 by brisingre
     shader = Shadertoy.from_id("4X33D2")
 
-    assert shader.title == '"Common Code (API Test)" by brisingre'
+    assert shader.title == '"Common Code (API Test)" by brisingre $fps FPS'
     assert "" not in shader.buffers.values()
     assert len(shader.image._input_headers) > 0
     assert isinstance(shader.buffers["a"].channels[0], ShadertoyChannelBuffer)
