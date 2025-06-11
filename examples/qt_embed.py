@@ -1,4 +1,4 @@
-# test_example = false
+# run_example = false
 
 # based on the example from Rendercanvas/wgpu-py: https://github.com/pygfx/rendercanvas/blob/main/examples/qt_app.py https://github.com/pygfx/wgpu-py/blob/main/examples/gui_qt_embed.py
 
@@ -90,6 +90,7 @@ class ExampleWidget(QtWidgets.QWidget):
             self._paused = False
         else:
             # with "manual", we only get a redraw when we call it specifically... can break resizing!
+            # "ondemand" seems to still trigger frequently
             self.canvas.set_update_mode("manual")
             self.pause_button.setText("Resume")
             self._paused = True
