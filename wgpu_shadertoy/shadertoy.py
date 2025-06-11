@@ -70,7 +70,7 @@ class Shadertoy:
     Parameters:
         shader_code (str): The shader code to use.
         common (str): The common shaderpass code gets executed before all other shaderpasses (buffers/image/sound). Defaults to empty string.
-        resolution (tuple): The resolution of the shadertoy in (width, height). Defaults to (800, 450).
+        resolution (tuple): Resolution in logical size (width, height), the actual canvas will run in physical size due to GUI scaling. Defaults to (800, 450).
         shader_type (str): Can be "wgsl" or "glsl". On any other value, it will be automatically detected from shader_code. Default is "auto".
         offscreen (bool): Whether to render offscreen. Default is False.
         inputs (list): A list of :class:`ShadertoyChannel` objects. Supports up to 4 inputs. Defaults to sampling a black texture.
@@ -100,7 +100,6 @@ class Shadertoy:
     """
 
     # todo: add remaining built-in variables (i_channel_time)
-    # todo: support multiple render passes (`i_channel0`, `i_channel1`, etc.)
 
     def __init__(
         self,
@@ -127,7 +126,10 @@ class Shadertoy:
 
         self._shader_code = shader_code
         self.common = common + "\n"
-        self._uniform_data["resolution"] = (*resolution, 1)
+        self._uniform_data["resolution"] = (
+            *resolution,
+            1,
+        )  # 1 is a pixel ratio placeholder here
         self._shader_type = shader_type.lower()
 
         # if no explicit offscreen option was given
@@ -222,7 +224,11 @@ class Shadertoy:
             self._canvas = WgpuCanvas(
                 title=self.title, size=self.resolution, max_fps=60
             )
-
+        psize = self._canvas.get_physical_size()
+        # in case of display scaling, we need to overwrite these values, which we only know after the canvas is created
+        self._uniform_data["resolution"] = tuple(
+            [float(psize[0]), float(psize[1]), self._canvas.get_pixel_ratio()]
+        )
         self._present_context = self._canvas.get_context()
 
         # We use non srgb variants, because we want to let the shader fully control the color-space.
@@ -235,9 +241,11 @@ class Shadertoy:
         self._present_context.configure(device=self._device, format=self._format)
 
     def _bind_events(self):
+        # event spec: https://jupyter-rfb.readthedocs.io/en/stable/events.html
+        # events returns logical size, so we can multiply by the pixel ratio to get physical size!
         def on_resize(event):
-            w, h = event["width"], event["height"]
-            self._uniform_data["resolution"] = (w, h, 1)
+            w, h, ratio = event["width"], event["height"], event["pixel_ratio"]
+            self._uniform_data["resolution"] = (w * ratio, h * ratio, ratio)
             for buf in self.buffers.values():
                 # TODO: do we want to call this every single time or only when the resize is done?
                 # render loop is suspended during any window interaction anyway - will be fixed with rendercanvas: https://github.com/pygfx/rendercanvas/issues/69
@@ -246,12 +254,14 @@ class Shadertoy:
         def on_mouse_move(event):
             if event["button"] == 1 or 1 in event["buttons"]:
                 _, _, x2, y2 = self._uniform_data["mouse"]
-                x1, y1 = event["x"], self.resolution[1] - event["y"]
+                ratio = self._uniform_data["resolution"][2]
+                x1, y1 = event["x"] * ratio, self.resolution[1] - event["y"] * ratio
                 self._uniform_data["mouse"] = x1, y1, abs(x2), -abs(y2)
 
         def on_mouse_down(event):
             if event["button"] == 1 or 1 in event["buttons"]:
-                x, y = event["x"], self.resolution[1] - event["y"]
+                ratio = self._uniform_data["resolution"][2]
+                x, y = event["x"] * ratio, self.resolution[1] - event["y"] * ratio
                 self._uniform_data["mouse"] = (x, y, abs(x), abs(y))
 
         def on_mouse_up(event):

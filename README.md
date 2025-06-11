@@ -65,10 +65,10 @@ To easily load shaders from the website make use of the `.from_id` or `.from_jso
 shader = Shadertoy.from_id("NslGRN")
 ```
 
-When passing `off_screen=True` the `.snapshot()` method allows you to render individual frames with chosen uniforms.
+When passing `offscreen=True` the `.snapshot()` method allows you to render individual frames with chosen uniforms.
 Be aware that based on your device and backend, the preferred format might be BRGA, so the channels need to be swapped to get an RGBA image.
 ```python
-shader = Shadertoy(shader_code, resolution=(800, 450), off_screen=True)
+shader = Shadertoy(shader_code, resolution=(800, 450), offscreen=True)
 frame0_data = shader.snapshot()
 frame600_data = shader.snapshot(time_float=10.0, frame=600)
 frame0_img = Image.fromarray(np.asarray(frame0_data))

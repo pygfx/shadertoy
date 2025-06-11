@@ -60,7 +60,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 }
 
 """
-shader = Shadertoy(shader_code)
+shader = Shadertoy(shader_code, resolution=(800, 450))
 
 if __name__ == "__main__":
     shader.show()
