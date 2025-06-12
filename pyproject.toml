@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 name = "wgpu-shadertoy"
 dynamic = ["version", "readme"]
 dependencies = [
-  "wgpu>=0.21.1",
+  "wgpu[imgui]>=0.21.1",
   "rendercanvas",
   "requests",
   "numpy",

@@ -4,6 +4,7 @@ from typing import List
 import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
+from .imgui import construct_imports, gui
 
 builtin_variables_glsl = """#version 450 core
 
@@ -203,6 +204,25 @@ class RenderPass:
             },
         ]
 
+        if self.main._imgui:
+            bind_groups_layout_entries.append(
+                {
+                    "binding": 10,
+                    "resource": {
+                        "buffer": self.main._constants_buffer,
+                        "offset": 0,
+                        "size": self.main._constants_buffer.size,
+                    },
+                },
+            )
+            binding_layout.append(
+                {
+                    "binding": 10,
+                    "visibility": wgpu.ShaderStage.FRAGMENT,
+                    "buffer": {"type": wgpu.BufferBindingType.uniform},
+                },
+            )
+
         # setup bind groups for the channels
         channel_res = []
         for channel in self.channels:
@@ -272,6 +292,15 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
         )
 
+        if self.main._imgui:
+            self._device.queue.write_buffer(
+                buffer = self.main._constants_buffer,
+                buffer_offset = 0,
+                data = self.main._constants_data.mem,
+                data_offset = 0,
+                size = self.main._constants_buffer.size,
+            )
+
         command_encoder: wgpu.GPUCommandEncoder = self._device.create_command_encoder()
         current_texture: wgpu.GPUTexture = self.get_current_texture()
 
@@ -294,8 +323,13 @@ class RenderPass:
         # self._bind_group might get generalized out for buffer
         render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
         render_pass.draw(3, 1, 0, 0)
-        render_pass.end()
 
+        if self.main._imgui:
+            # TODO: refactor as this only needs to happen in the main class? maybe I can get the .end and .finish externally...
+            imgui_data = gui(self.main._constants, self.main._constants_data)
+            self.main._imgui_backend.render(imgui_data, render_pass)
+
+        render_pass.end()
         return command_encoder.finish()
 
     def construct_code(self) -> tuple[str, str]:
@@ -348,6 +382,18 @@ class RenderPass:
                     mainImage(FragColor, fragcoord);
                 }}
                 """
+            
+            if self.main._imgui:
+                # comment out existing constants
+                shader_code_lines = self.shader_code.splitlines()
+                for const in self.main._constants:
+                    shader_code_lines[const.line_number] = "// " + shader_code_lines[const.line_number]
+                self._shader_code = "\n".join(shader_code_lines)
+
+                constant_headers = construct_imports(self.main._constants)
+                # TODO use a new variable instead in the block below!
+                self._shader_code = constant_headers + "\n" + self.shader_code
+
             frag_shader_code = (
                 builtin_variables_glsl
                 + self._input_headers

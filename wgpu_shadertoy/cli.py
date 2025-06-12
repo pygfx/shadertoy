@@ -17,12 +17,20 @@ argument_parser.add_argument(
     default=(800, 450),
 )
 
+argument_parser.add_argument(
+    "--imgui",
+    help="automatically turn constants into imgui sliders",
+    action="store_true",
+)
+
 
 def main_cli():
     args = argument_parser.parse_args()
     shader_id = args.shader_id
     resolution = args.resolution
-    shader = Shadertoy.from_id(shader_id, resolution=resolution)
+    imgui = args.imgui
+    # TODO maybe **args?
+    shader = Shadertoy.from_id(shader_id, resolution=resolution, imgui=imgui)
     shader.show()
 
 
