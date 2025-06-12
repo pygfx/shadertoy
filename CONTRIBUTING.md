@@ -47,7 +47,7 @@ After your pull request is approved, it will be merged into the main branch.
 * Create a virtual environment using `python -m venv .venv` (Optional)
 * Install using `.venv/bin/pip install -e .[dev]`
 * Use `.venv/bin/ruff format .` to apply autoformatting.
-* Use `.venv/bin/ruff --fix .` to run the linter.
+* Use `.venv/bin/ruff check . --fix` to run the linter.
 * Use `.venv/bin/pytest .` to run the tests.
 * Use `.venv/bin/pip wheel -w dist --no-deps .` to build a wheel.
 

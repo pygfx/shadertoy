@@ -40,8 +40,8 @@ def numerical_exceptions():
 
 @pytest.fixture(autouse=True, scope="function")
 def force_offscreen():
-    os.environ["WGPU_FORCE_OFFSCREEN"] = "true"
+    os.environ["RENDERCANVAS_FORCE_OFFSCREEN"] = "true"
     try:
         yield
     finally:
-        del os.environ["WGPU_FORCE_OFFSCREEN"]
+        del os.environ["RENDERCANVAS_FORCE_OFFSCREEN"]
