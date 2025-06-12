@@ -116,12 +116,13 @@ def construct_imports(constants: list[ShaderConstant], constant_binding_idx=10) 
         var_init_lines.append(f"{const.shader_dtype} {const.name};")
         var_mapping_lines.append(f"# define {const.name} const_input.{const.name}")
 
+    new_line = "\n" # pytest was complaining about having blackslash in an f-string
     code_construct = f"""
     uniform struct ConstantInput {{
-        {'\n'.join(var_init_lines)}
+        {new_line.join(var_init_lines)}
     }};
     layout(binding = {constant_binding_idx}) uniform ConstantInput const_input;
-    {"\n".join(var_mapping_lines)}
+    {new_line.join(var_mapping_lines)}
     """
     # TODO messed up indentation...
     return code_construct
