@@ -10,7 +10,7 @@ from rendercanvas.offscreen import loop as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
-
+from .audio_devices import AudioDevice, NullAudioDevice
 
 class UniformArray:
     """Convenience class to create a uniform array.
@@ -77,6 +77,7 @@ class Shadertoy:
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
         canvas (RenderCanvas): Optionally provide the canvas the image pass will render too. Defaults to None (means auto?)
+        audio_device (AudioDevice): An audio device to use for audio input. Defaults to a NullAudioDevice with 44100Hz sample rate.
 
     The shader code must contain a entry point function:
 
@@ -114,6 +115,7 @@ class Shadertoy:
         title: str = "Shadertoy",
         complete: bool = True,
         canvas=None,
+        audio_device: AudioDevice = None,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -133,6 +135,7 @@ class Shadertoy:
             1,
         )  # 1 is a pixel ratio placeholder here
         self._shader_type = shader_type.lower()
+        self.audio_device = audio_device if audio_device is not None else NullAudioDevice(44100)
 
         # if no explicit offscreen option was given
         # inherit wgpu-py force offscreen option

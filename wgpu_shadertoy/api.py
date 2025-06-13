@@ -86,6 +86,8 @@ def _download_media_channels(
             args = {
                 "buffer": "abcd"[int(inp["src"][-5])]
             }  # hack with the preview image to get the buffer index
+        elif inp["ctype"] == "mic":
+            args = {}
         else:
             complete = False
             continue  # skip the below rows

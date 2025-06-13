@@ -131,7 +131,7 @@ class RenderPass:
                 channel = None
             elif type(inp) is ShadertoyChannel:
                 # case where the base class is provided
-                channel = inp.infer_subclass(parent=self, channel_idx=inp_idx)
+                channel = inp.infer_subclass(parent=self, channel_idx=inp_idx, audio_device=self.main.audio_device)
             elif isinstance(inp, ShadertoyChannel):
                 # case where a subclass is provided
                 inp.channel_idx = inp_idx
@@ -258,6 +258,15 @@ class RenderPass:
         Updates uniforms and encodes the draw calls for this renderpass.
         Returns the command buffer.
         """
+
+        uniform_data = self.main._uniform_data
+        current_time = uniform_data["time"]
+        current_time_delta = uniform_data["time_delta"]
+
+        # call the update_input for each input channel
+        for channel in self.channels:
+            if channel is not None and channel.dynamic:
+                channel._update_input(current_time, current_time_delta)
 
         # to keep channel_res per renderpass - we need to overwrite it? (really lazy implementation)
         # channel_res can change with resizing, so it's not neccassarily constant
