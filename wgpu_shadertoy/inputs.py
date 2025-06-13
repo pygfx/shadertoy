@@ -109,6 +109,8 @@ class ShadertoyChannel:
             return ShadertoyChannelTexture(*args, **kwargs)
         elif self.ctype == "buffer":
             return ShadertoyChannelBuffer(*args, **kwargs)
+        elif self.ctype == "keyboard":
+            return ShadertoyChannelKeyboard(*args, **kwargs)
         else:
             raise NotImplementedError(f"Doesn't support {self.ctype=} yet")
 
@@ -193,7 +195,67 @@ class ShadertoyChannel:
 
 # "Misc" input tab
 class ShadertoyChannelKeyboard(ShadertoyChannel):
-    pass
+    # isn't this basically a texture/video??
+    # can we have a GPU buffer and then just write it to texture?
+    # do we only update on keypresses or do we do it every frame (can you do multiple keypressese faster than a frame?)
+    # ref: https://www.shadertoy.com/view/lsXGzf
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.format = wgpu.TextureFormat.r8unorm #or r8sint?
+
+    # do we have to redo both parts?
+    @property
+    def parent(self):
+        """
+        Parent renderpass of this channel.
+        """
+        if self._parent is None:
+            raise AttributeError("Parent not set.")
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent):
+        self._parent = parent
+        self.data = np.asarray(self.parent.main._keyboard) # horrible pattern
+
+
+    # TODO: keymap or something to match events back into ascii numbers?
+    # https://jupyter-rfb.readthedocs.io/en/stable/events.html#keys
+
+
+    # copied from ShadertoyChannelTexture
+    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+        """
+        prepares the texture and sampler. Returns it's binding layouts and bindgroup layout entries
+        """
+
+        binding_layout = self._binding_layout()
+        texture = device.create_texture(
+            size=(256, 3, 1), #self.size?
+            format=self.format,
+            usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
+        )
+
+        texture_view = texture.create_view()
+        device.queue.write_texture(
+            destination={
+                "texture": texture,
+            },
+            data=self.data,
+            data_layout={
+                "bytes_per_row": 8 * 256, # int8 texture of 256x3
+                "rows_per_image": 256,
+            },
+            size=texture.size,
+        )
+
+        sampler = device.create_sampler(**self.sampler_settings)
+
+        bind_groups_layout_entry = self._bind_groups_layout_entries(
+            texture_view, sampler
+        )
+
+        return binding_layout, bind_groups_layout_entry
 
 
 class ShadertoyChannelWebcam(ShadertoyChannel):

@@ -150,6 +150,10 @@ class Shadertoy:
 
         self.title += " $fps FPS"
 
+        # global state for the ShadertoyChannelKeyboard
+        # essentially a 256, 3 bit array
+        self._keyboard = [[0] * 256 for _ in range(3)]
+
         device_features = []
         if buffers:
             device_features.append(wgpu.FeatureName.float32_filterable)
@@ -288,10 +292,30 @@ class Shadertoy:
                 x1, y1, x2, y2 = self._uniform_data["mouse"]
                 self._uniform_data["mouse"] = x1, y1, -abs(x2), -abs(y2)
 
+        def on_key_down(event):
+            try:
+                key_code = ord(event["key"])
+            except TypeError:
+                key_code = 0
+            self._keyboard[0][key_code] = 1
+            self._keyboard[1][key_code] = 1 # this only stays for a little bit of time?
+            self._keyboard[2][key_code] = not int(self._keyboard[2][key_code])  # toggle pressed state
+
+        def on_key_up(event):
+            try:
+                key_code = ord(event["key"])
+            except TypeError:
+                key_code = 0
+            self._keyboard[0][key_code] = 0
+            self._keyboard[1][key_code] = 0
+            self._keyboard[2][key_code] = not int(self._keyboard[2][key_code])  # toggle pressed state
+
         self._canvas.add_event_handler(on_resize, "resize")
         self._canvas.add_event_handler(on_mouse_move, "pointer_move")
         self._canvas.add_event_handler(on_mouse_down, "pointer_down")
         self._canvas.add_event_handler(on_mouse_up, "pointer_up")
+        self._canvas.add_event_handler(on_key_down, "key_down")
+        self._canvas.add_event_handler(on_key_up, "key_up")
 
     def _update(self):
         now = time.perf_counter()
@@ -344,6 +368,9 @@ class Shadertoy:
 
         self._device.queue.submit(render_encoders)
         self._canvas.request_draw()
+
+        #reset the keyboard press state:
+        self._keyboard[1] = [0] * 256
 
     def show(self):
         self._canvas.request_draw(self._draw_frame)
