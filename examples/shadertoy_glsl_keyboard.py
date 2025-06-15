@@ -36,8 +36,9 @@ const int KEY_DOWN  = 40;
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
+    fragColor = vec4(texture(iChannel0, fragCoord/iResolution.xy).xyz, 1.0);
+    return; // little shortcut for testing I guess.
     vec2 uv = (-iResolution.xy + 2.0*fragCoord) / iResolution.y;
-
     vec3 col = vec3(0.0);
 
     // state

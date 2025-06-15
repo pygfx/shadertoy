@@ -202,6 +202,8 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.format = wgpu.TextureFormat.r8unorm #or r8sint?
+        self.data = np.zeros((256, 3), dtype=np.uint8)  # 256 keys, 3 rows and only one channel
+        self.dynamic = True  # this channel is dynamic, it needs to be updated every frame
 
     # do we have to redo both parts?
     @property
@@ -216,7 +218,30 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
     @parent.setter
     def parent(self, parent):
         self._parent = parent
-        self.data = np.asarray(self.parent.main._keyboard) # horrible pattern
+        # register the events here?
+        self.parent.main._canvas.add_event_handler(self.on_key_down, "key_down")
+        self.parent.main._canvas.add_event_handler(self.on_key_up, "key_up")
+
+    def on_key_down(self, event):
+        try:
+            key_code = ord(event["key"])
+        except TypeError:
+            key_code = 0
+        self.data[key_code, 0] = 255
+        self.data[key_code, 1] = 255 # this only stays for a little bit of time?
+        self.data[key_code, 2] += 255 # toggle pressed state (via rollover?)
+        print(f"Key down: {event['key']} ({key_code})")
+        self.dynamic = True  # basically tell it to update for next frame
+
+    def on_key_up(self, event):
+        try:
+            key_code = ord(event["key"])
+        except TypeError:
+            key_code = 0
+        self.data[key_code, 0] = 0
+        # self.data[key_code, 1] = 0 # doesn't need to be updated
+        self.data[key_code, 2] += 255  # toggle pressed state
+        self.dynamic = True
 
 
     # TODO: keymap or something to match events back into ascii numbers?
@@ -230,23 +255,23 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         """
 
         binding_layout = self._binding_layout()
-        texture = device.create_texture(
+        self._texture = device.create_texture(
             size=(256, 3, 1), #self.size?
             format=self.format,
             usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
         )
 
-        texture_view = texture.create_view()
+        texture_view = self._texture.create_view()
         device.queue.write_texture(
             destination={
-                "texture": texture,
+                "texture": self._texture,
             },
             data=self.data,
             data_layout={
-                "bytes_per_row": 8 * 256, # int8 texture of 256x3
-                "rows_per_image": 256,
+                "bytes_per_row": 256, # int8 texture of 256
+                "rows_per_image": 3,
             },
-            size=texture.size,
+            size=self._texture.size,
         )
 
         sampler = device.create_sampler(**self.sampler_settings)
@@ -256,6 +281,24 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         )
 
         return binding_layout, bind_groups_layout_entry
+
+    def update(self, device: wgpu.GPUDevice):
+        # to be called just before the draw call for this pass:
+        # print(self.data[40:80, 0, :])
+        # basically overwrites the texture to update it?
+        device.queue.write_texture(
+            destination={
+                "texture": self._texture,
+            },
+            data=np.ascontiguousarray(self.data),
+            data_layout={
+                "bytes_per_row": 256, # int8 texture of 256
+                "rows_per_image": 3,
+            },
+            size=self._texture.size,
+        )
+        self.dynamic = False  # we don't need to update every frame...
+        self.data[:, 1] = 0  # reset the second row to 0s after we uploaded that data (could be an issue if we reuse this channel...)
 
 
 class ShadertoyChannelWebcam(ShadertoyChannel):

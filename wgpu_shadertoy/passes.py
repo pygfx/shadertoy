@@ -272,6 +272,11 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
         )
 
+        for channel in self.channels:
+            if channel is not None and channel.dynamic:
+                # update the texture for the channel
+                channel.update(self._device)
+
         command_encoder: wgpu.GPUCommandEncoder = self._device.create_command_encoder()
         current_texture: wgpu.GPUTexture = self.get_current_texture()
 
