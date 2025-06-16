@@ -202,8 +202,9 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.format = wgpu.TextureFormat.r8unorm #or r8sint?
-        self.data = np.zeros((256, 3), dtype=np.uint8)  # 256 keys, 3 rows and only one channel
-        self.dynamic = True  # this channel is dynamic, it needs to be updated every frame
+        self.data = np.zeros((3, 256), dtype=np.uint8)  # 3 rows, 256 keys and only one channel
+        self.dynamic = True  # could be named "needs_update" to be more clear
+        self.vflip = True #always true but we handle that manually, so don't really need the var!
 
     # do we have to redo both parts?
     @property
@@ -227,9 +228,10 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             key_code = ord(event["key"])
         except TypeError:
             key_code = 0
-        self.data[key_code, 0] = 255
-        self.data[key_code, 1] = 255 # this only stays for a little bit of time?
-        self.data[key_code, 2] += 255 # toggle pressed state (via rollover?)
+        # note: we vflip the rows here!
+        self.data[2, key_code] = 255
+        self.data[1, key_code] = 255 # this only stays for a little bit of time?
+        self.data[0, key_code] = 255 if self.data[0, key_code] == 0 else 0 # toggle pressed state
         print(f"Key down: {event['key']} ({key_code})")
         self.dynamic = True  # basically tell it to update for next frame
 
@@ -238,9 +240,7 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             key_code = ord(event["key"])
         except TypeError:
             key_code = 0
-        self.data[key_code, 0] = 0
-        # self.data[key_code, 1] = 0 # doesn't need to be updated
-        self.data[key_code, 2] += 255  # toggle pressed state
+        self.data[2, key_code] = 0 # up action only triggers the "state" row
         self.dynamic = True
 
 
@@ -248,19 +248,22 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
     # https://jupyter-rfb.readthedocs.io/en/stable/events.html#keys
 
 
-    # copied from ShadertoyChannelTexture
+    # copied from ShadertoyChannelTexture, changed sizes (maybe it could be moved to the base class?)
     def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
         """
         prepares the texture and sampler. Returns it's binding layouts and bindgroup layout entries
         """
+        # this gets called during the draw too... so every single time (via _setup_renderpipeline!)
 
+        # TODO: we don't really need to draw the initial texture? it should be all zeros anyway.
         binding_layout = self._binding_layout()
         self._texture = device.create_texture(
-            size=(256, 3, 1), #self.size?
+            size=(256, 3, 1), # note it's columns, rows here
             format=self.format,
             usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
         )
 
+        # alternative, call self.update() here to write the texture!
         texture_view = self._texture.create_view()
         device.queue.write_texture(
             destination={
@@ -284,8 +287,6 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
     def update(self, device: wgpu.GPUDevice):
         # to be called just before the draw call for this pass:
-        # print(self.data[40:80, 0, :])
-        # basically overwrites the texture to update it?
         device.queue.write_texture(
             destination={
                 "texture": self._texture,
@@ -293,13 +294,12 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             data=np.ascontiguousarray(self.data),
             data_layout={
                 "bytes_per_row": 256, # int8 texture of 256
-                "rows_per_image": 3, # TODO: is this flipped around?
+                "rows_per_image": 3,
             },
             size=self._texture.size,
         )
-        self.dynamic = False  # we don't need to update every frame...
-        self.data[:, 1] = 0  # reset the second row to 0s after we uploaded that data (could be an issue if we reuse this channel...)
-
+        # self.dynamic = False # we don't need to update every frame... (but the 2nd row reset won't work if we wait for the next event...)
+        self.data[1, :] = np.zeros(256, dtype=np.uint8)  # reset the second row to 0s after we uploaded that data (could be an issue if we reuse this channel...)
 
 class ShadertoyChannelWebcam(ShadertoyChannel):
     pass

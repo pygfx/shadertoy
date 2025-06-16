@@ -240,8 +240,8 @@ class Shadertoy:
             self._canvas = RenderCanvas(
                 title=self.title,
                 size=self.resolution,
-                max_fps=60,
-                update_mode="fastest",
+                max_fps=10,
+                update_mode="continuous",
                 vsync=True,
             )
         psize = self._canvas.get_physical_size()
