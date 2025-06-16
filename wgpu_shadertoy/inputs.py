@@ -263,7 +263,6 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
         )
 
-        # alternative, call self.update() here to write the texture!
         texture_view = self._texture.create_view()
         device.queue.write_texture(
             destination={
@@ -277,6 +276,8 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             size=self._texture.size,
         )
 
+        # works if we put it here ... but that isn't the solution!
+        self.data[1, :] = np.zeros(256, dtype=np.uint8)  # reset the second row to 0s after we uploaded that data (could be an issue if we reuse this channel...)
         sampler = device.create_sampler(**self.sampler_settings)
 
         bind_groups_layout_entry = self._bind_groups_layout_entries(
@@ -298,8 +299,7 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             },
             size=self._texture.size,
         )
-        # self.dynamic = False # we don't need to update every frame... (but the 2nd row reset won't work if we wait for the next event...)
-        self.data[1, :] = np.zeros(256, dtype=np.uint8)  # reset the second row to 0s after we uploaded that data (could be an issue if we reuse this channel...)
+        self.dynamic = False # we don't need to update every frame... (but the 2nd row reset won't work if we wait for the next event...)
 
 class ShadertoyChannelWebcam(ShadertoyChannel):
     pass
@@ -340,6 +340,15 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         if self._renderpass is None:
             self._renderpass = self.parent.main.buffers[self.buffer_idx]
         return self._renderpass
+    
+    def update(self, device: wgpu.GPUDevice):
+        # TODO: buffer passes get updated through a combination of the draw function swapping textures
+        # and the draw function also calling _setup_renderpipeline() to get the newer bindings...
+        # this seems wasteful and should be improved!
+
+        # not the solution as we call it too often from here...
+        # self.renderpass._setup_renderpipeline()
+        pass # to avoid warnings here.
 
     def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
         """
