@@ -206,6 +206,12 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         self.dynamic = True  # could be named "needs_update" to be more clear
         self.vflip = True #always true but we handle that manually, so don't really need the var!
 
+        # when we get this via the ._infer_subclass() method - we might already have a parent and can register the events now!
+        if self._parent is not None:
+            # not the best solution I feel like - but works for now.
+            self.parent.main._canvas.add_event_handler(self.on_key_down, "key_down")
+            self.parent.main._canvas.add_event_handler(self.on_key_up, "key_up")
+
     # do we have to redo both parts?
     @property
     def parent(self):
