@@ -219,8 +219,8 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
     def parent(self, parent):
         self._parent = parent
         # register the events here?
-        self.parent.main._canvas.add_event_handler(self.on_key_down, "key_down")
-        self.parent.main._canvas.add_event_handler(self.on_key_up, "key_up")
+        self._parent.main._canvas.add_event_handler(self.on_key_down, "key_down")
+        self._parent.main._canvas.add_event_handler(self.on_key_up, "key_up")
 
     def on_key_down(self, event):
         try:
@@ -266,7 +266,7 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             destination={
                 "texture": self._texture,
             },
-            data=self.data,
+            data=np.ascontiguousarray(self.data),
             data_layout={
                 "bytes_per_row": 256, # int8 texture of 256
                 "rows_per_image": 3,
@@ -293,7 +293,7 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             data=np.ascontiguousarray(self.data),
             data_layout={
                 "bytes_per_row": 256, # int8 texture of 256
-                "rows_per_image": 3,
+                "rows_per_image": 3, # TODO: is this flipped around?
             },
             size=self._texture.size,
         )

@@ -150,9 +150,6 @@ class Shadertoy:
 
         self.title += " $fps FPS"
 
-        # global state for the ShadertoyChannelKeyboard
-        # essentially a 256, 3 bit array
-        self._keyboard = [[0] * 256 for _ in range(3)]
 
         device_features = []
         if buffers:
@@ -349,8 +346,6 @@ class Shadertoy:
         self._device.queue.submit(render_encoders)
         self._canvas.request_draw()
 
-        #reset the keyboard press state:
-        self._keyboard[1] = [0] * 256
 
     def show(self):
         self._canvas.request_draw(self._draw_frame)
