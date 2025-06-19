@@ -4,6 +4,44 @@ import numpy as np
 import wgpu
 
 
+# https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values looks like VK_* match
+KEY_MAP = {
+    "Alt": 18,
+    "CapsLock": 20,
+    "Control": 17,
+    "Meta": 91,
+    "NumLock": 144,
+    "ScrollLock": 145,
+    "Shift": 16,
+    "Enter": 13,
+    "Tab": 9,
+    " ": 32, # space
+    "ArrowDown": 40,
+    "ArrowLeft": 37,
+    "ArrowRight": 39,
+    "ArrowUp": 38,
+    "End": 35,
+    "Home": 36,
+    "PageDown": 34,
+    "Pageup": 33, # PageUp but there might be a typo?
+    "Backspace": 8,
+    "Delete": 46,
+    "Escape": 27,
+    "Pause": 19,
+    "F1": 112,
+    "F2": 113,
+    "F3": 114,
+    "F4": 115,
+    "F5": 116,
+    "F6": 117,
+    "F7": 118,
+    "F8": 119,
+    "F9": 120,
+    "F10": 121,
+    "F11": 122,
+    "F12": 123,
+}
+
 class ShadertoyChannel:
     """
     ShadertoyChannel Base class. If nothing is provided, it defaults to a 8x8 black texture.
@@ -231,22 +269,23 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
     def on_key_down(self, event):
         try:
-            key_code = ord(event["key"])
+            key_code = KEY_MAP.get(event["key"]) or ord(event["key"]) # we only want to evaluate ord() if there is no mapping!
+            assert key_code < 256, f"Key {event['key']} code {key_code} is out of range for keyboard channel."
         except TypeError:
+            print(f"Key event error: {event['key']}")
             key_code = 0
-        # note: we vflip the rows here!
-        self.data[2, key_code] = 255
+        self.data[0, key_code] = 255
         self.data[1, key_code] = 255 # this only stays for a little bit of time?
-        self.data[0, key_code] = 255 if self.data[0, key_code] == 0 else 0 # toggle pressed state
-        print(f"Key down: {event['key']} ({key_code})")
+        self.data[2, key_code] = 255 if self.data[2, key_code] == 0 else 0 # toggle pressed state
         self.dynamic = True  # basically tell it to update for next frame
 
     def on_key_up(self, event):
         try:
-            key_code = ord(event["key"])
+            key_code = KEY_MAP.get(event["key"]) or ord(event["key"])
+            assert key_code < 256
         except TypeError:
             key_code = 0
-        self.data[2, key_code] = 0 # up action only triggers the "state" row
+        self.data[0, key_code] = 0 # up action only triggers the "state" row
         self.dynamic = True
 
 
@@ -263,11 +302,12 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
         # TODO: we don't really need to draw the initial texture? it should be all zeros anyway.
         binding_layout = self._binding_layout()
-        self._texture = device.create_texture(
-            size=(256, 3, 1), # note it's columns, rows here
-            format=self.format,
-            usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
-        )
+        if not hasattr(self, "_texture"):
+            self._texture = device.create_texture(
+                size=(256, 3, 1), # note it's columns, rows here
+                format=self.format,
+                usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
+            )
 
         texture_view = self._texture.create_view()
         device.queue.write_texture(
@@ -294,6 +334,8 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
     def update(self, device: wgpu.GPUDevice):
         # to be called just before the draw call for this pass:
+        pass
+        
         device.queue.write_texture(
             destination={
                 "texture": self._texture,
