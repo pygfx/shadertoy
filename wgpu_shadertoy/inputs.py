@@ -23,7 +23,8 @@ KEY_MAP = {
     "End": 35,
     "Home": 36,
     "PageDown": 34,
-    "Pageup": 33, # PageUp but there might be a typo?
+    "Pageup": 33, # fixed in the future: https://github.com/pygfx/rendercanvas/pull/96
+    "PageUp": 33,
     "Backspace": 8,
     "Delete": 46,
     "Escape": 27,
@@ -332,22 +333,22 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
         return binding_layout, bind_groups_layout_entry
 
-    def update(self, device: wgpu.GPUDevice):
-        # to be called just before the draw call for this pass:
-        pass
+    # def update(self, device: wgpu.GPUDevice):
+    #     # to be called just before the draw call for this pass:
+    #     pass
         
-        device.queue.write_texture(
-            destination={
-                "texture": self._texture,
-            },
-            data=np.ascontiguousarray(self.data),
-            data_layout={
-                "bytes_per_row": 256, # int8 texture of 256
-                "rows_per_image": 3,
-            },
-            size=self._texture.size,
-        )
-        self.dynamic = False # we don't need to update every frame... (but the 2nd row reset won't work if we wait for the next event...)
+    #     device.queue.write_texture(
+    #         destination={
+    #             "texture": self._texture,
+    #         },
+    #         data=np.ascontiguousarray(self.data),
+    #         data_layout={
+    #             "bytes_per_row": 256, # int8 texture of 256
+    #             "rows_per_image": 3,
+    #         },
+    #         size=self._texture.size,
+    #     )
+    #     self.dynamic = False # we don't need to update every frame... (but the 2nd row reset won't work if we wait for the next event...)
 
 class ShadertoyChannelWebcam(ShadertoyChannel):
     pass
