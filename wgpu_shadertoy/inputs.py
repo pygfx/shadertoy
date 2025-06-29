@@ -248,6 +248,7 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         # when we get this via the ._infer_subclass() method - we might already have a parent and can register the events now!
         if self._parent is not None:
             # not the best solution I feel like - but works for now.
+            # could be extracted to a _register_events method instead
             self.parent.main._canvas.add_event_handler(self.on_key_down, "key_down")
             self.parent.main._canvas.add_event_handler(self.on_key_up, "key_up")
 
@@ -270,7 +271,7 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
     def on_key_down(self, event):
         try:
-            key_code = KEY_MAP.get(event["key"]) or ord(event["key"]) # we only want to evaluate ord() if there is no mapping!
+            key_code = KEY_MAP.get(event["key"]) or ord(event["key"].upper()) # we only want to evaluate ord() if there is no mapping!
             assert key_code < 256, f"Key {event['key']} code {key_code} is out of range for keyboard channel."
         except TypeError:
             print(f"Key event error: {event['key']}")
@@ -282,7 +283,7 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
     def on_key_up(self, event):
         try:
-            key_code = KEY_MAP.get(event["key"]) or ord(event["key"])
+            key_code = KEY_MAP.get(event["key"]) or ord(event["key"].upper())
             assert key_code < 256
         except TypeError:
             key_code = 0
