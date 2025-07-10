@@ -23,7 +23,6 @@ KEY_MAP = {
     "End": 35,
     "Home": 36,
     "PageDown": 34,
-    "Pageup": 33, # fixed in the future: https://github.com/pygfx/rendercanvas/pull/96
     "PageUp": 33,
     "Backspace": 8,
     "Delete": 46,
@@ -279,7 +278,7 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         self.data[0, key_code] = 255
         self.data[1, key_code] = 255 # this only stays for a little bit of time?
         self.data[2, key_code] = 255 if self.data[2, key_code] == 0 else 0 # toggle pressed state
-        self.dynamic = True  # basically tell it to update for next frame
+        self.dynamic = 2  # basically tell it to update for next frame and one after that!
 
     def on_key_up(self, event):
         try:
@@ -311,7 +310,32 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
                 usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
             )
 
+
+        # TODO: this could also be cached...
         texture_view = self._texture.create_view()
+        # device.queue.write_texture(
+        #     destination={
+        #         "texture": self._texture,
+        #     },
+        #     data=np.ascontiguousarray(self.data),
+        #     data_layout={
+        #         "bytes_per_row": 256, # int8 texture of 256
+        #         "rows_per_image": 3,
+        #     },
+        #     size=self._texture.size,
+        # )
+
+        # works if we put it here ... but that isn't the solution!
+        sampler = device.create_sampler(**self.sampler_settings)
+
+        bind_groups_layout_entry = self._bind_groups_layout_entries(
+            texture_view, sampler
+        )
+
+        return binding_layout, bind_groups_layout_entry
+
+    def update(self, device: wgpu.GPUDevice):
+        # to be called just before the draw call for this pass:
         device.queue.write_texture(
             destination={
                 "texture": self._texture,
@@ -323,33 +347,10 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             },
             size=self._texture.size,
         )
-
-        # works if we put it here ... but that isn't the solution!
         self.data[1, :] = np.zeros(256, dtype=np.uint8)  # reset the second row to 0s after we uploaded that data (could be an issue if we reuse this channel...)
-        sampler = device.create_sampler(**self.sampler_settings)
 
-        bind_groups_layout_entry = self._bind_groups_layout_entries(
-            texture_view, sampler
-        )
-
-        return binding_layout, bind_groups_layout_entry
-
-    # def update(self, device: wgpu.GPUDevice):
-    #     # to be called just before the draw call for this pass:
-    #     pass
-        
-    #     device.queue.write_texture(
-    #         destination={
-    #             "texture": self._texture,
-    #         },
-    #         data=np.ascontiguousarray(self.data),
-    #         data_layout={
-    #             "bytes_per_row": 256, # int8 texture of 256
-    #             "rows_per_image": 3,
-    #         },
-    #         size=self._texture.size,
-    #     )
-    #     self.dynamic = False # we don't need to update every frame... (but the 2nd row reset won't work if we wait for the next event...)
+        # because we need to essentially draw one more time
+        self.dynamic -= 1
 
 class ShadertoyChannelWebcam(ShadertoyChannel):
     pass

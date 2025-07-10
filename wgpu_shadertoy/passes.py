@@ -276,12 +276,14 @@ class RenderPass:
             self._setup_renderpipeline()
             # because this calls bind_texture which again might call update?
             # updates all the channels tho
+            # we should instead use the channel.update function for BufferChannels somehow... or check for a valid renderpipeline
+            # to only regenerate this if needed.
 
 
-        # for channel in self.channels:
-        #     if channel is not None and channel.dynamic:
-        #         # update the texture for the channel
-        #         channel.update(self._device)
+        for channel in self.channels:
+            if channel is not None and channel.dynamic:
+                # update the texture for the channel
+                channel.update(self._device)
 
         command_encoder: wgpu.GPUCommandEncoder = self._device.create_command_encoder()
         current_texture: wgpu.GPUTexture = self.get_current_texture()
