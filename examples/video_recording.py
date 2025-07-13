@@ -1,5 +1,6 @@
 import av
 import numpy as np
+from threading import Thread
 
 from wgpu_shadertoy import Shadertoy
 
@@ -187,7 +188,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
  
 """
 
-shader = Shadertoy(shader_code=shader_code, resolution=(800, 450), offscreen=True)
+shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
 
 
 # naive implementation based on https://pyav.basswood-io.com/docs/stable/cookbook/numpy.html#generating-video
@@ -227,13 +228,55 @@ def record(output_file="output.mp4") -> None:
         container.mux(packet)
     container.close()
 
+# gui recording tests based on https://pyav.basswood-io.com/docs/stable/cookbook/basics.html#recording-the-screen with GLFW and HWDN via gdigrab device
+def record_gui():
+    info = shader._canvas._rc_get_present_methods()
+    print(info)
+    hwdn = info["screen"]["window"]
+
+    input_ = av.open(f"hwnd={hwdn}", format="gdigrab")
+    output_ = av.open("output_gui.mp4", mode="w")
+
+    output_stream = output_.add_stream("h264", rate=60, width=shader.resolution[0], height=shader.resolution[1], pix_fmt="yuv420p", bit_rate=900_000)
+
+    try:
+        while not shader._canvas._rc_get_closed():
+            try:
+                for frame in input_.decode(video=0):
+                    packet = output_stream.encode(frame)
+                    output_.mux(packet)
+                    # print(f"recorded a frame!")
+            # except av.BlockingIOError:
+            #     print("nothing")
+            #     pass
+            except av.error.OSError as e:
+                print(f"OS error: {e}")
+                # alternative end?
+                pass #not break!
+    except KeyboardInterrupt:
+        # gui_thread.join()
+        print("Recording stopped by user.")
+    # finally: # finally some how triggers too early??
+        # gui_thread.join()
+    print("closed gui?")
+
+    packet = output_stream.encode(None)  # flush the stream
+    output_.mux(packet)
+    output_.close()
+    input_.close()
 
 if __name__ == "__main__":
-    # shader.show()
-    record()
+    info = shader._canvas._rc_get_present_methods()
+    print(info)
+    hwdn = info["screen"]["window"]
+    recording_thread = Thread(target=record_gui, daemon=True)
+    recording_thread.start()
+    shader.show()
+    recording_thread.join()  # wait for the recording thread to finish
+    print("done")
+    # record()
 
 
 # ideas: (tracking from https://github.com/pygfx/shadertoy/issues/52)
-# * needs to be OS and GPU dependent -.- for example gdpigrab for windows via HWDN could work for gui + capture on
 # * Libavfilter input virtual device via PyAV as a context for rendercanvas (offscreen): https://www.ffmpeg.org/ffmpeg-devices.html#lavfi
 #  could even be a whole backend with ffplay??
