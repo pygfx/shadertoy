@@ -1,8 +1,9 @@
 import av
 import numpy as np
-from threading import Thread
+
 
 from wgpu_shadertoy import Shadertoy
+from rendercanvas.auto import loop
 
 # shadertoy source: https://www.shadertoy.com/view/7ds3zB by henryseg
 # TODO find example with delta time and maybe accumulation to showoff faster/slower than realtime video export!
@@ -188,10 +189,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
  
 """
 
+
 shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
 
 
-# naive implementation based on https://pyav.basswood-io.com/docs/stable/cookbook/numpy.html#generating-video
+# naive offscreen implementation based on https://pyav.basswood-io.com/docs/stable/cookbook/numpy.html#generating-video
 def record(output_file="output.mp4") -> None:
     # TODO: parameterize
     start_offset = 0.0
@@ -228,53 +230,49 @@ def record(output_file="output.mp4") -> None:
         container.mux(packet)
     container.close()
 
-# gui recording tests based on https://pyav.basswood-io.com/docs/stable/cookbook/basics.html#recording-the-screen with GLFW and HWDN via gdigrab device
-def record_gui():
-    info = shader._canvas._rc_get_present_methods()
-    print(info)
-    hwdn = info["screen"]["window"]
 
-    input_ = av.open(f"hwnd={hwdn}", format="gdigrab")
-    output_ = av.open("output_gui.mp4", mode="w")
+# better idea: record frames during draw function so we don't care about a 2nd thread.
+def draw_and_encode():
+    shader._draw_frame() # calls the ._update() method when not offscreen
+    # what about variable framerate? canvas.__sheduler._draw_stats?
 
-    output_stream = output_.add_stream("h264", rate=60, width=shader.resolution[0], height=shader.resolution[1], pix_fmt="yuv420p", bit_rate=900_000)
 
-    try:
-        while not shader._canvas._rc_get_closed():
-            try:
-                for frame in input_.decode(video=0):
-                    packet = output_stream.encode(frame)
-                    output_.mux(packet)
-                    # print(f"recorded a frame!")
-            # except av.BlockingIOError:
-            #     print("nothing")
-            #     pass
-            except av.error.OSError as e:
-                print(f"OS error: {e}")
-                # alternative end?
-                pass #not break!
-    except KeyboardInterrupt:
-        # gui_thread.join()
-        print("Recording stopped by user.")
-    # finally: # finally some how triggers too early??
-        # gui_thread.join()
-    print("closed gui?")
+    # in_stream = input_.streams.get(video=0)[0] # the documentation is sorta difficult to understand -.-
+    # # find newest frame (seems to crash with Invalid argument?)
+    # input_.seek(offset=100, stream=in_stream) #, backward=True, any_frame=True)
 
-    packet = output_stream.encode(None)  # flush the stream
-    output_.mux(packet)
-    output_.close()
-    input_.close()
+    # just grab the "next" frame here?
+    frame: av.VideoFrame = next(input_.decode(video=0), None)
+
+    if frame is not None:
+        packets = output_stream.encode(frame)
+        for packet in packets:
+            output_.mux(packet) # this throws errors, maybe due to logging?
+    else:
+        print(f"No frame recorded?")
+
+    # input_.flush_buffers() # is this needed?
 
 if __name__ == "__main__":
+    # globals that should be a in a class or something. (part of shadertoy/rendercanvas subclass?)
     info = shader._canvas._rc_get_present_methods()
     print(info)
-    hwdn = info["screen"]["window"]
-    recording_thread = Thread(target=record_gui, daemon=True)
-    recording_thread.start()
-    shader.show()
-    recording_thread.join()  # wait for the recording thread to finish
-    print("done")
-    # record()
+    hwdn = info["screen"]["window"] #GLFW specific
+    input_= av.open(f"hwnd={hwdn}", format="gdigrab") # only works on Windows!
+    output_ = av.open("output_gui.mp4", mode="w")
+    output_stream: av.VideoStream = output_.add_stream("h264", width=shader.resolution[0], height=shader.resolution[1], pix_fmt="yuv420p", bit_rate=900_000)
+
+    # include the encoding function inside the
+    shader._canvas.request_draw(draw_function=draw_and_encode)
+
+    loop.run()
+    print("feels like we closed!")
+    # cleanup stuff for the containers!
+    packets = output_stream.encode(None)  # flush the stream
+    for packet in packets:
+        output_.mux(packet)
+    output_.close()
+    input_.close() # redundant?
 
 
 # ideas: (tracking from https://github.com/pygfx/shadertoy/issues/52)
