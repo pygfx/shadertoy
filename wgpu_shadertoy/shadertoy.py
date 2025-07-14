@@ -246,6 +246,7 @@ class Shadertoy:
                 x1, y1 = event["x"] * ratio, self.resolution[1] - event["y"] * ratio
                 self._uniform_data["mouse"] = x1, y1, abs(x2), -abs(y2)
             if self._imgui:
+                # TODO: we should ignore mouse updates when moving imgui sliders.
                 self._imgui_backend.io.add_mouse_pos_event(event["x"], event["y"])
 
         def on_mouse_down(event):
@@ -330,6 +331,13 @@ class Shadertoy:
             run_offscreen.run()
         else:
             loop.run()
+            if self._imgui:
+                for constant in self._constants:
+                    # TODO: this check messes up due to precision sometimes!
+                    if constant.value != self._constants_data[constant.name]:
+                        print(
+                            f"Constant {constant.shader_dtype} {constant.name}: {constant.value} -> {self._constants_data[constant.name]}"
+                        )
 
     def snapshot(
         self,

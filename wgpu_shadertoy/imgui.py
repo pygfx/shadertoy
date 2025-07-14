@@ -146,11 +146,12 @@ def gui(constants: list[ShaderConstant], constants_data: UniformArray):
         ig.set_tooltip("TODO")
 
     # create the sliders?
+    # TODO: can we reset the values with a button or a double click maybe?
     for const in constants:
         if const.shader_dtype == "float":
-            _, constants_data[const.name] = ig.slider_float(const.name, constants_data[const.name], 0, const.value*2.0)
+            _, constants_data[const.name] = ig.slider_float(const.name, constants_data[const.name], -const.value, const.value*2.0)
         elif const.shader_dtype == "int":
-            _, constants_data[const.name] = ig.slider_int(const.name, constants_data[const.name], 0, const.value*2)
+            _, constants_data[const.name] = ig.slider_int(const.name, constants_data[const.name], -const.value, const.value*2)
             # TODO: improve min/max for negatives
 
     ig.end()
