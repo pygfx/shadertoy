@@ -1,9 +1,13 @@
+import os
 import av
 import numpy as np
 
 
 from wgpu_shadertoy import Shadertoy
 from rendercanvas.auto import loop
+from rendercanvas.base import BaseRenderCanvas, BaseCanvasGroup
+# from rendercanvas.glfw import GlfwRenderCanvas
+
 
 # shadertoy source: https://www.shadertoy.com/view/7ds3zB by henryseg
 # TODO find example with delta time and maybe accumulation to showoff faster/slower than realtime video export!
@@ -194,6 +198,7 @@ shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
 
 
 # naive offscreen implementation based on https://pyav.basswood-io.com/docs/stable/cookbook/numpy.html#generating-video
+# TODO: should this be record_offscreen instead?
 def record(output_file="output.mp4") -> None:
     # TODO: parameterize
     start_offset = 0.0
@@ -231,49 +236,72 @@ def record(output_file="output.mp4") -> None:
     container.close()
 
 
-# better idea: record frames during draw function so we don't care about a 2nd thread.
-def draw_and_encode():
-    shader._draw_frame() # calls the ._update() method when not offscreen
-    # what about variable framerate? canvas.__sheduler._draw_stats?
+class GLFWGrabber():
+    """
+    In theory this captures the gui while you can interact with it.
+    """
+    # TODO: why is the timestamp off, can we set it after the fact?
+    def __init__(self, shader: Shadertoy, outfile: os.PathLike = "output_gui.mp4"):
+        self.shader = shader
+        self.canvas = shader._canvas
 
+        # assert isinstance(self.canvas, GlfwRenderCanvas) # might break auto import...?
+        info = self.canvas._rc_get_present_methods()
+        hwdn = info["screen"]["window"]  # GLFW specific, might fail here on other backends!
+        self.input: av.container.input.InputContainer = av.open(f"hwnd={hwdn}", format="gdigrab") #Windows specific!
+        self.output: av.container.output.OutputContainer = av.open(outfile, mode="w")
+        # TODO: add framerate? canvas.__sheduler._draw_stats?
+        self.output_stream: av.VideoStream = self.output.add_stream(
+            "h264",
+            width=shader.resolution[0],
+            height=shader.resolution[1],
+            pix_fmt="yuv420p",
+            bit_rate=900_000,
+        )
+        #
+        self.canvas.request_draw(draw_function=self.draw_and_encode)
+    
+    def encode_last_frame(self):
+        # just grab the "next" frame here?
+        frame: av.VideoFrame = next(self.input.decode(video=0), None)
 
-    # in_stream = input_.streams.get(video=0)[0] # the documentation is sorta difficult to understand -.-
-    # # find newest frame (seems to crash with Invalid argument?)
-    # input_.seek(offset=100, stream=in_stream) #, backward=True, any_frame=True)
+        if frame is not None:
+            packets: list[av.Packet] = self.output_stream.encode(frame)
+            for packet in packets:
+                try:
+                    self.output.mux(packet)
+                except av.ValueError as e:
+                    # this throws errors, maybe due to logging?
+                    pass
 
-    # just grab the "next" frame here?
-    frame: av.VideoFrame = next(input_.decode(video=0), None)
+    def draw_and_encode(self):
+        """
+        meant as the new draw function
+        """
+        self.shader._draw_frame()
+        self.encode_last_frame()
 
-    if frame is not None:
-        packets = output_stream.encode(frame)
+    def close(self):
+        """
+        Cleanup the input and output containers.
+        """
+        # TODO register to the close event?
+        # does this actually work?? not sure as we got errors from here too.
+        packets = self.output_stream.encode(None)
         for packet in packets:
-            output_.mux(packet) # this throws errors, maybe due to logging?
-    else:
-        print(f"No frame recorded?")
+            try:
+                self.output.mux(packet)
+            except av.ValueError as e:
+                # this throws errors, maybe due to logging?
+                pass
+        self.output.close()
+        self.input.close()
 
-    # input_.flush_buffers() # is this needed?
 
 if __name__ == "__main__":
-    # globals that should be a in a class or something. (part of shadertoy/rendercanvas subclass?)
-    info = shader._canvas._rc_get_present_methods()
-    print(info)
-    hwdn = info["screen"]["window"] #GLFW specific
-    input_= av.open(f"hwnd={hwdn}", format="gdigrab") # only works on Windows!
-    output_ = av.open("output_gui.mp4", mode="w")
-    output_stream: av.VideoStream = output_.add_stream("h264", width=shader.resolution[0], height=shader.resolution[1], pix_fmt="yuv420p", bit_rate=900_000)
-
-    # include the encoding function inside the
-    shader._canvas.request_draw(draw_function=draw_and_encode)
-
+    grabber = GLFWGrabber(shader, "record_gui.mp4")
     loop.run()
-    print("feels like we closed!")
-    # cleanup stuff for the containers!
-    packets = output_stream.encode(None)  # flush the stream
-    for packet in packets:
-        output_.mux(packet)
-    output_.close()
-    input_.close() # redundant?
-
+    grabber.close()
 
 # ideas: (tracking from https://github.com/pygfx/shadertoy/issues/52)
 # * Libavfilter input virtual device via PyAV as a context for rendercanvas (offscreen): https://www.ffmpeg.org/ffmpeg-devices.html#lavfi
