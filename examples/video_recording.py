@@ -8,6 +8,8 @@ from rendercanvas.auto import loop
 from rendercanvas.base import BaseRenderCanvas, BaseCanvasGroup
 # from rendercanvas.glfw import GlfwRenderCanvas
 
+av.logging.set_level(av.logging.VERBOSE) # very useful as the errors mean something now!
+
 
 # shadertoy source: https://www.shadertoy.com/view/7ds3zB by henryseg
 # TODO find example with delta time and maybe accumulation to showoff faster/slower than realtime video export!
@@ -194,8 +196,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
 """
 
 
-shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
-
 
 # naive offscreen implementation based on https://pyav.basswood-io.com/docs/stable/cookbook/numpy.html#generating-video
 # TODO: should this be record_offscreen instead?
@@ -257,20 +257,24 @@ class GLFWGrabber():
             height=shader.resolution[1],
             pix_fmt="yuv420p",
             bit_rate=900_000,
+            rate=60,
         )
-        #
         self.canvas.request_draw(draw_function=self.draw_and_encode)
     
     def encode_last_frame(self):
         # just grab the "next" frame here?
         frame: av.VideoFrame = next(self.input.decode(video=0), None)
+        # TODO: investigate seek
 
         if frame is not None:
+            # TODO set .time or .pts or .dts to get the timestamps in order
             packets: list[av.Packet] = self.output_stream.encode(frame)
             for packet in packets:
                 try:
                     self.output.mux(packet)
                 except av.ValueError as e:
+                    # ERROR is due to non monotonic DTS so we somehow need to ensure they are in sync.
+                    # perhaps we can encode multiple frames here if needed or skip them?
                     # this throws errors, maybe due to logging?
                     pass
 
@@ -298,11 +302,99 @@ class GLFWGrabber():
         self.input.close()
 
 
+class LavfiCanvasGroup(BaseCanvasGroup):
+    # needed?
+    pass
+
+
+# idea 3: # * Libavfilter input virtual device via PyAV as a context for rendercanvas (like offscreen)
+# TODO: maybe subclass OffscreenRenderCanvas as a start
+class LavfiRenderCanvas(BaseRenderCanvas):
+    """
+    Offscreen-like (or with ffplay as gui?) canvas to render to a video file or remote stream.
+    """
+    # https://www.ffmpeg.org/ffmpeg-devices.html#lavfi
+    # https://rendercanvas.readthedocs.io/stable/backendapi.html
+
+    _rc_canvas_group = LavfiCanvasGroup(loop) # this loop is from .auto!
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._last_frame = None #basically copying offscreencanvas for these parts
+
+        # a minimal graph really (maybe have vflip or something?)
+        graph = av.filter.Graph()
+        graph.add_buffer(width=self.__kwargs_for_later["size"][0], height=self.__kwargs_for_later["size"][1]) #basically the input buffer will go here (can we use the pointer to the bitmap?)
+        graph.add("buffersink") # this is the "output"
+
+        self._final_canvas_init() # must be called?
+
+    def _rc_get_present_methods(self):
+        # bare minimum I guess...
+        return {
+            "bitmap": {
+                "formats": ["rgba-u8"],
+            }
+        }
+
+    def _rc_request_draw(self):
+        # as this should be continous we do have a loop
+        loop = self._rc_canvas_group.get_loop()
+        loop.call_soon(self._draw_frame_and_present)
+
+    def _rc_get_physical_size(self):
+        return self._psize
+
+    def _rc_get_pixel_ratio(self):
+        return 1
+
+    def _rc_get_logical_size(self):
+        return self._psize
+
+    def _rc_set_logical_size(self, width, height):
+        self._logical_size = width, height
+        self._psize = self._logical_size # do we even need both?
+
+    def _rc_close(self):
+        pass
+
+    def _rc_get_closed(self):
+        # TODO: close containers
+        pass
+
+
+# # testing how to setup a filter... and the basic grabber idea:
+# out_container = av.open("udp://localhost:1234", format="mpegts", mode="w")
+# out_stream = out_container.add_stream(
+#     "h264",
+#     width=800,
+#     height=450,
+#     pix_fmt="yuv420p",
+#     bit_rate=900_000,
+#     rate=60
+# )
+
+# graph = av.filter.Graph()
+
+# graph.link_nodes(
+#     graph.add("color", c="red"),
+#     graph.add("buffersink")
+# ).configure()
+# # print(graph.outputs)
+
+# for i in range(1000):
+#     frame = graph.vpull()
+#     packets = out_stream.encode(frame)
+#     for packet in packets:
+#         out_container.mux(packet)
+
+# out_container.close()
+
 if __name__ == "__main__":
+    shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
     grabber = GLFWGrabber(shader, "record_gui.mp4")
     loop.run()
     grabber.close()
+    print("done?")
 
 # ideas: (tracking from https://github.com/pygfx/shadertoy/issues/52)
-# * Libavfilter input virtual device via PyAV as a context for rendercanvas (offscreen): https://www.ffmpeg.org/ffmpeg-devices.html#lavfi
-#  could even be a whole backend with ffplay??
