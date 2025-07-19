@@ -307,25 +307,30 @@ class LavfiCanvasGroup(BaseCanvasGroup):
     pass
 
 
-# idea 3: # * Libavfilter input virtual device via PyAV as a context for rendercanvas (like offscreen)
-# TODO: maybe subclass OffscreenRenderCanvas as a start
-class LavfiRenderCanvas(BaseRenderCanvas):
+class RecordingCanvas(BaseRenderCanvas):
     """
     Offscreen-like (or with ffplay as gui?) canvas to render to a video file or remote stream.
     """
-    # https://www.ffmpeg.org/ffmpeg-devices.html#lavfi
     # https://rendercanvas.readthedocs.io/stable/backendapi.html
 
     _rc_canvas_group = LavfiCanvasGroup(loop) # this loop is from .auto!
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, outfile:str="canvas_output.mp4", *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._last_frame = None #basically copying offscreencanvas for these parts
+        res = kwargs.get("size", (800, 450)) # default size? messes up, as super has it's own defaults... and we can't access them from __kwargs_for_later?
+        self._frame_counter = 0 #needed for pts?
 
-        # a minimal graph really (maybe have vflip or something?)
-        graph = av.filter.Graph()
-        graph.add_buffer(width=self.__kwargs_for_later["size"][0], height=self.__kwargs_for_later["size"][1]) #basically the input buffer will go here (can we use the pointer to the bitmap?)
-        graph.add("buffersink") # this is the "output"
+        # TODO: container_kwargs?
+        self._out_container = av.open(outfile, mode="w")
+        # TODO: codec_kwargs?
+        self._out_stream = self._out_container.add_stream(
+            "h264",
+            width=res[0],
+            height=res[1],
+            pix_fmt="yuv420p", # as this case is compressed... we throw out a lot of data!
+            bit_rate=900_000, # this number might be widely wrong...
+            rate=kwargs.get("max_fps", 60),
+        )
 
         self._final_canvas_init() # must be called?
 
@@ -342,59 +347,48 @@ class LavfiRenderCanvas(BaseRenderCanvas):
         loop = self._rc_canvas_group.get_loop()
         loop.call_soon(self._draw_frame_and_present)
 
-    def _rc_get_physical_size(self):
+    def _rc_get_physical_size(self) -> tuple[int, int]:
         return self._psize
 
     def _rc_get_pixel_ratio(self):
-        return 1
+        return 1.0
 
-    def _rc_get_logical_size(self):
-        return self._psize
+    def _rc_get_logical_size(self) -> tuple[float, float]:
+        return self._logical_size
 
     def _rc_set_logical_size(self, width, height):
+        # gets called during _final_init_
         self._logical_size = width, height
-        self._psize = self._logical_size # do we even need both?
+        # ignores pixel aspect ratio currently.
+        self._psize = int(width), int(height) # physical size needs to be in int!
 
     def _rc_close(self):
-        pass
+        self._out_container.close()
 
     def _rc_get_closed(self):
-        # TODO: close containers
+        # TODO: check if something is closed?
+        # currently needs two keyboard interrupts to end.
         pass
 
+    def _rc_present_bitmap(self, *, data, format, **kwargs):
+        # TODO: could this be directly from bytes or the memoryview?
+        # could the texture be a frame already?
+        frame = av.VideoFrame.from_ndarray(
+            np.asanyarray(data), format="rgba"
+        )
+        frame.pts = self._frame_counter
+        for packet in self._out_stream.encode(frame):
+            self._out_container.mux(packet)
+        self._frame_counter += 1
 
-# # testing how to setup a filter... and the basic grabber idea:
-# out_container = av.open("udp://localhost:1234", format="mpegts", mode="w")
-# out_stream = out_container.add_stream(
-#     "h264",
-#     width=800,
-#     height=450,
-#     pix_fmt="yuv420p",
-#     bit_rate=900_000,
-#     rate=60
-# )
-
-# graph = av.filter.Graph()
-
-# graph.link_nodes(
-#     graph.add("color", c="red"),
-#     graph.add("buffersink")
-# ).configure()
-# # print(graph.outputs)
-
-# for i in range(1000):
-#     frame = graph.vpull()
-#     packets = out_stream.encode(frame)
-#     for packet in packets:
-#         out_container.mux(packet)
-
-# out_container.close()
 
 if __name__ == "__main__":
-    shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
-    grabber = GLFWGrabber(shader, "record_gui.mp4")
-    loop.run()
-    grabber.close()
+    # shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
+    ffmpeg_canvas = RecordingCanvas(size=(800, 450), max_fps=60)
+
+    shader = Shadertoy.from_id("tXK3Rd", canvas=ffmpeg_canvas, resolution=(800, 450)) # I made one with mouse interactivity to test here!
+    shader.show() # calls loop.run internally!
+
     print("done?")
 
 # ideas: (tracking from https://github.com/pygfx/shadertoy/issues/52)

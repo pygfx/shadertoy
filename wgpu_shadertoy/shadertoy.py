@@ -226,6 +226,7 @@ class Shadertoy:
         # TODO: refactor to accept a canvas class as a keyword argument
 
         if canvas:
+            # TODO: check if the resolution matches the canvas size here!
             self._canvas = canvas
         elif self._offscreen:
             self._canvas = OffscreenCanvas(
@@ -358,7 +359,7 @@ class Shadertoy:
         time_float: float = 0.0,
         time_delta: float = 0.167,
         frame: int = 0,
-        framerate: int = 60.0,
+        framerate: float = 60.0,
         mouse_pos: tuple = (0.0, 0.0, 0.0, 0.0),
         date: tuple = (0.0, 0.0, 0.0, 0.0),
     ) -> memoryview:
