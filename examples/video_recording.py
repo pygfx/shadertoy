@@ -1,6 +1,7 @@
 import os
 import av
 import numpy as np
+import subprocess
 
 
 from wgpu_shadertoy import Shadertoy
@@ -318,6 +319,7 @@ class RecordingCanvas(BaseRenderCanvas):
     def __init__(self, outfile:str="canvas_output.mp4", *args, **kwargs):
         super().__init__(*args, **kwargs)
         res = kwargs.get("size", (800, 450)) # default size? messes up, as super has it's own defaults... and we can't access them from __kwargs_for_later?
+        framerate = kwargs.get("max_fps", 60) #I think default might be 30...
         self._frame_counter = 0 #needed for pts?
 
         # TODO: container_kwargs?
@@ -329,7 +331,27 @@ class RecordingCanvas(BaseRenderCanvas):
             height=res[1],
             pix_fmt="yuv420p", # as this case is compressed... we throw out a lot of data!
             bit_rate=900_000, # this number might be widely wrong...
-            rate=kwargs.get("max_fps", 60),
+            rate=framerate,
+        )
+
+        self.gui_process = subprocess.Popen(
+            [
+                "ffplay",
+                "-f", "rawvideo",
+                "-pixel_format", "rgba",
+                "-video_size", f"{res[0]}x{res[1]}",
+                "-framerate", str(framerate),
+                "-i", "pipe:"
+            ],
+            stdin=subprocess.PIPE
+        )
+        self._pipe_container = av.open(self.gui_process.stdin, format="rawvideo", mode="w")
+        self._pipe_stream = self._pipe_container.add_stream(
+            "rawvideo",
+            width=res[0],
+            height=res[1],
+            pix_fmt="rgba",
+            rate=framerate,
         )
 
         self._final_canvas_init() # must be called?
@@ -364,11 +386,12 @@ class RecordingCanvas(BaseRenderCanvas):
 
     def _rc_close(self):
         self._out_container.close()
+        self.gui_process.stdin.close()
+        self.gui_process.terminate() # or kill?
 
     def _rc_get_closed(self):
-        # TODO: check if something is closed?
-        # currently needs two keyboard interrupts to end.
-        pass
+        return_code = self.gui_process.poll()
+        return return_code is not None
 
     def _rc_present_bitmap(self, *, data, format, **kwargs):
         # TODO: could this be directly from bytes or the memoryview?
@@ -376,17 +399,23 @@ class RecordingCanvas(BaseRenderCanvas):
         frame = av.VideoFrame.from_ndarray(
             np.asanyarray(data), format="rgba"
         )
+        # encode to file
         frame.pts = self._frame_counter
         for packet in self._out_stream.encode(frame):
             self._out_container.mux(packet)
+        
+        # write to the gui process
+        for packet in self._pipe_stream.encode(frame):
+            # we write the raw bytes to the stdin of ffplay
+            self.gui_process.stdin.write(packet)
         self._frame_counter += 1
 
 
 if __name__ == "__main__":
-    # shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
     ffmpeg_canvas = RecordingCanvas(size=(800, 450), max_fps=60)
 
-    shader = Shadertoy.from_id("tXK3Rd", canvas=ffmpeg_canvas, resolution=(800, 450)) # I made one with mouse interactivity to test here!
+    shader = Shadertoy(shader_code=shader_code, resolution=(800, 450), canvas=ffmpeg_canvas)
+    # shader = Shadertoy.from_id("tXK3Rd", canvas=ffmpeg_canvas, resolution=(800, 450)) # I made one with mouse interactivity to test here!
     shader.show() # calls loop.run internally!
 
     print("done?")
