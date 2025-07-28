@@ -278,6 +278,7 @@ class ShadertoyChannelTexture(ShadertoyChannel):
         if len(self.data.shape) == 2:
             self.data = np.reshape(self.data, self.data.shape + (1,))
         # greyscale textures become just red while green and blue remain 0s
+        # TODO: can just use r8unorm and the sampler will return vec4 anyway
         if self.data.shape[2] == 1:
             self.data = np.stack(
                 [
@@ -310,7 +311,7 @@ class ShadertoyChannelTexture(ShadertoyChannel):
         binding_layout = self._binding_layout()
         texture = device.create_texture(
             size=self.texture_size,
-            format=wgpu.TextureFormat.rgba8unorm,
+            format=wgpu.TextureFormat.rgba8unorm, #TODO: this might be dependant on the file we get
             usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
         )
 

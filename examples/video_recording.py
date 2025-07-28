@@ -3,6 +3,7 @@ import av
 import numpy as np
 import subprocess
 
+import wgpu
 
 from wgpu_shadertoy import Shadertoy
 from rendercanvas.auto import loop
@@ -200,7 +201,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
 
 # naive offscreen implementation based on https://pyav.basswood-io.com/docs/stable/cookbook/numpy.html#generating-video
 # TODO: should this be record_offscreen instead?
-def record(output_file="output.mp4") -> None:
+def record(shader: Shadertoy, output_file="output.mp4") -> None:
     # TODO: parameterize
     start_offset = 0.0
     duration = 10.0
@@ -411,12 +412,87 @@ class RecordingCanvas(BaseRenderCanvas):
         self._frame_counter += 1
 
 
-if __name__ == "__main__":
-    ffmpeg_canvas = RecordingCanvas(size=(800, 450), max_fps=60)
+# next idea: download the texture after the draw and then encode it on the CPU... any GUI offscreen and onscreen!
+# problem is that in rendercanvas we do _rc_draw_and_present... meaning no access in between - could be a limitation.
+def download_texture(shader: Shadertoy) -> np.ndarray:
+    current_texture = shader._present_context.get_current_texture() # is alive before present()!
+    bpp = 4 # TODO read shader._format? not always a wgpu.TextureFormat anymore... but could be easier to parse
+    # needs to be aligned to 256 bytes, but apparently can be padded here: https://docs.rs/wgpu/latest/wgpu/struct.TexelCopyBufferLayout.html#structfield.bytes_per_row
+    bytes_per_row = (((bpp * current_texture.size[0])//256)+1) * 256
+    nbytes = bytes_per_row * current_texture.size[1]
 
-    shader = Shadertoy(shader_code=shader_code, resolution=(800, 450), canvas=ffmpeg_canvas)
+    # TODO can this be a mapped buffer?
+    # TODO should be reused!
+    gpu_buffer = shader._device.create_buffer(
+        size=nbytes,
+        usage=wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.COPY_SRC,
+    )
+    command_encoder = shader._device.create_command_encoder()
+
+    command_encoder.copy_texture_to_buffer(
+        source={"texture": current_texture}, # sensible defaults exist!
+        destination={
+            "buffer": gpu_buffer,
+            "bytes_per_row": bytes_per_row,
+            # "rows_per_image": current_texture.size[1], # can be omitted as there is one image only.
+        },
+        copy_size=current_texture.size,
+    )
+    shader._device.queue.submit([command_encoder.finish()])
+    frame_mem = shader._device.queue.read_buffer(gpu_buffer) # more like the memoryview
+
+    # can we reuse this destination?
+    frame_arr = np.asarray(frame_mem, dtype=np.uint8)
+    frame_arr = frame_arr.reshape(
+        current_texture.size[1],
+        bytes_per_row // bpp,  # width in pixels
+        4  # 4 color channels
+    )
+    frame_arr = frame_arr[:, :current_texture.size[0], :] # crop away the padding again
+
+    return frame_arr
+
+def encode_frame(frame_arr: np.ndarray, out_stream: av.VideoStream) -> None:
+    """
+    Encode a single frame from a memoryview to the output stream.
+    """
+    # TODO: can we directly use the memoryview/buffer here? -> VideoPlane?
+    # .from_bytes, .from_numpy_buffer, .copy_bytes_to_plane etc - there might be a lower function that could be faster.
+    frame = av.VideoFrame.from_ndarray(frame_arr, format="rgba") # TODO: rgba is a possibility here!
+    # TODO: time and framerate?
+    for packet in out_stream.encode(frame):
+        out_stream.container.mux(packet)
+
+
+if __name__ == "__main__":
+    shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
     # shader = Shadertoy.from_id("tXK3Rd", canvas=ffmpeg_canvas, resolution=(800, 450)) # I made one with mouse interactivity to test here!
-    shader.show() # calls loop.run internally!
+    container = av.open("download_output.mp4", mode="w")
+    out_stream = container.add_stream(
+        "h264",
+        width=shader.resolution[0],
+        height=shader.resolution[1],
+        pix_fmt="yuv420p",
+        bit_rate=900_000,
+        rate=60,
+    )
+
+    def _draw_download_and_encode() -> None:
+        """
+        Draw the shader, download the texture and encode it to the output stream.
+        """
+        shader._draw_frame() # doesn't call present yet
+        # TODO: this could be a toggle with a keybind to have in the future! (maybe indicate recording and time in the title?)
+        frame_mem = download_texture(shader)
+        encode_frame(frame_mem, out_stream) # seems really slow.. drops framerate from 165 to 48
+
+        # present happens after this as part of the draw_and_present function
+
+
+    shader._canvas.request_draw(_draw_download_and_encode)
+    loop.run()
+    
+    # shader.show() # calls loop.run internally!
 
     print("done?")
 
