@@ -1,7 +1,9 @@
 import os
+import time
 import av
 import numpy as np
 import subprocess
+from tqdm.auto import tqdm
 
 import wgpu
 
@@ -201,11 +203,16 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
 
 # naive offscreen implementation based on https://pyav.basswood-io.com/docs/stable/cookbook/numpy.html#generating-video
 # TODO: should this be record_offscreen instead?
-def record(shader: Shadertoy, output_file="output.mp4") -> None:
+# for CLI usage it might be about this:
+def record(shader: Shadertoy, output_file="output.mp4", **kwargs) -> None:
     # TODO: parameterize
-    start_offset = 0.0
-    duration = 10.0
-    framerate = 60
+    start_offset = kwargs.pop("start_offset", 0.0)
+    duration = kwargs.pop("duration", 10.0)
+    framerate = kwargs.pop("framerate", 60)
+    mouse_pos = kwargs.pop("mouse_pos", (0.0, 0.0, 0.0, 0.0))
+    target_size = kwargs.pop("target_size", 10.0) # in megabytes?
+    bitrate = (target_size * 1000 * 1000 * 8) / duration # in bits per second not real megabytes for margin!?
+    print(f"Recording {output_file} at {framerate} fps for {duration} seconds with bitrate {bitrate/1000:.2f} kbps")
 
     container = av.open(output_file, mode="w")
     # print(container.supported_codecs)
@@ -215,15 +222,15 @@ def record(shader: Shadertoy, output_file="output.mp4") -> None:
         width=shader.resolution[0],
         height=shader.resolution[1],
         pix_fmt="yuv420p", # for the output format, yuv4:2:0 is common for portanble video - but maybe we can get full 4:4:4 rgb instead for graphical details?
-        bit_rate= 900_000, #900 kbps should be below 10MB for the 10 seconds duration
+        bit_rate=bitrate, #900 kbps should be below 10MB for the 10 seconds duration
     )
 
-    for frame_num in range(int(duration * framerate)):
+    for frame_num in tqdm(range(int(duration * framerate)), desc="Recording", unit="frame"):
         timestamp = start_offset + frame_num / framerate
         time_delta = 1.0 / framerate
         # TODO: other uniforms, hint: https://github.com/Vipitis/shader_tracker/blob/f90fd5c3f28acbc88c23ccd7fe0c57ccf5778dda/capture.py
         frame_mem = shader.snapshot(
-            time_float=timestamp, time_delta=time_delta, frame=frame_num
+            time_float=timestamp, time_delta=time_delta, frame=frame_num, mouse_pos=mouse_pos
         )
         frame_arr = np.asarray(frame_mem, dtype=np.uint8)
         frame = av.VideoFrame.from_ndarray(
@@ -236,6 +243,7 @@ def record(shader: Shadertoy, output_file="output.mp4") -> None:
     for packet in stream.encode():
         container.mux(packet)
     container.close()
+    print(f"Recording finished: {output_file}")
 
 
 class GLFWGrabber():
@@ -458,8 +466,9 @@ def encode_frame(frame_arr: np.ndarray, out_stream: av.VideoStream) -> None:
     """
     # TODO: can we directly use the memoryview/buffer here? -> VideoPlane?
     # .from_bytes, .from_numpy_buffer, .copy_bytes_to_plane etc - there might be a lower function that could be faster.
-    frame = av.VideoFrame.from_ndarray(frame_arr, format="rgba") # TODO: rgba is a possibility here!
+    frame = av.VideoFrame.from_ndarray(frame_arr, format="bgra") # TODO: rgba is a possibility here!
     # TODO: time and framerate?
+    # maybe we need to accumulate a few frames before encoding them at once? not sure what is faster...
     for packet in out_stream.encode(frame):
         out_stream.container.mux(packet)
 
@@ -467,32 +476,35 @@ def encode_frame(frame_arr: np.ndarray, out_stream: av.VideoStream) -> None:
 if __name__ == "__main__":
     shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
     # shader = Shadertoy.from_id("tXK3Rd", canvas=ffmpeg_canvas, resolution=(800, 450)) # I made one with mouse interactivity to test here!
-    container = av.open("download_output.mp4", mode="w")
-    out_stream = container.add_stream(
-        "h264",
-        width=shader.resolution[0],
-        height=shader.resolution[1],
-        pix_fmt="yuv420p",
-        bit_rate=900_000,
-        rate=60,
-    )
+    shader = Shadertoy.from_id("t3tXz8", resolution=(1280, 720), offscreen=True) # another one of mine...
+    record(shader, output_file="terrain2.mp4", duration=60.0, framerate=60, mouse_pos=(299.0, 39.0, 5, 100), target_size=10.0)
+    # 1minute of 720p 60fps h264 takes over 90 seconds here... not great given that it runs at over 165 fps without recording.
 
-    def _draw_download_and_encode() -> None:
-        """
-        Draw the shader, download the texture and encode it to the output stream.
-        """
-        shader._draw_frame() # doesn't call present yet
-        # TODO: this could be a toggle with a keybind to have in the future! (maybe indicate recording and time in the title?)
-        frame_mem = download_texture(shader)
-        encode_frame(frame_mem, out_stream) # seems really slow.. drops framerate from 165 to 48
-
-        # present happens after this as part of the draw_and_present function
-
-
-    shader._canvas.request_draw(_draw_download_and_encode)
-    loop.run()
     
-    # shader.show() # calls loop.run internally!
+    # container = av.open("download_output.mp4", mode="w")
+    # out_stream = container.add_stream(
+    #     "h264",
+    #     width=shader.resolution[0], # resolutions have to be divisible by 2 or 4 for h264
+    #     height=shader.resolution[1],
+    #     pix_fmt="yuv420p",
+    #     bit_rate=20_000_000,
+    #     rate=60,
+    # )
+
+    # def _draw_download_and_encode() -> None:
+    #     """
+    #     Draw the shader, download the texture and encode it to the output stream.
+    #     """
+    #     shader._draw_frame() # doesn't call present yet
+    #     # TODO: this could be a toggle with a keybind to have in the future! (maybe indicate recording and time in the title?)
+    #     frame_mem = download_texture(shader)
+    #     encode_frame(frame_mem, out_stream) # seems really slow.. drops framerate from 165 to 48
+
+    #     # present happens after this as part of the draw_and_present function
+
+
+    # shader._canvas.request_draw(_draw_download_and_encode)
+    # loop.run()
 
     print("done?")
 
