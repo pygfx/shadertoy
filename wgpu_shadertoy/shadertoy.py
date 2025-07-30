@@ -110,14 +110,7 @@ class Shadertoy:
 
 
         self._imgui = imgui
-        if self._imgui:
-            self._constants = parse_constants(shader_code, self.common)
-            self._constants_data = make_uniform(self._constants)
-            self._constants_buffer = self._device.create_buffer(
-                label="constant buffer for imgui overlay",
-                size=self._constants_data.nbytes, 
-                usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
-            )
+        
 
         self._prepare_canvas(canvas=canvas)
         self._bind_events()

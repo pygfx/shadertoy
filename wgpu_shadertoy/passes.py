@@ -4,7 +4,7 @@ from typing import List
 import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
-from .imgui import construct_imports, gui
+from .imgui import construct_imports, gui, parse_constants, make_uniform
 
 builtin_variables_glsl = """#version 450 core
 
@@ -56,6 +56,7 @@ class RenderPass:
         # we keep track of the inputs before we can attach them as channels.
         self._inputs = inputs
         self._input_headers = ""
+
 
     def get_current_texture(self) -> wgpu.GPUTexture:
         """
@@ -163,6 +164,18 @@ class RenderPass:
         It attaches inputs, assembles the shadercode and creates the render pipeline.
         """
 
+        # need to be after we got main class?
+        if self.main._imgui:
+            # maybe a self._imgui for the case where there are no local or common constants?
+            self._constants = parse_constants(self.shader_code, self.main.common)
+            self._constants_data = make_uniform(self._constants)
+            self._constants_buffer = self._device.create_buffer(
+                label=f"{self} constant buffer for imgui overlay",
+                size=self._constants_data.nbytes, 
+                usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
+            )
+            self._constants_binding_idx = 10 + self.main.renderpasses.index(self)
+
         # inputs can only be attached once the main class is set, so calling it here should do it.
         self.channels = self._attach_inputs(self._inputs)
         vertex_shader_code, frag_shader_code = self.construct_code()
@@ -179,6 +192,9 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
+
+
+
         self._setup_renderpipeline()  # split in half so the next part can be reused.
 
     def _setup_renderpipeline(self):
@@ -207,17 +223,17 @@ class RenderPass:
         if self.main._imgui:
             bind_groups_layout_entries.append(
                 {
-                    "binding": 10,
+                    "binding": self._constants_binding_idx,
                     "resource": {
-                        "buffer": self.main._constants_buffer,
+                        "buffer": self._constants_buffer,
                         "offset": 0,
-                        "size": self.main._constants_buffer.size,
+                        "size": self._constants_buffer.size,
                     },
                 },
             )
             binding_layout.append(
                 {
-                    "binding": 10,
+                    "binding": self._constants_binding_idx,
                     "visibility": wgpu.ShaderStage.FRAGMENT,
                     "buffer": {"type": wgpu.BufferBindingType.uniform},
                 },
@@ -294,11 +310,11 @@ class RenderPass:
 
         if self.main._imgui:
             self._device.queue.write_buffer(
-                buffer = self.main._constants_buffer,
+                buffer = self._constants_buffer,
                 buffer_offset = 0,
-                data = self.main._constants_data.mem,
+                data = self._constants_data.mem,
                 data_offset = 0,
-                size = self.main._constants_buffer.size,
+                size = self._constants_buffer.size,
             )
 
         command_encoder: wgpu.GPUCommandEncoder = self._device.create_command_encoder()
@@ -324,10 +340,12 @@ class RenderPass:
         render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
         render_pass.draw(3, 1, 0, 0)
 
-        if self.main._imgui:
-            # TODO: refactor as this only needs to happen in the main class? maybe I can get the .end and .finish externally...
-            imgui_data = gui(self.main._constants, self.main._constants_data)
-            self.main._imgui_backend.render(imgui_data, render_pass)
+        # instead of reimplementing the same thing twice?
+        if isinstance(self, ImageRenderPass) and self.main._imgui:
+            # render imgui overlay only on the image pass.
+            if self.main._imgui_backend is not None:
+                imgui_data = gui(self._main.renderpasses)
+                self.main._imgui_backend.render(imgui_data, render_pass)
 
         render_pass.end()
         return command_encoder.finish()
@@ -386,11 +404,11 @@ class RenderPass:
             if self.main._imgui:
                 # comment out existing constants
                 shader_code_lines = self.shader_code.splitlines()
-                for const in self.main._constants:
+                for const in self._constants:
                     shader_code_lines[const.line_number] = "// " + shader_code_lines[const.line_number]
                 self._shader_code = "\n".join(shader_code_lines)
 
-                constant_headers = construct_imports(self.main._constants)
+                constant_headers = construct_imports(self._constants, self._constants_binding_idx)
                 # TODO use a new variable instead in the block below!
                 self._shader_code = constant_headers + "\n" + self.shader_code
 

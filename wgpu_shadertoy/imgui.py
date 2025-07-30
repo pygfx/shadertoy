@@ -1,7 +1,9 @@
 import re
-from imgui_bundle import imgui as ig #TODO: rename (git mv) the file instead.
+from imgui_bundle import imgui as ig
+
 from .utils import UniformArray
 from wgpu.utils.imgui import ImguiWgpuBackend
+# from wgpu_shadertoy.passes import RenderPass #circular import-.-
 from dataclasses import dataclass
 
 
@@ -12,7 +14,7 @@ from dataclasses import dataclass
 
 @dataclass
 class ShaderConstant:
-    renderpass_pass: str #maybe this is a RenderPass pointer?
+    # renderpass_pass: str #maybe this is a RenderPass pointer? likely redundant
     line_number: int
     original_line: str
     name: str
@@ -44,7 +46,7 @@ def parse_constants(code:str, common_code) -> list[ShaderConstant]:
     # mataches the macro: #define NAME VALUE
     # TODO there can be characters in numerical literals, such as x and o for hex and octal representation or e for scientific notation
     # technically the macros can also be an expression that is evaluated to be a number... such as # define DOF 10..0/30.0 - so how do we deal with that?
-    define_pattern = re.compile(r"#\s*define\s+(\w+)\s+([\d.]+)") #for numerical literals right now.
+    define_pattern = re.compile(r"#\s*define\s+(\w+)\s+(-?[\d.]+)") #for numerical literals right now.
     if_def_template = r"#(el)?if\s+" #preprocessor ifdef blocks can't become uniforms. replacing these dynamically will be difficult.
 
     constants = []
@@ -71,7 +73,7 @@ def parse_constants(code:str, common_code) -> list[ShaderConstant]:
                 continue
 
             constant = ShaderConstant(
-                renderpass_pass="image",  # TODO: shouldn't be names.
+                # renderpass_pass="image",  # TODO: shouldn't be names.
                 line_number=li,
                 original_line=line.strip(),
                 name=name,
@@ -102,7 +104,7 @@ def make_uniform(constants) -> UniformArray:
     # (does this need to be a class to update the values?)
     return data
 
-def construct_imports(constants: list[ShaderConstant], constant_binding_idx=10) -> str:
+def construct_imports(constants: list[ShaderConstant], constant_binding_idx: int) -> str:
     # codegen the import block for this uniform (including binding? - which number?)
     # could be part of the UniformArray class maybe?
     # to be pasted near the top of the fragment shader code.
@@ -135,24 +137,30 @@ def update_gui():
     pass
 
 
-def gui(constants: list[ShaderConstant], constants_data: UniformArray):
+def gui(renderpasses: list["RenderPass"]):
     ig.new_frame()
     ig.set_next_window_pos((0, 0), ig.Cond_.appearing)
     ig.set_next_window_size((400, 0), ig.Cond_.appearing)
     ig.begin("Shader constants", None)
-
     ig.text('in-dev imgui overlay\n')
+
     if ig.is_item_hovered():
         ig.set_tooltip("TODO")
 
-    # create the sliders?
-    # TODO: can we reset the values with a button or a double click maybe?
-    for const in constants:
-        if const.shader_dtype == "float":
-            _, constants_data[const.name] = ig.slider_float(const.name, constants_data[const.name], -const.value, const.value*2.0)
-        elif const.shader_dtype == "int":
-            _, constants_data[const.name] = ig.slider_int(const.name, constants_data[const.name], -const.value, const.value*2)
-            # TODO: improve min/max for negatives
+    for rp in renderpasses: # TODO: most likely add common here?
+        constants = rp._constants
+        constants_data = rp._constants_data
+        if ig.collapsing_header(f"{rp} Constants", flags=ig.TreeNodeFlags_.default_open):
+            # create the sliders?
+            # TODO: can we reset the values with a button or a double click maybe?
+            for const in constants:
+                if const.shader_dtype == "float":
+                    _, constants_data[const.name] = ig.slider_float(f"{const.name}", constants_data[const.name], -const.value, const.value*2.0)
+                elif const.shader_dtype == "int":
+                    _, constants_data[const.name] = ig.slider_int(f"{const.name}", constants_data[const.name], -const.value, const.value*2)
+                    # TODO: improve min/max for negatives
+    
+    # TODO: control the size of these headers to make the window as small as possible after they are collapsed!
 
     ig.end()
     ig.end_frame()
