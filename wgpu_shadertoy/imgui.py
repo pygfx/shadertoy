@@ -112,6 +112,10 @@ def construct_imports(constants: list[ShaderConstant], constant_binding_idx: int
     # better yet: use push constants
     # TODO: can you even import a uniform struct and then have these available as global?
     # maybe I got to add them back in as #define name = constant.name or something
+
+    if not constants:
+        return ""
+
     var_init_lines = []
     var_mapping_lines = []
     for const in constants:

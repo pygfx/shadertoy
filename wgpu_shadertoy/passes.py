@@ -220,7 +220,7 @@ class RenderPass:
             },
         ]
 
-        if self.main._imgui:
+        if self.main._imgui and self._constants:
             bind_groups_layout_entries.append(
                 {
                     "binding": self._constants_binding_idx,
@@ -308,7 +308,7 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
         )
 
-        if self.main._imgui:
+        if self.main._imgui and self._constants:
             self._device.queue.write_buffer(
                 buffer = self._constants_buffer,
                 buffer_offset = 0,

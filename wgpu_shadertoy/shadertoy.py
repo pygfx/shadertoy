@@ -325,12 +325,13 @@ class Shadertoy:
         else:
             loop.run()
             if self._imgui:
-                for constant in self._constants:
-                    # TODO: this check messes up due to precision sometimes!
-                    if constant.value != self._constants_data[constant.name]:
-                        print(
-                            f"Constant {constant.shader_dtype} {constant.name}: {constant.value} -> {self._constants_data[constant.name]}"
-                        )
+                for rp in self.renderpasses:
+                    for constant in rp._constants:
+                        # TODO: this check messes up due to precision sometimes!
+                        if constant.value != rp._constants_data[constant.name]:
+                            print(
+                                f"{rp} Constant {constant.shader_dtype} {constant.name}: {constant.value} -> {rp._constants_data[constant.name]}"
+                            )
 
     def snapshot(
         self,
