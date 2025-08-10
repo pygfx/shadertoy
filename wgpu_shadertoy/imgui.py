@@ -155,6 +155,12 @@ def gui(renderpasses: list["RenderPass"]):
         constants = rp._constants
         constants_data = rp._constants_data
         if ig.collapsing_header(f"{rp} Constants", flags=ig.TreeNodeFlags_.default_open):
+            if hasattr(rp, "texture_front"): # isinstance(rp, BufferRenderPass)
+                # make this another toggle? or a whole 2nd UI?
+                front_view = rp.texture_front.create_view()
+                front_ref = rp.main._imgui_backend.register_texture(front_view)
+                buf_img = ig.image(front_ref, (front_view.size[0]*0.25, front_view.size[1]*0.25), uv0=(0,1), uv1=(1,0)) # TODO dynamic zoom via width?
+
             # create the sliders?
             # TODO: can we reset the values with a button or a double click maybe?
             for const in constants:
