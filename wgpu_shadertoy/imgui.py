@@ -159,18 +159,24 @@ def gui(renderpasses: list["RenderPass"]):
                 # make this another toggle? or a whole 2nd UI?
                 front_view = rp.texture_front.create_view()
                 front_ref = rp.main._imgui_backend.register_texture(front_view)
-                buf_img = ig.image(front_ref, (front_view.size[0]*0.25, front_view.size[1]*0.25), uv0=(0,1), uv1=(1,0)) # TODO dynamic zoom via width?
+                scale = 0.25  # TODO dynamic zoom via width?
+                buf_img = ig.image(front_ref, (front_view.size[0]*scale, front_view.size[1]*scale), uv0=(0,1), uv1=(1,0))
 
             # create the sliders?
-            # TODO: can we reset the values with a button or a double click maybe?
             for const in constants:
                 if const.shader_dtype == "float":
                     _, constants_data[const.name] = ig.slider_float(f"{const.name}", constants_data[const.name], -const.value, const.value*2.0)
                 elif const.shader_dtype == "int":
                     _, constants_data[const.name] = ig.slider_int(f"{const.name}", constants_data[const.name], -const.value, const.value*2)
                     # TODO: improve min/max for negatives
-    # TODO: control the size of these headers to make the window as small as possible after they are collapsed!
+                # right click to reset?
+                if ig.is_item_hovered() and ig.is_mouse_clicked(ig.MouseButton_.right):
+                    constants_data[const.name] = const.value
+                    # print(f"Reset {const.name} to {const.value} from {constants_data[const.name]}")
+                if ig.is_item_hovered():
+                    ig.set_tooltip("Right click to reset")
 
+    # TODO: control the size of these headers to make the window as small as possible after they are collapsed!
     ig.end()
     ig.end_frame()
     ig.render()
