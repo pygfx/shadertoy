@@ -361,7 +361,7 @@ class Shadertoy:
         frame: int = 0,
         framerate: float = 60.0,
         mouse_pos: tuple = (0.0, 0.0, 0.0, 0.0),
-        date: tuple = (0.0, 0.0, 0.0, 0.0),
+        date: tuple = (0.0, 0.0, 0.0, 0.0), # TODO this needs a None type default to use the actual date!
     ) -> memoryview:
         """
         Returns an image of the specified time. (Only available when ``offscreen=True``), you can set the uniforms manually via the parameters.
