@@ -233,17 +233,16 @@ class Shadertoy:
                 self._imgui_backend.io.display_size = (w,h)
 
         def on_mouse_move(event):
-            if event["button"] == 1 or 1 in event["buttons"]:
+            if (event["button"] == 1 or 1 in event["buttons"]) and not (self._imgui and self._imgui_backend.io.want_capture_mouse):
                 _, _, x2, y2 = self._uniform_data["mouse"]
                 ratio = self._uniform_data["resolution"][2]
                 x1, y1 = event["x"] * ratio, self.resolution[1] - event["y"] * ratio
                 self._uniform_data["mouse"] = x1, y1, abs(x2), -abs(y2)
             if self._imgui:
-                # TODO: we should ignore mouse updates when moving imgui sliders.
                 self._imgui_backend.io.add_mouse_pos_event(event["x"], event["y"])
 
         def on_mouse_down(event):
-            if event["button"] == 1 or 1 in event["buttons"]:
+            if (event["button"] == 1 or 1 in event["buttons"]) and not (self._imgui and self._imgui_backend.io.want_capture_mouse):
                 ratio = self._uniform_data["resolution"][2]
                 x, y = event["x"] * ratio, self.resolution[1] - event["y"] * ratio
                 self._uniform_data["mouse"] = (x, y, abs(x), abs(y))

@@ -144,7 +144,7 @@ def update_gui():
 def gui(renderpasses: list["RenderPass"]):
     ig.new_frame()
     ig.set_next_window_pos((0, 0), ig.Cond_.appearing)
-    ig.set_next_window_size((400, 0), ig.Cond_.appearing)
+    ig.set_next_window_size((0, 0), ig.Cond_.appearing)
     ig.begin("Shader constants", None)
     ig.text('in-dev imgui overlay\n')
 
@@ -169,7 +169,6 @@ def gui(renderpasses: list["RenderPass"]):
                 elif const.shader_dtype == "int":
                     _, constants_data[const.name] = ig.slider_int(f"{const.name}", constants_data[const.name], -const.value, const.value*2)
                     # TODO: improve min/max for negatives
-    
     # TODO: control the size of these headers to make the window as small as possible after they are collapsed!
 
     ig.end()
