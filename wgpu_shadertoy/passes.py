@@ -4,7 +4,7 @@ from typing import List
 import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
-from .imgui import construct_imports, gui, parse_constants, make_uniform
+from .imgui import replace_constants, gui, parse_constants, make_uniform
 
 builtin_variables_glsl = """#version 450 core
 
@@ -167,15 +167,16 @@ class RenderPass:
         # need to be after we got main class?
         if self.main._imgui:
             # maybe a self._imgui for the case where there are no local or common constants?
-            self._constants = parse_constants(self.shader_code, self.main.common)
+            self._constants = parse_constants(self.shader_code)
             self._constants_data = make_uniform(self._constants)
             self._constants_buffer = self._device.create_buffer(
                 label=f"{self} constant buffer for imgui overlay",
                 size=self._constants_data.nbytes, 
                 usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
             )
-            self._constants_binding_idx = 10 + self.main.renderpasses.index(self)
-
+            # 0 is uniform buffer, 2 per input (texture + sampler), 9 for common constants and finally 10 for pass constants
+            # TODO can there be gaps like this? then we don't need a constant anyway.
+            self._constants_binding_idx = 10
         # inputs can only be attached once the main class is set, so calling it here should do it.
         self.channels = self._attach_inputs(self._inputs)
         vertex_shader_code, frag_shader_code = self.construct_code()
@@ -237,6 +238,26 @@ class RenderPass:
                     "visibility": wgpu.ShaderStage.FRAGMENT,
                     "buffer": {"type": wgpu.BufferBindingType.uniform},
                 },
+            )
+        # TODO: could we make a little iterable at the top? (also doesn't need to be nested?)
+        if self.main._imgui and self.main._common_constants:
+            # # maybe we can one fewer buffers but use the offsets instead?
+            bind_groups_layout_entries.append(
+                {
+                    "binding": 9,
+                    "resource": {
+                        "buffer": self.main._common_constants_buffer,
+                        "offset": 0,
+                        "size": self.main._common_constants_buffer.size,
+                    },
+                }
+            )
+            binding_layout.append(
+                {
+                    "binding": 9,
+                    "visibility": wgpu.ShaderStage.FRAGMENT,
+                    "buffer": {"type": wgpu.BufferBindingType.uniform},
+                }
             )
 
         # setup bind groups for the channels
@@ -316,6 +337,14 @@ class RenderPass:
                 data_offset = 0,
                 size = self._constants_buffer.size,
             )
+        if self.main._imgui and self.main._common_constants:
+            self._device.queue.write_buffer(
+                buffer=self.main._common_constants_buffer,
+                buffer_offset=0,
+                data=self.main._common_constants_data.mem,
+                data_offset=0,
+                size=self.main._common_constants_buffer.size,
+            )
 
         command_encoder: wgpu.GPUCommandEncoder = self._device.create_command_encoder()
         current_texture: wgpu.GPUTexture = self.get_current_texture()
@@ -344,7 +373,7 @@ class RenderPass:
         if isinstance(self, ImageRenderPass) and self.main._imgui:
             # render imgui overlay only on the image pass.
             if self.main._imgui_backend is not None:
-                imgui_data = gui(self._main.renderpasses)
+                imgui_data = gui(self.main.renderpasses)
                 self.main._imgui_backend.render(imgui_data, render_pass)
 
         render_pass.end()
@@ -402,15 +431,7 @@ class RenderPass:
                 """
             
             if self.main._imgui:
-                # comment out existing constants
-                shader_code_lines = self.shader_code.splitlines()
-                for const in self._constants:
-                    shader_code_lines[const.line_number] = "// " + shader_code_lines[const.line_number]
-                self._shader_code = "\n".join(shader_code_lines)
-
-                constant_headers = construct_imports(self._constants, self._constants_binding_idx)
-                # TODO use a new variable instead in the block below!
-                self._shader_code = constant_headers + "\n" + self.shader_code
+                self._shader_code = replace_constants(self._shader_code, self._constants, self._constants_binding_idx)
 
             frag_shader_code = (
                 builtin_variables_glsl

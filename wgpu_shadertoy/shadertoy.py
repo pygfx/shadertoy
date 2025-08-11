@@ -8,7 +8,7 @@ from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
 from rendercanvas.offscreen import loop as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
-from .imgui import parse_constants, make_uniform, construct_imports, get_backend
+from .imgui import parse_constants, make_uniform, replace_constants, get_backend
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
 from .utils import UniformArray
 
@@ -110,7 +110,18 @@ class Shadertoy:
 
 
         self._imgui = imgui
-        
+        if self._imgui:
+            self._common_constants = parse_constants(self.common)
+            if self._common_constants:
+                self._common_constants_data = make_uniform(self._common_constants)
+                self._common_constants_buffer = self._device.create_buffer(
+                    label="Common constants buffer",
+                    size=self._common_constants_data.nbytes,
+                    usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
+                )
+                self.common = replace_constants(self.common, self._common_constants, 9)
+            # else not have this at all?
+
 
         self._prepare_canvas(canvas=canvas)
         self._bind_events()

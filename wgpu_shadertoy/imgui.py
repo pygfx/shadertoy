@@ -33,7 +33,7 @@ class ShaderConstant:
         # add more types as needed
         return "?"
 
-def parse_constants(code:str, common_code) -> list[ShaderConstant]:
+def parse_constants(code:str) -> list[ShaderConstant]:
     # todo:
     # WGSL variants??
     # re/tree-sitter/loops and functions?
@@ -82,7 +82,7 @@ def parse_constants(code:str, common_code) -> list[ShaderConstant]:
             )
             # todo: remove lines here? (comment out better)
             constants.append(constant)
-            print(f"In line {li} found constant: {name} with value: {value} of dtype {dtype}")
+            print(f"In line {li} found constant: {name} with value: {value} of dtype {dtype}") # maybe name renderpass too?
 
     # maybe just named tuple instead of dataclass?
     return constants
@@ -100,10 +100,11 @@ def make_uniform(constants) -> UniformArray:
     # TODO:
     # is there issues with padding? (maybe solve in the class)
     # figure out order due to padding/alignment: https://www.w3.org/TR/WGSL/#alignment-and-size
-    # return a UniformArray object (cycling import?)
+    # return a UniformArray object too (cycling import?) also needs device handed down.
     # (does this need to be a class to update the values?)
     return data
 
+# TODO mark private?
 def construct_imports(constants: list[ShaderConstant], constant_binding_idx: int) -> str:
     # codegen the import block for this uniform (including binding? - which number?)
     # could be part of the UniformArray class maybe?
@@ -120,18 +121,33 @@ def construct_imports(constants: list[ShaderConstant], constant_binding_idx: int
     var_mapping_lines = []
     for const in constants:
         var_init_lines.append(f"{const.shader_dtype} {const.name};")
-        var_mapping_lines.append(f"# define {const.name} const_input.{const.name}")
+        var_mapping_lines.append(f"# define {const.name} const_input{constant_binding_idx}.{const.name}")
 
     new_line = "\n" # pytest was complaining about having blackslash in an f-string
     code_construct = f"""
-    uniform struct ConstantInput {{
+    uniform struct ConstantInput{constant_binding_idx} {{
         {new_line.join(var_init_lines)}
     }};
-    layout(binding = {constant_binding_idx}) uniform ConstantInput const_input;
+    layout(binding = {constant_binding_idx}) uniform ConstantInput{constant_binding_idx} const_input{constant_binding_idx};
     {new_line.join(var_mapping_lines)}
     """
-    # TODO messed up indentation...
+    # the identifier name includes the digit so common doesn't cause redefinition!
+    # TODO messed up indentation... textwrap.dedent?
     return code_construct
+
+def replace_constants(code: str, constants: list[ShaderConstant], constant_binding_idx: int) -> str:
+    """
+    comment out existing constants and redefine them with uniform struct
+    """
+    code_lines = code.splitlines()
+    for const in constants:
+        # comment out existing constants
+        code_lines[const.line_number] = f"// {code_lines[const.line_number]}"
+
+    constant_headers = construct_imports(constants, constant_binding_idx)
+    code_lines.insert(0, constant_headers)
+
+    return "\n".join(code_lines)
 
 
 # imgui stuff
@@ -144,12 +160,28 @@ def update_gui():
 def gui(renderpasses: list["RenderPass"]):
     ig.new_frame()
     ig.set_next_window_pos((0, 0), ig.Cond_.appearing)
-    ig.set_next_window_size((0, 0), ig.Cond_.appearing)
+    ig.set_next_window_size((0, 0), ig.Cond_.appearing) # auto size not wide enough with text :/
     ig.begin("Shader constants", None)
     ig.text('in-dev imgui overlay\n')
 
     if ig.is_item_hovered():
         ig.set_tooltip("TODO")
+
+    # maybe we should have a global main or utils.get_main()?
+    main = renderpasses[0].main
+
+    # TODO: avoid duplication, maybe common should be a renderpass instance (at least a little bit) - or we iterate through constants lists
+    if main._common_constants:
+        if ig.collapsing_header("Common Constants", flags=ig.TreeNodeFlags_.default_open):
+            for const in main._common_constants:
+                if const.shader_dtype == "float":
+                    _, main._common_constants_data[const.name] = ig.slider_float(f"{const.name}", main._common_constants_data[const.name], -const.value, const.value*2.0)
+                elif const.shader_dtype == "int":
+                    _, main._common_constants_data[const.name] = ig.slider_int(f"{const.name}", main._common_constants_data[const.name], -const.value, const.value*2)
+                if ig.is_item_hovered() and ig.is_mouse_clicked(ig.MouseButton_.right):
+                    main._common_constants_data[const.name] = const.value
+                if ig.is_item_hovered():
+                    ig.set_tooltip("Right click to reset")
 
     for rp in renderpasses: # TODO: most likely add common here?
         constants = rp._constants
@@ -160,6 +192,7 @@ def gui(renderpasses: list["RenderPass"]):
                 front_view = rp.texture_front.create_view()
                 front_ref = rp.main._imgui_backend.register_texture(front_view)
                 scale = 0.25  # TODO dynamic zoom via width?
+                # TODO: can we force a background? do we need to request additional view formats? -> ig.image_with_bg?
                 buf_img = ig.image(front_ref, (front_view.size[0]*scale, front_view.size[1]*scale), uv0=(0,1), uv1=(1,0))
 
             # create the sliders?
@@ -168,7 +201,7 @@ def gui(renderpasses: list["RenderPass"]):
                     _, constants_data[const.name] = ig.slider_float(f"{const.name}", constants_data[const.name], -const.value, const.value*2.0)
                 elif const.shader_dtype == "int":
                     _, constants_data[const.name] = ig.slider_int(f"{const.name}", constants_data[const.name], -const.value, const.value*2)
-                    # TODO: improve min/max for negatives
+                    # TODO: improve min/max for negatives maybe infinite range with scaling?
                 # right click to reset?
                 if ig.is_item_hovered() and ig.is_mouse_clicked(ig.MouseButton_.right):
                     constants_data[const.name] = const.value
