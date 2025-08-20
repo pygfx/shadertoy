@@ -226,6 +226,7 @@ class Shadertoy:
         # TODO: refactor to accept a canvas class as a keyword argument
 
         if canvas:
+            # TODO: check if the resolution matches the canvas size here!
             self._canvas = canvas
         elif self._offscreen:
             self._canvas = OffscreenCanvas(
@@ -248,7 +249,7 @@ class Shadertoy:
         self._uniform_data["resolution"] = tuple(
             [float(psize[0]), float(psize[1]), self._canvas.get_pixel_ratio()]
         )
-        self._present_context = self._canvas.get_context("wgpu")
+        self._present_context: wgpu.GPUCanvasContext = self._canvas.get_context("wgpu")
 
         # We use non srgb variants, because we want to let the shader fully control the color-space.
         # Defaults usually return the srgb variant, but a non srgb option is usually available
@@ -257,7 +258,7 @@ class Shadertoy:
             adapter=self._device.adapter
         ).removesuffix("-srgb")
 
-        self._present_context.configure(device=self._device, format=self._format)
+        self._present_context.configure(device=self._device, format=self._format, usage=wgpu.TextureUsage.RENDER_ATTACHMENT| wgpu.TextureUsage.COPY_SRC)
 
     def _bind_events(self):
         # event spec: https://jupyter-rfb.readthedocs.io/en/stable/events.html
@@ -358,9 +359,9 @@ class Shadertoy:
         time_float: float = 0.0,
         time_delta: float = 0.167,
         frame: int = 0,
-        framerate: int = 60.0,
+        framerate: float = 60.0,
         mouse_pos: tuple = (0.0, 0.0, 0.0, 0.0),
-        date: tuple = (0.0, 0.0, 0.0, 0.0),
+        date: tuple = (0.0, 0.0, 0.0, 0.0), # TODO this needs a None type default to use the actual date!
     ) -> memoryview:
         """
         Returns an image of the specified time. (Only available when ``offscreen=True``), you can set the uniforms manually via the parameters.
@@ -375,7 +376,7 @@ class Shadertoy:
             date (tuple(float)): The 4-tuple for ``i_date`` in year, months, day, seconds. (Default is (0.0,0.0,0.0,0.0))
         Returns:
             frame (memoryview): snapshot with transparency. This object can be converted to a numpy array (without copying data)
-        using ``np.asarray(arr)``
+        using ``np.asarray(frame_view)``
         """
         if not self._offscreen:
             raise NotImplementedError("Snapshot is only available in offscreen mode.")

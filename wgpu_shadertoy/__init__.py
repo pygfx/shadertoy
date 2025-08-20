@@ -1,5 +1,6 @@
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
 from .passes import BufferRenderPass, ImageRenderPass
+from .record import record_offscreen
 from .shadertoy import Shadertoy
 
 __version__ = "0.2.0"
