@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from .shadertoy import Shadertoy
 from .record import record_offscreen
@@ -79,6 +80,7 @@ def main_cli():
         # TODO: replace resolution with padded variant here?
         shader = Shadertoy.from_id(shader_id, resolution=resolution, offscreen=True)
         record_offscreen(shader, **recording_args)
+        print(f"Recording finished: {os.getcwd()}/{recording_args['output_file']}")
     else:
         # gui-args = ?
         shader = Shadertoy.from_id(shader_id, resolution=resolution)

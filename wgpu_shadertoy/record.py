@@ -7,7 +7,9 @@ from tqdm.auto import tqdm
 
 import wgpu
 
-from wgpu_shadertoy import Shadertoy
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from wgpu_shadertoy import Shadertoy
 from rendercanvas.auto import loop
 from rendercanvas.base import BaseRenderCanvas, BaseCanvasGroup
 # from rendercanvas.glfw import GlfwRenderCanvas
@@ -15,7 +17,7 @@ from rendercanvas.base import BaseRenderCanvas, BaseCanvasGroup
 av.logging.set_level(av.logging.VERBOSE) # very useful as the errors mean something now!
 
 # naive offscreen implementation based on https://pyav.basswood-io.com/docs/stable/cookbook/numpy.html#generating-video
-def record_offscreen(shader: Shadertoy, output_file="output.mp4", **kwargs) -> None:
+def record_offscreen(shader: "Shadertoy", output_file="output.mp4", **kwargs) -> None:
     # TODO: parameterize
     start_offset = kwargs.pop("start_offset", 0.0)
     duration = kwargs.pop("duration", 10.0)
@@ -62,7 +64,7 @@ class GLFWGrabber():
     In theory this captures the gui while you can interact with it.
     """
     # TODO: why is the timestamp off, can we set it after the fact?
-    def __init__(self, shader: Shadertoy, outfile: os.PathLike = "output_gui.mp4"):
+    def __init__(self, shader: "Shadertoy", outfile: os.PathLike = "output_gui.mp4"):
         self.shader = shader
         self.canvas = shader._canvas
 
@@ -233,7 +235,7 @@ class RecordingCanvas(BaseRenderCanvas):
 
 # next idea: download the texture after the draw and then encode it on the CPU... any GUI offscreen and onscreen!
 # problem is that in rendercanvas we do _rc_draw_and_present... meaning no access in between - could be a limitation.
-def download_texture(shader: Shadertoy) -> np.ndarray:
+def download_texture(shader: "Shadertoy") -> np.ndarray:
     current_texture = shader._present_context.get_current_texture() # is alive before present()!
     bpp = 4 # TODO read shader._format? not always a wgpu.TextureFormat anymore... but could be easier to parse
     # needs to be aligned to 256 bytes, but apparently can be padded here: https://docs.rs/wgpu/latest/wgpu/struct.TexelCopyBufferLayout.html#structfield.bytes_per_row
@@ -288,8 +290,8 @@ if __name__ == "__main__":
     # shader = Shadertoy(shader_code=shader_code, resolution=(800, 450))
     # shader = Shadertoy.from_id("tXK3Rd", canvas=ffmpeg_canvas, resolution=(800, 450)) # I made one with mouse interactivity to test here!
     # shader = Shadertoy.from_id("t3tXz8", resolution=(1280, 720), offscreen=True) # another one of mine...
-    shader = Shadertoy.from_id("M3VBWt", resolution=(1280, 720), offscreen=True) # another one of mine...
-    record_offscreen(shader, output_file="point_light.mp4", start_offset=12.0, duration=10.0, framerate=60, target_size=9.9)
+    # shader = Shadertoy.from_id("M3VBWt", resolution=(1280, 720), offscreen=True) # another one of mine...
+    # record_offscreen(shader, output_file="point_light.mp4", start_offset=12.0, duration=10.0, framerate=60, target_size=9.9)
     # 1minute of 720p 60fps h264 takes over 90 seconds here... not great given that it runs at over 165 fps without recording.
 
     
