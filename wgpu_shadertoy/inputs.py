@@ -248,11 +248,8 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
         # when we get this via the ._infer_subclass() method - we might already have a parent and can register the events now!
         if self._parent is not None:
-            # not the best solution I feel like - but works for now.
-            # could be extracted to a _register_events method instead
-            self.parent.main._canvas.add_event_handler(self.on_key_down, "key_down")
-            self.parent.main._canvas.add_event_handler(self.on_key_up, "key_up")
-
+            self.register_events()
+            
     # do we have to redo both parts?
     @property
     def parent(self) -> "RenderPass":
@@ -267,8 +264,7 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
     def parent(self, parent):
         self._parent = parent
         # register the events here?
-        self._parent.main._canvas.add_event_handler(self.on_key_down, "key_down")
-        self._parent.main._canvas.add_event_handler(self.on_key_up, "key_up")
+        self.register_events()
 
 
     @property
@@ -280,29 +276,52 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         if not hasattr(self.parent.main, "_keyboard_state"):
             self.parent.main._keyboard_state = np.zeros((3, 256), dtype=np.uint8)  # 3 rows, 256 keys and only one channel
         return self.parent.main._keyboard_state
+    
+    @property
+    def texture(self):
+        # texture is also shared 
+        if not hasattr(self.parent.main, "_keyboard_texture"):
+            self.parent.main._keyboard_texture = self.parent.main._device.create_texture(
+                size=(256, 3, 1),  # note it's columns, rows here
+                format=self.format,
+                usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
+            )
+        return self.parent.main._keyboard_texture
 
+    def register_events(self):
+        """
+        Register the keyboard event handlers only when we need them.
+        """
+        # TODO: if events already exist just exit...
+        # print(self.parent.main._canvas._events._event_handlers)
+        if self.parent.main._canvas._events._event_handlers.get("key_down") and self.parent.main._canvas._events._event_handlers.get("key_up"):
+            # print("Keyboard events already registered, skipping...")
+            return
 
-    # TODO: make a register_events function?
-    def on_key_down(self, event):
-        try:
-            key_code = KEY_MAP.get(event["key"]) or ord(event["key"].upper()) # we only want to evaluate ord() if there is no mapping!
-            assert key_code < 256, f"Key {event['key']} code {key_code} is out of range for keyboard channel."
-        except TypeError:
-            print(f"Key event error: {event['key']}")
-            key_code = 0
-        self.data[0, key_code] = 255
-        self.data[1, key_code] = 255 # this only stays for a little bit of time?
-        self.data[2, key_code] = 255 if self.data[2, key_code] == 0 else 0 # toggle pressed state
-        self.dynamic = 2  # basically tell it to update for next frame and one after that!
+        def on_key_down(event):
+            try:
+                key_code = KEY_MAP.get(event["key"]) or ord(event["key"].upper()) # we only want to evaluate ord() if there is no mapping!
+                assert key_code < 256, f"Key {event['key']} code {key_code} is out of range for keyboard channel."
+            except TypeError:
+                print(f"Key event error: {event['key']}")
+                key_code = 0
+            self.data[0, key_code] = 255
+            self.data[1, key_code] = 255 # this only stays for a little bit of time?
+            self.data[2, key_code] = 255 if self.data[2, key_code] == 0 else 0 # toggle pressed state
+            self.dynamic = 2  # basically tell it to update for next frame and one after that!
 
-    def on_key_up(self, event):
-        try:
-            key_code = KEY_MAP.get(event["key"]) or ord(event["key"].upper())
-            assert key_code < 256
-        except TypeError:
-            key_code = 0
-        self.data[0, key_code] = 0 # up action only triggers the "state" row
-        self.dynamic = True
+        def on_key_up(event):
+            try:
+                key_code = KEY_MAP.get(event["key"]) or ord(event["key"].upper())
+                assert key_code < 256
+            except TypeError:
+                key_code = 0
+            self.data[0, key_code] = 0 # up action only triggers the "state" row
+            self.dynamic = True
+
+        self.parent.main._canvas.add_event_handler(on_key_down, "key_down")
+        self.parent.main._canvas.add_event_handler(on_key_up, "key_up")
+
 
 
     # copied from ShadertoyChannelTexture, changed sizes (maybe it could be moved to the base class?)
@@ -312,31 +331,13 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         """
         # this gets called during the draw too... so every single time (via _setup_renderpipeline!)
 
-        # TODO: we don't really need to draw the initial texture? it should be all zeros anyway.
+        # texture bindings are unique per pass, using the keyboard twice will lead to a reuse but should hopefully still work.
         binding_layout = self._binding_layout()
-        if not hasattr(self, "_texture"):
-            self._texture = device.create_texture(
-                size=(256, 3, 1), # note it's columns, rows here
-                format=self.format,
-                usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
-            )
-
 
         # TODO: this could also be cached...
-        texture_view = self._texture.create_view()
-        # device.queue.write_texture(
-        #     destination={
-        #         "texture": self._texture,
-        #     },
-        #     data=np.ascontiguousarray(self.data),
-        #     data_layout={
-        #         "bytes_per_row": 256, # int8 texture of 256
-        #         "rows_per_image": 3,
-        #     },
-        #     size=self._texture.size,
-        # )
-
-        # works if we put it here ... but that isn't the solution!
+        texture_view = self.texture.create_view()
+        
+        # sampler can actually be unique per channel due to filtering and wrap settings.
         sampler = device.create_sampler(**self.sampler_settings)
 
         bind_groups_layout_entry = self._bind_groups_layout_entries(
@@ -345,18 +346,19 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
         return binding_layout, bind_groups_layout_entry
 
+    # TODO: this should only be called once per frame and hence might need to be part of the main.update function...
     def update(self, device: wgpu.GPUDevice):
         # to be called just before the draw call for this pass:
         device.queue.write_texture(
             destination={
-                "texture": self._texture,
+                "texture": self.texture,
             },
             data=np.ascontiguousarray(self.data),
             data_layout={
                 "bytes_per_row": 256, # int8 texture of 256
                 "rows_per_image": 3,
             },
-            size=self._texture.size,
+            size=self.texture.size,
         )
         self.data[1, :] = np.zeros(256, dtype=np.uint8)  # reset the second row to 0s after we uploaded that data (could be an issue if we reuse this channel...)
 
