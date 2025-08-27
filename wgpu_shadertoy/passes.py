@@ -4,6 +4,7 @@ from typing import List
 import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
+from .imgui import replace_constants, gui, parse_constants, make_uniform
 
 builtin_variables_glsl = """#version 450 core
 
@@ -55,6 +56,7 @@ class RenderPass:
         # we keep track of the inputs before we can attach them as channels.
         self._inputs = inputs
         self._input_headers = ""
+
 
     def get_current_texture(self) -> wgpu.GPUTexture:
         """
@@ -162,6 +164,19 @@ class RenderPass:
         It attaches inputs, assembles the shadercode and creates the render pipeline.
         """
 
+        # need to be after we got main class?
+        if self.main._imgui:
+            # maybe a self._imgui for the case where there are no local or common constants?
+            self._constants = parse_constants(self.shader_code)
+            self._constants_data = make_uniform(self._constants)
+            self._constants_buffer = self._device.create_buffer(
+                label=f"{self} constant buffer for imgui overlay",
+                size=self._constants_data.nbytes, 
+                usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
+            )
+            # 0 is uniform buffer, 2 per input (texture + sampler), 9 for common constants and finally 10 for pass constants
+            # TODO can there be gaps like this? then we don't need a constant anyway.
+            self._constants_binding_idx = 10
         # inputs can only be attached once the main class is set, so calling it here should do it.
         self.channels = self._attach_inputs(self._inputs)
         vertex_shader_code, frag_shader_code = self.construct_code()
@@ -178,6 +193,9 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
+
+
+
         self._setup_renderpipeline()  # split in half so the next part can be reused.
 
     def _setup_renderpipeline(self):
@@ -202,6 +220,45 @@ class RenderPass:
                 "buffer": {"type": wgpu.BufferBindingType.uniform},
             },
         ]
+
+        if self.main._imgui and self._constants:
+            bind_groups_layout_entries.append(
+                {
+                    "binding": self._constants_binding_idx,
+                    "resource": {
+                        "buffer": self._constants_buffer,
+                        "offset": 0,
+                        "size": self._constants_buffer.size,
+                    },
+                },
+            )
+            binding_layout.append(
+                {
+                    "binding": self._constants_binding_idx,
+                    "visibility": wgpu.ShaderStage.FRAGMENT,
+                    "buffer": {"type": wgpu.BufferBindingType.uniform},
+                },
+            )
+        # TODO: could we make a little iterable at the top? (also doesn't need to be nested?)
+        if self.main._imgui and self.main._common_constants:
+            # # maybe we can one fewer buffers but use the offsets instead?
+            bind_groups_layout_entries.append(
+                {
+                    "binding": 9,
+                    "resource": {
+                        "buffer": self.main._common_constants_buffer,
+                        "offset": 0,
+                        "size": self.main._common_constants_buffer.size,
+                    },
+                }
+            )
+            binding_layout.append(
+                {
+                    "binding": 9,
+                    "visibility": wgpu.ShaderStage.FRAGMENT,
+                    "buffer": {"type": wgpu.BufferBindingType.uniform},
+                }
+            )
 
         # setup bind groups for the channels
         channel_res = []
@@ -272,6 +329,23 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
         )
 
+        if self.main._imgui and self._constants:
+            self._device.queue.write_buffer(
+                buffer = self._constants_buffer,
+                buffer_offset = 0,
+                data = self._constants_data.mem,
+                data_offset = 0,
+                size = self._constants_buffer.size,
+            )
+        if self.main._imgui and self.main._common_constants:
+            self._device.queue.write_buffer(
+                buffer=self.main._common_constants_buffer,
+                buffer_offset=0,
+                data=self.main._common_constants_data.mem,
+                data_offset=0,
+                size=self.main._common_constants_buffer.size,
+            )
+
         command_encoder: wgpu.GPUCommandEncoder = self._device.create_command_encoder()
         current_texture: wgpu.GPUTexture = self.get_current_texture()
 
@@ -294,8 +368,15 @@ class RenderPass:
         # self._bind_group might get generalized out for buffer
         render_pass.set_bind_group(0, self._bind_group, [], 0, 99)
         render_pass.draw(3, 1, 0, 0)
-        render_pass.end()
 
+        # instead of reimplementing the same thing twice?
+        if isinstance(self, ImageRenderPass) and self.main._imgui:
+            # render imgui overlay only on the image pass.
+            if self.main._imgui_backend is not None:
+                imgui_data = gui(self.main.renderpasses)
+                self.main._imgui_backend.render(imgui_data, render_pass)
+
+        render_pass.end()
         return command_encoder.finish()
 
     def construct_code(self) -> tuple[str, str]:
@@ -348,6 +429,10 @@ class RenderPass:
                     mainImage(FragColor, fragcoord);
                 }}
                 """
+            
+            if self.main._imgui:
+                self._shader_code = replace_constants(self._shader_code, self._constants, self._constants_binding_idx)
+
             frag_shader_code = (
                 builtin_variables_glsl
                 + self._input_headers

@@ -1,5 +1,4 @@
 import collections
-import ctypes
 import os
 import time
 
@@ -9,57 +8,9 @@ from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
 from rendercanvas.offscreen import loop as run_offscreen
 
 from .api import shader_args_from_json, shadertoy_from_id
+from .imgui import parse_constants, make_uniform, replace_constants, get_backend
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
-
-
-class UniformArray:
-    """Convenience class to create a uniform array.
-
-    Ensure that the order matches structs in the shader code.
-    See https://www.w3.org/TR/WGSL/#alignment-and-size for reference on alignment.
-    """
-
-    def __init__(self, *args):
-        # Analyse incoming fields
-        fields = []
-        byte_offset = 0
-        for name, format, n in args:
-            assert format in ("f", "i", "I")
-            field = name, format, byte_offset, byte_offset + n * 4
-            fields.append(field)
-            byte_offset += n * 4
-        # Get padding
-        nbytes = byte_offset
-        while nbytes % 16:
-            nbytes += 1
-        # Construct memoryview object and a view for each field
-        self._mem = memoryview((ctypes.c_uint8 * nbytes)()).cast("B")
-        self._views = {}
-        for name, format, i1, i2 in fields:
-            self._views[name] = self._mem[i1:i2].cast(format)
-
-    @property
-    def mem(self):
-        return self._mem
-
-    @property
-    def nbytes(self):
-        return self._mem.nbytes
-
-    def __getitem__(self, key):
-        v = self._views[key].tolist()
-        return v[0] if len(v) == 1 else v
-
-    def __setitem__(self, key, val):
-        m = self._views[key]
-        n = m.shape[0]
-        if n == 1:
-            assert isinstance(val, (float, int))
-            m[0] = val
-        else:
-            assert isinstance(val, (tuple, list))
-            for i in range(n):
-                m[i] = val[i]
+from .utils import UniformArray
 
 
 class Shadertoy:
@@ -77,6 +28,7 @@ class Shadertoy:
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
         canvas (RenderCanvas): Optionally provide the canvas the image pass will render too. Defaults to None (means auto?)
+        imgui (bool): Automatiicaly parse constants and provide a imgui interface to change them. Default is False.
 
     The shader code must contain a entry point function:
 
@@ -114,6 +66,7 @@ class Shadertoy:
         title: str = "Shadertoy",
         complete: bool = True,
         canvas=None,
+        imgui: bool = False,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -154,6 +107,21 @@ class Shadertoy:
         if buffers:
             device_features.append(wgpu.FeatureName.float32_filterable)
         self._device = self._request_device(device_features)
+
+
+        self._imgui = imgui
+        if self._imgui:
+            self._common_constants = parse_constants(self.common)
+            if self._common_constants:
+                self._common_constants_data = make_uniform(self._common_constants)
+                self._common_constants_buffer = self._device.create_buffer(
+                    label="Common constants buffer",
+                    size=self._common_constants_data.nbytes,
+                    usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
+                )
+                self.common = replace_constants(self.common, self._common_constants, 9)
+            # else not have this at all?
+
 
         self._prepare_canvas(canvas=canvas)
         self._bind_events()
@@ -259,6 +227,9 @@ class Shadertoy:
 
         self._present_context.configure(device=self._device, format=self._format)
 
+        if self._imgui:
+            self._imgui_backend = get_backend(self._device, self._canvas, self._format)
+
     def _bind_events(self):
         # event spec: https://jupyter-rfb.readthedocs.io/en/stable/events.html
         # events returns logical size, so we can multiply by the pixel ratio to get physical size!
@@ -269,16 +240,20 @@ class Shadertoy:
                 # TODO: do we want to call this every single time or only when the resize is done?
                 # render loop is suspended during any window interaction anyway - will be fixed with rendercanvas: https://github.com/pygfx/rendercanvas/issues/69
                 buf.resize_buffer()
+            if self._imgui:
+                self._imgui_backend.io.display_size = (w,h)
 
         def on_mouse_move(event):
-            if event["button"] == 1 or 1 in event["buttons"]:
+            if (event["button"] == 1 or 1 in event["buttons"]) and not (self._imgui and self._imgui_backend.io.want_capture_mouse):
                 _, _, x2, y2 = self._uniform_data["mouse"]
                 ratio = self._uniform_data["resolution"][2]
                 x1, y1 = event["x"] * ratio, self.resolution[1] - event["y"] * ratio
                 self._uniform_data["mouse"] = x1, y1, abs(x2), -abs(y2)
+            if self._imgui:
+                self._imgui_backend.io.add_mouse_pos_event(event["x"], event["y"])
 
         def on_mouse_down(event):
-            if event["button"] == 1 or 1 in event["buttons"]:
+            if (event["button"] == 1 or 1 in event["buttons"]) and not (self._imgui and self._imgui_backend.io.want_capture_mouse):
                 ratio = self._uniform_data["resolution"][2]
                 x, y = event["x"] * ratio, self.resolution[1] - event["y"] * ratio
                 self._uniform_data["mouse"] = (x, y, abs(x), abs(y))
@@ -288,10 +263,17 @@ class Shadertoy:
                 x1, y1, x2, y2 = self._uniform_data["mouse"]
                 self._uniform_data["mouse"] = x1, y1, -abs(x2), -abs(y2)
 
+        def on_mouse(event):
+            event_type = event["event_type"]
+            down = event_type == "pointer_down"
+            if self._imgui:
+                self._imgui_backend.io.add_mouse_button_event(event["button"] - 1, down)
+
         self._canvas.add_event_handler(on_resize, "resize")
         self._canvas.add_event_handler(on_mouse_move, "pointer_move")
         self._canvas.add_event_handler(on_mouse_down, "pointer_down")
         self._canvas.add_event_handler(on_mouse_up, "pointer_up")
+        self._canvas.add_event_handler(on_mouse, "pointer_up", "pointer_down")
 
     def _update(self):
         now = time.perf_counter()
@@ -352,6 +334,14 @@ class Shadertoy:
             run_offscreen.run()
         else:
             loop.run()
+            if self._imgui:
+                for rp in self.renderpasses:
+                    for constant in rp._constants:
+                        # TODO: this check messes up due to precision sometimes!
+                        if constant.value != rp._constants_data[constant.name]:
+                            print(
+                                f"{rp} Constant {constant.shader_dtype} {constant.name}: {constant.value} -> {rp._constants_data[constant.name]}"
+                            )
 
     def snapshot(
         self,
