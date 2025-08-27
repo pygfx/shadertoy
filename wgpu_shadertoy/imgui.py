@@ -5,6 +5,7 @@ from .utils import UniformArray
 from wgpu.utils.imgui import ImguiWgpuBackend
 # from wgpu_shadertoy.passes import RenderPass #circular import-.-
 from dataclasses import dataclass
+from math import log
 
 
 # could imgui become just another RenderPass after Image? I got to understand backend vs renderer first.
@@ -175,13 +176,11 @@ def gui(renderpasses: list["RenderPass"]):
         if ig.collapsing_header("Common Constants", flags=ig.TreeNodeFlags_.default_open):
             for const in main._common_constants:
                 if const.shader_dtype == "float":
-                    _, main._common_constants_data[const.name] = ig.slider_float(f"{const.name}", main._common_constants_data[const.name], -const.value, const.value*2.0)
+                    _, main._common_constants_data[const.name] = ig.drag_float(f"{const.name}", main._common_constants_data[const.name], v_speed=abs(const.value)*0.01)
                 elif const.shader_dtype == "int":
-                    _, main._common_constants_data[const.name] = ig.slider_int(f"{const.name}", main._common_constants_data[const.name], -const.value, const.value*2)
+                    _, main._common_constants_data[const.name] = ig.drag_int(f"{const.name}", main._common_constants_data[const.name], v_speed=abs(const.value)*0.01)
                 if ig.is_item_hovered() and ig.is_mouse_clicked(ig.MouseButton_.right):
                     main._common_constants_data[const.name] = const.value
-                if ig.is_item_hovered():
-                    ig.set_tooltip("Right click to reset")
 
     for rp in renderpasses: # TODO: most likely add common here?
         constants = rp._constants
@@ -195,19 +194,16 @@ def gui(renderpasses: list["RenderPass"]):
                 # TODO: can we force a background? do we need to request additional view formats? -> ig.image_with_bg?
                 buf_img = ig.image(front_ref, (front_view.size[0]*scale, front_view.size[1]*scale), uv0=(0,1), uv1=(1,0))
 
-            # create the sliders?
+            # create the sliders? -> drag widget!
             for const in constants:
                 if const.shader_dtype == "float":
-                    _, constants_data[const.name] = ig.slider_float(f"{const.name}", constants_data[const.name], -const.value, const.value*2.0)
+                    _, constants_data[const.name] = ig.drag_float(f"{const.name}", constants_data[const.name], v_speed=abs(const.value)*0.01)
                 elif const.shader_dtype == "int":
-                    _, constants_data[const.name] = ig.slider_int(f"{const.name}", constants_data[const.name], -const.value, const.value*2)
-                    # TODO: improve min/max for negatives maybe infinite range with scaling?
-                # right click to reset?
+                    _, constants_data[const.name] = ig.drag_int(f"{const.name}", constants_data[const.name], v_speed=abs(const.value)*0.01)
                 if ig.is_item_hovered() and ig.is_mouse_clicked(ig.MouseButton_.right):
                     constants_data[const.name] = const.value
-                    # print(f"Reset {const.name} to {const.value} from {constants_data[const.name]}")
-                if ig.is_item_hovered():
-                    ig.set_tooltip("Right click to reset")
+                    
+    ig.text("Right sliders/drag to reset")
 
     # TODO: control the size of these headers to make the window as small as possible after they are collapsed!
     ig.end()
