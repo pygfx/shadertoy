@@ -2,6 +2,9 @@ import re
 from typing import List
 
 import wgpu
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .shadertoy import Shadertoy
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
 
@@ -68,7 +71,7 @@ class RenderPass:
         return self._shader_code
 
     @property
-    def main(self):  # -> "Shadertoy": #TODO: how can be get this type hint?
+    def main(self)  -> "Shadertoy":
         if self._main is not None:
             return self._main
         else:

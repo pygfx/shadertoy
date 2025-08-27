@@ -2,6 +2,9 @@ from typing import Tuple
 
 import numpy as np
 import wgpu
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .passes import RenderPass
 
 
 # https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values looks like VK_* match
@@ -240,7 +243,6 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.format = wgpu.TextureFormat.r8unorm #or r8sint?
-        self.data = np.zeros((3, 256), dtype=np.uint8)  # 3 rows, 256 keys and only one channel
         self.dynamic = True  # could be named "needs_update" to be more clear
         self.vflip = True #always true but we handle that manually, so don't really need the var!
 
@@ -253,7 +255,7 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
     # do we have to redo both parts?
     @property
-    def parent(self):
+    def parent(self) -> "RenderPass":
         """
         Parent renderpass of this channel.
         """
@@ -268,6 +270,19 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         self._parent.main._canvas.add_event_handler(self.on_key_down, "key_down")
         self._parent.main._canvas.add_event_handler(self.on_key_up, "key_up")
 
+
+    @property
+    def data(self):
+        """
+        Keyboard state is shared across all renderpasses that might use this input channel.
+        """
+        # TODO: maybe we should have some kind of _shared object for this and more
+        if not hasattr(self.parent.main, "_keyboard_state"):
+            self.parent.main._keyboard_state = np.zeros((3, 256), dtype=np.uint8)  # 3 rows, 256 keys and only one channel
+        return self.parent.main._keyboard_state
+
+
+    # TODO: make a register_events function?
     def on_key_down(self, event):
         try:
             key_code = KEY_MAP.get(event["key"]) or ord(event["key"].upper()) # we only want to evaluate ord() if there is no mapping!
@@ -288,10 +303,6 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             key_code = 0
         self.data[0, key_code] = 0 # up action only triggers the "state" row
         self.dynamic = True
-
-
-    # TODO: keymap or something to match events back into ascii numbers?
-    # https://jupyter-rfb.readthedocs.io/en/stable/events.html#keys
 
 
     # copied from ShadertoyChannelTexture, changed sizes (maybe it could be moved to the base class?)
