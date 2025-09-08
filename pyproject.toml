@@ -46,19 +46,23 @@ readme = {file = ["README.md"], "content-type" = "text/markdown"}
 
 [tool.ruff.lint]
 select = [
-    "E4",
-    "E5",
-    "E7",
-    "E9",
-    "F",   # Pyflakes (default)
-    "I",   # isort imports
-    "N",   # pep8-naming
-    "RUF", # ruff
+  "E4",
+  "E5",
+  "E7",
+  "E9",
+  "F",   # Pyflakes (default)
+  "I",   # isort imports
+  "N",   # pep8-naming
+  "RUF", # ruff
 ]
-extend-ignore = [
+ignore = [
   "E501",  # line too long
   "RUF005", # + inside concatenation messes with numpy
 ]
+exclude = [
+  "_version.py"
+]
+
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
