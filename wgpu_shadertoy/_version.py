@@ -90,9 +90,7 @@ def get_version_info_from_git() -> str:
         "--first-parent",
     ]
     try:
-        p = subprocess.run(
-            command, check=False, cwd=repo_dir, capture_output=True
-        )
+        p = subprocess.run(command, check=False, cwd=repo_dir, capture_output=True)
     except Exception as e:
         warning(f"Could not get {project_name} version: {e}")
         p = None
