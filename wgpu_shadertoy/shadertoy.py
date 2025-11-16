@@ -394,20 +394,3 @@ class Shadertoy:
 
         return frame
 
-
-if __name__ == "__main__":
-    shader = Shadertoy(
-        """
-    fn shader_main(frag_coord: vec2<f32>) -> vec4<f32> {
-        let uv = frag_coord / i_resolution.xy;
-
-        if ( length(frag_coord - i_mouse.xy) < 20.0 ) {
-            return vec4<f32>(textureSample(i_channel0, sampler0, uv));
-        }else{
-            return vec4<f32>( 0.5 + 0.5 * sin(i_time * vec3<f32>(uv, 1.0) ), 1.0);
-        }
-
-    }
-    """
-    )
-    shader.show()
