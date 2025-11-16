@@ -5,6 +5,7 @@ import time
 
 import wgpu
 from rendercanvas.auto import RenderCanvas, loop
+from rendercanvas.base import BaseRenderCanvas # for typing
 from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
 from rendercanvas.offscreen import loop as run_offscreen
 
@@ -113,7 +114,7 @@ class Shadertoy:
         buffers: list[BufferRenderPass] = [],
         title: str = "Shadertoy",
         complete: bool = True,
-        canvas=None,
+        canvas: BaseRenderCanvas | None = None,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -222,12 +223,13 @@ class Shadertoy:
         shader_data = shadertoy_from_id(id_or_url)
         return cls.from_json(shader_data, **kwargs)
 
-    def _prepare_canvas(self, canvas=None):
-        # TODO: refactor to accept a canvas class as a keyword argument
+    def _prepare_canvas(self, canvas: BaseRenderCanvas | None = None):
+        # should there be kwargs for the canvas creation? right now the user needs to provide a canvas instance themselves.
 
         if canvas:
             self._canvas = canvas
         elif self._offscreen:
+            # can we do offscreen to a GPU texture (without the CPU download?)
             self._canvas = OffscreenCanvas(
                 title=self.title,
                 size=self.resolution,
@@ -243,12 +245,13 @@ class Shadertoy:
                 update_mode="fastest",
                 vsync=True,
             )
+        self._present_context = self._canvas.get_wgpu_context()
         psize = self._canvas.get_physical_size()
         # in case of display scaling, we need to overwrite these values, which we only know after the canvas is created
         self._uniform_data["resolution"] = tuple(
+            # iResolution.z seems to be hardcodede to 1.0 in shadertoy, apart from some channels?
             [float(psize[0]), float(psize[1]), self._canvas.get_pixel_ratio()]
         )
-        self._present_context = self._canvas.get_context("wgpu")
 
         # We use non srgb variants, because we want to let the shader fully control the color-space.
         # Defaults usually return the srgb variant, but a non srgb option is usually available
@@ -358,7 +361,7 @@ class Shadertoy:
         time_float: float = 0.0,
         time_delta: float = 0.167,
         frame: int = 0,
-        framerate: int = 60.0,
+        framerate: float = 60.0,
         mouse_pos: tuple = (0.0, 0.0, 0.0, 0.0),
         date: tuple = (0.0, 0.0, 0.0, 0.0),
     ) -> memoryview:
