@@ -185,22 +185,23 @@ class RenderPass:
         prepares the render pipeline and bind groups. Might be called every single frame.
         """
         bind_groups_layout_entries = [
-            {
-                "binding": 0,
-                "resource": {
-                    "buffer": self._uniform_buffer,
-                    "offset": 0,
-                    "size": self.main._uniform_data.nbytes,
-                },
-            },
+            wgpu.BindGroupEntry(
+                binding=0,
+                # currently requires a GPUBufferBinding, technically a GPUBuffer should also work (according to .idl and .structs)
+                resource=wgpu.BufferBinding(
+                    buffer=self._uniform_buffer,
+                    offset=0,
+                    size=self.main._uniform_data.nbytes,
+                ),
+            ),
         ]
 
         binding_layout = [
-            {
-                "binding": 0,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "buffer": {"type": wgpu.BufferBindingType.uniform},
-            },
+            wgpu.BindGroupLayoutEntry(
+                binding=0,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                buffer=wgpu.BufferBindingLayout(type=wgpu.BufferBindingType.uniform),
+            ),
         ]
 
         # setup bind groups for the channels
@@ -217,40 +218,35 @@ class RenderPass:
         # this uniform data should be per renderpass
         self._channel_res = tuple(channel_res)
         bind_group_layout = self._device.create_bind_group_layout(
-            entries=binding_layout
+            label=f"bind_group_layout {self}", entries=binding_layout
         )
 
         self._bind_group = self._device.create_bind_group(
+            label=f"bind_group {self}",
             layout=bind_group_layout,
             entries=bind_groups_layout_entries,
         )
 
         self._render_pipeline = self._device.create_render_pipeline(
             label=f"render_pipeline {self}",
+            # TODO: try auto layout
             layout=self._device.create_pipeline_layout(
                 bind_group_layouts=[bind_group_layout]
             ),
-            vertex={
-                "module": self._vertex_shader_module,
-                "entry_point": "main",
-                "buffers": [],
-            },
-            primitive={
-                "topology": wgpu.PrimitiveTopology.triangle_list,
-                "front_face": wgpu.FrontFace.ccw,
-                "cull_mode": wgpu.CullMode.none,
-            },
-            depth_stencil=None,
-            multisample=None,
-            fragment={
-                "module": self._frag_shader_module,
-                "entry_point": "main",
-                "targets": [
-                    {
-                        "format": self.format,
-                    },
+            vertex=wgpu.VertexState(
+                module=self._vertex_shader_module,
+                entry_point="main",
+            ),
+            # can skip struct with default values
+            fragment=wgpu.FragmentState(
+                module=self._frag_shader_module,
+                entry_point="main",
+                targets=[
+                    wgpu.ColorTargetState(
+                        format=self.format,
+                    )
                 ],
-            },
+            ),
         )
 
     def draw(self) -> wgpu.GPUCommandBuffer:
@@ -278,15 +274,13 @@ class RenderPass:
         render_pass: wgpu.GPURenderPassEncoder = command_encoder.begin_render_pass(
             label=f"renderpass {self}",  # for frame {self.main._uniform_data['frame']} # TODO: check if this is available.
             color_attachments=[
-                {
-                    "view": current_texture.create_view(
+                wgpu.RenderPassColorAttachment(
+                    view=current_texture.create_view(
                         usage=wgpu.TextureUsage.RENDER_ATTACHMENT
                     ),
-                    "resolve_target": None,
-                    "clear_value": (0, 0, 0, 1),
-                    "load_op": wgpu.LoadOp.clear,
-                    "store_op": wgpu.StoreOp.store,
-                }
+                    load_op=wgpu.LoadOp.clear,
+                    store_op=wgpu.StoreOp.store,
+                )
             ],
         )
         self._setup_renderpipeline()
@@ -537,34 +531,22 @@ class BufferRenderPass(RenderPass):
         # copy the front texture to the new one
         copy_encoder = self._device.create_command_encoder()
         copy_encoder.copy_texture_to_texture(
-            source={
-                "texture": self.texture_front,
-                "mip_level": 0,
-                "origin": (0, 0, 0),
-                "aspect": wgpu.TextureAspect.all,
-            },
-            destination={
-                "texture": new_front,
-                "mip_level": 0,
-                "origin": (0, 0, 0),
-                "aspect": wgpu.TextureAspect.all,
-            },
+            source=wgpu.TexelCopyTextureInfo(
+                texture=self.texture_front,
+            ),
+            destination=wgpu.TexelCopyTextureInfo(
+                texture=new_front,
+            ),
             copy_size=(min(old_x, new_x), min(old_y, new_y), 1),
         )
         # the copy size can't be outside the bounds of the new texture, simply use the smaller value
         copy_encoder.copy_texture_to_texture(
-            source={
-                "texture": self.texture_back,
-                "mip_level": 0,
-                "origin": (0, 0, 0),
-                "aspect": wgpu.TextureAspect.all,
-            },
-            destination={
-                "texture": new_back,
-                "mip_level": 0,
-                "origin": (0, 0, 0),
-                "aspect": wgpu.TextureAspect.all,
-            },
+            source=wgpu.TexelCopyTextureInfo(
+                texture=self.texture_back,
+            ),
+            destination=wgpu.TexelCopyTextureInfo(
+                texture=new_back,
+            ),
             copy_size=(min(old_x, new_x), min(old_y, new_y), 1),
         )
         copy_encoder_buffer = copy_encoder.finish()

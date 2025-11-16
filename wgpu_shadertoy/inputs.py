@@ -14,7 +14,7 @@ class ShadertoyChannel:
         wrap (str): The wrap mode, can be one of ("clamp-to-edge", "repeat", "clamp"). Default is "clamp-to-edge".
     """
 
-    def __init__(self, *args, ctype=None, channel_idx=None, **kwargs):
+    def __init__(self, *args, ctype:str|None=None, channel_idx: int | None = None, **kwargs):
         self.ctype = ctype
         if channel_idx is None:
             channel_idx = kwargs.pop("channel_idx", None)
@@ -69,7 +69,7 @@ class ShadertoyChannel:
         return self._channel_idx
 
     @channel_idx.setter
-    def channel_idx(self, idx=int):
+    def channel_idx(self, idx: int):
         if idx not in (0, 1, 2, 3):
             raise ValueError("Channel index must be in [0,1,2,3]")
         self._channel_idx = idx
@@ -113,34 +113,31 @@ class ShadertoyChannel:
             raise NotImplementedError(f"Doesn't support {self.ctype=} yet")
 
     # TODO: can this be avoided?
-    def _binding_layout(self):
+    def _binding_layout(self) -> list[wgpu.BindGroupLayoutEntry]:
         return [
-            {
-                "binding": self.texture_binding,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "texture": {
-                    "sample_type": wgpu.TextureSampleType.float,
-                    "view_dimension": wgpu.TextureViewDimension.d2,
-                },
-            },
-            {
-                "binding": self.sampler_binding,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.filtering},
-            },
+            wgpu.BindGroupLayoutEntry(
+                binding=self.texture_binding,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                texture=wgpu.TextureBindingLayout(),
+            ),
+            wgpu.BindGroupLayoutEntry(
+                binding=self.sampler_binding,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                sampler=wgpu.SamplerBindingLayout(),
+            ),
         ]
 
-    def _bind_groups_layout_entries(self, texture_view, sampler) -> list:
+    def _bind_group_entries(self, texture_view, sampler) -> list[wgpu.BindGroupEntry]:
         # TODO maybe refactor this all into a prepare bindings method?
         return [
-            {
-                "binding": self.texture_binding,
-                "resource": texture_view,
-            },
-            {
-                "binding": self.sampler_binding,
-                "resource": sampler,
-            },
+            wgpu.BindGroupEntry(
+                binding=self.texture_binding,
+                resource=texture_view,
+            ),
+            wgpu.BindGroupEntry(
+                binding=self.sampler_binding,
+                resource=sampler,
+            ),
         ]
 
     def make_header(self, shader_type: str) -> str:
@@ -245,10 +242,10 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         texture: wgpu.GPUTexture = self.renderpass.texture_front
         texture_view = texture.create_view(usage=wgpu.TextureUsage.TEXTURE_BINDING)
         sampler = device.create_sampler(**self.sampler_settings)
-        bind_groups_layout_entry = self._bind_groups_layout_entries(
+        bind_group_entries = self._bind_group_entries(
             texture_view, sampler
         )
-        return binding_layout, bind_groups_layout_entry
+        return binding_layout, bind_group_entries
 
 
 class ShadertoyChannelCubemapA(ShadertoyChannel):
@@ -316,25 +313,24 @@ class ShadertoyChannelTexture(ShadertoyChannel):
 
         texture_view = texture.create_view()
         device.queue.write_texture(
-            destination={
-                "texture": texture,
-            },
+            destination=wgpu.TexelCopyTextureInfo(
+                texture=texture,
+            ),
             data=self.data,
-            data_layout={
-                "bytes_per_row": self.data.strides[0],  # multiple of 256
-                "rows_per_image": self.size[0],
-            },
+            data_layout=wgpu.TexelCopyBufferLayout(
+                bytes_per_row=self.data.strides[0],  # multiple of 256
+                rows_per_image=self.size[0],
+            ),
             size=texture.size,
         )
 
         sampler = device.create_sampler(**self.sampler_settings)
 
-        bind_groups_layout_entry = self._bind_groups_layout_entries(
+        bind_group_entries = self._bind_group_entries(
             texture_view, sampler
         )
 
-        return binding_layout, bind_groups_layout_entry
-
+        return binding_layout, bind_group_entries
 
 class ShadertoyChannelCubemap(ShadertoyChannel):
     pass
