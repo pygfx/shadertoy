@@ -140,6 +140,7 @@ class RenderPass:
             elif inp is None and inp_idx in detected_channels:
                 # this is the base case where we sample the black texture.
                 channel = ShadertoyChannelTexture(channel_idx=inp_idx)
+                # FIXME: breaks glsl_inercia example on auto layout due to a commented out channel that isn't used.
             else:
                 # do we even get here?
                 channel = None
@@ -196,7 +197,6 @@ class RenderPass:
             ),
         ]
 
-        
         # setup bind groups for the channels
         channel_res = []
         for channel in self.channels:
@@ -209,7 +209,6 @@ class RenderPass:
 
         # this uniform data should be per renderpass
         self._channel_res = tuple(channel_res)
-        
 
         self._render_pipeline = self._device.create_render_pipeline(
             label=f"render_pipeline {self}",

@@ -14,7 +14,9 @@ class ShadertoyChannel:
         wrap (str): The wrap mode, can be one of ("clamp-to-edge", "repeat", "clamp"). Default is "clamp-to-edge".
     """
 
-    def __init__(self, *args, ctype:str|None=None, channel_idx: int | None = None, **kwargs):
+    def __init__(
+        self, *args, ctype: str | None = None, channel_idx: int | None = None, **kwargs
+    ):
         self.ctype = ctype
         if channel_idx is None:
             channel_idx = kwargs.pop("channel_idx", None)
@@ -111,7 +113,7 @@ class ShadertoyChannel:
             return ShadertoyChannelBuffer(*args, **kwargs)
         else:
             raise NotImplementedError(f"Doesn't support {self.ctype=} yet")
-        
+
     def bind_texture(self, device: wgpu.GPUDevice) -> list[wgpu.BindGroupEntry]:
         """
         returns a list of binding_group_entries
@@ -233,9 +235,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         texture: wgpu.GPUTexture = self.renderpass.texture_front
         texture_view = texture.create_view(usage=wgpu.TextureUsage.TEXTURE_BINDING)
         sampler = device.create_sampler(**self.sampler_settings)
-        bind_group_entries = self._bind_group_entries(
-            texture_view, sampler
-        )
+        bind_group_entries = self._bind_group_entries(texture_view, sampler)
         return bind_group_entries
 
 
@@ -315,11 +315,10 @@ class ShadertoyChannelTexture(ShadertoyChannel):
 
         sampler = device.create_sampler(**self.sampler_settings)
 
-        bind_group_entries = self._bind_group_entries(
-            texture_view, sampler
-        )
+        bind_group_entries = self._bind_group_entries(texture_view, sampler)
 
         return bind_group_entries
+
 
 class ShadertoyChannelCubemap(ShadertoyChannel):
     pass

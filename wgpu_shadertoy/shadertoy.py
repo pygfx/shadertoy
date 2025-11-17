@@ -5,7 +5,7 @@ import time
 
 import wgpu
 from rendercanvas.auto import RenderCanvas, loop
-from rendercanvas.base import BaseRenderCanvas # for typing
+from rendercanvas.base import BaseRenderCanvas  # for typing
 from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
 from rendercanvas.offscreen import loop as run_offscreen
 
@@ -160,7 +160,9 @@ class Shadertoy:
             if device.features.intersection(device_features) == device_features:
                 self._device = device
             else:
-                raise ValueError(f"Provided device does not support required features: {device_features}.")
+                raise ValueError(
+                    f"Provided device does not support required features: {device_features}."
+                )
         else:
             self._device = self._request_device(device_features)
 
@@ -401,4 +403,3 @@ class Shadertoy:
         frame = self._canvas.draw()
 
         return frame
-
