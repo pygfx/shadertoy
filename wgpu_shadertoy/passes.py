@@ -184,7 +184,7 @@ class RenderPass:
         """
         prepares the render pipeline and bind groups. Might be called every single frame.
         """
-        bind_groups_layout_entries = [
+        bind_group_entries = [
             wgpu.BindGroupEntry(
                 binding=0,
                 # currently requires a GPUBufferBinding, technically a GPUBuffer should also work (according to .idl and .structs)
@@ -196,43 +196,24 @@ class RenderPass:
             ),
         ]
 
-        binding_layout = [
-            wgpu.BindGroupLayoutEntry(
-                binding=0,
-                visibility=wgpu.ShaderStage.FRAGMENT,
-                buffer=wgpu.BufferBindingLayout(type=wgpu.BufferBindingType.uniform),
-            ),
-        ]
-
+        
         # setup bind groups for the channels
         channel_res = []
         for channel in self.channels:
             if channel is None:
                 channel_res.extend([0, 0, 1, -99])  # default values; quick hack
                 continue
-            layout, layout_entry = channel.bind_texture(device=self._device)
-            binding_layout.extend(layout)
-            bind_groups_layout_entries.extend(layout_entry)
+            channel_bind_group_entries = channel.bind_texture(device=self._device)
+            bind_group_entries.extend(channel_bind_group_entries)
             channel_res.extend(channel.channel_res)
 
         # this uniform data should be per renderpass
         self._channel_res = tuple(channel_res)
-        bind_group_layout = self._device.create_bind_group_layout(
-            label=f"bind_group_layout {self}", entries=binding_layout
-        )
-
-        self._bind_group = self._device.create_bind_group(
-            label=f"bind_group {self}",
-            layout=bind_group_layout,
-            entries=bind_groups_layout_entries,
-        )
+        
 
         self._render_pipeline = self._device.create_render_pipeline(
             label=f"render_pipeline {self}",
-            # TODO: try auto layout
-            layout=self._device.create_pipeline_layout(
-                bind_group_layouts=[bind_group_layout]
-            ),
+            layout="auto",
             vertex=wgpu.VertexState(
                 module=self._vertex_shader_module,
                 entry_point="main",
@@ -247,6 +228,14 @@ class RenderPass:
                     )
                 ],
             ),
+        )
+
+        bind_group_layout = self._render_pipeline.get_bind_group_layout(0)
+
+        self._bind_group = self._device.create_bind_group(
+            label=f"bind_group {self}",
+            layout=bind_group_layout,
+            entries=bind_group_entries,
         )
 
     def draw(self) -> wgpu.GPUCommandBuffer:
