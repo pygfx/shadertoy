@@ -19,9 +19,9 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python 3.12
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
     - name: Install dev dependencies
@@ -42,9 +42,9 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python 3.12
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
     - name: Install llvmpipe and lavapipe for offscreen canvas
@@ -90,9 +90,9 @@ jobs:
             os: ubuntu-latest
             pyversion: 'pypy3.11'
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.pyversion }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.pyversion }}
     - name: Install llvmpipe and lavapipe for offscreen canvas
@@ -114,9 +114,9 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
       - name: Install dev dependencies
@@ -134,7 +134,7 @@ jobs:
         run: |
           twine check dist/*
       - name: Upload distributions
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           path: dist
           name: dist
@@ -151,9 +151,9 @@ jobs:
       # needed for pypi publishing without password!
       id-token: write
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Download assets
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: dist
         path: dist
