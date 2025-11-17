@@ -78,6 +78,7 @@ class Shadertoy:
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
         canvas (RenderCanvas): Optionally provide the canvas the image pass will render too. Defaults to None (means auto?)
+        device (wgpu.GPUDevice): Optionally provide the device to use. Defaults to None (means auto).
 
     The shader code must contain a entry point function:
 
@@ -115,6 +116,7 @@ class Shadertoy:
         title: str = "Shadertoy",
         complete: bool = True,
         canvas: BaseRenderCanvas | None = None,
+        device: wgpu.GPUDevice | None = None,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -151,10 +153,16 @@ class Shadertoy:
 
         self.title += " $fps FPS"
 
-        device_features = []
+        device_features = set()
         if buffers:
-            device_features.append(wgpu.FeatureName.float32_filterable)
-        self._device = self._request_device(device_features)
+            device_features.add(wgpu.FeatureName.float32_filterable)
+        if device:
+            if device.features.intersection(device_features) == device_features:
+                self._device = device
+            else:
+                raise ValueError(f"Provided device does not support required features: {device_features}.")
+        else:
+            self._device = self._request_device(device_features)
 
         self._prepare_canvas(canvas=canvas)
         self._bind_events()
