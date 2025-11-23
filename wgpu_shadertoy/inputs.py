@@ -178,7 +178,7 @@ class ShadertoyChannel:
             data_repr = None
         class_repr = {k: v for k, v in self.__dict__.items() if k != "data"}
         class_repr["data"] = data_repr
-        class_repr["class"] = self.__class__
+        class_repr["class"] = self.__class__  # maybe move this to the front?
         return repr(class_repr)
 
 
@@ -260,21 +260,16 @@ class ShadertoyChannelTexture(ShadertoyChannel):
         if data is not None:
             self.data = np.ascontiguousarray(data)
         else:
-            self.data = np.zeros((8, 8, 4), dtype=np.uint8)
+            self.data = np.zeros((8, 8, 1), dtype=np.uint8)
 
         # if channel dimension is missing, it's a greyscale texture
         if len(self.data.shape) == 2:
             self.data = np.reshape(self.data, self.data.shape + (1,))
-        # greyscale textures become just red while green and blue remain 0s
+
         if self.data.shape[2] == 1:
-            self.data = np.stack(
-                [
-                    self.data[:, :, 0],
-                    np.zeros_like(self.data[:, :, 0]),
-                    np.zeros_like(self.data[:, :, 0]),
-                ],
-                axis=-1,
-            )
+            self.format = wgpu.TextureFormat.r8unorm
+        else:
+            self.format = wgpu.TextureFormat.rgba8unorm
         # if alpha channel is not given, it's filled with max value (255)
         if self.data.shape[2] == 3:
             self.data = np.concatenate(
@@ -296,7 +291,7 @@ class ShadertoyChannelTexture(ShadertoyChannel):
         """
         texture = device.create_texture(
             size=self.texture_size,
-            format=wgpu.TextureFormat.rgba8unorm,
+            format=self.format,
             usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
         )
 

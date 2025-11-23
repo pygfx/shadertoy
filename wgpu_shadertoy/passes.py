@@ -449,7 +449,7 @@ class BufferRenderPass(RenderPass):
     @property
     def texture_front(self) -> wgpu.GPUTexture:
         """
-        Front texture is the result from last frame, to sampled as a texture.
+        Front texture is the result from last frame, to be sampled as a texture.
         """
         if self._texture_front is None:
             self._texture_front = self._init_texture("front ")
