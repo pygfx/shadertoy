@@ -1,9 +1,11 @@
+from typing import TYPE_CHECKING
+
 import numpy as np
 import wgpu
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from passes import RenderPass, BufferRenderPass
+    from passes import BufferRenderPass, RenderPass
+
 
 class ShadertoyChannel:
     """
@@ -116,7 +118,9 @@ class ShadertoyChannel:
         else:
             raise NotImplementedError(f"Doesn't support {self.ctype=} yet")
 
-    def bind_texture(self, device: wgpu.GPUDevice) -> list[wgpu.BindGroupEntry]:
+    def bind_texture(
+        self, device: wgpu.GPUDevice
+    ) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
         """
         returns a list of binding_group_entries
         """
@@ -244,7 +248,9 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
             self._renderpass = self.parent.main.buffers[self.buffer_idx]
         return self._renderpass
 
-    def bind_texture(self, device: wgpu.GPUDevice) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
+    def bind_texture(
+        self, device: wgpu.GPUDevice
+    ) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
         """
         returns a tuple of binding_layout and binding_groups_layout_entries
         takes the texture form `front` the buffer renderpass (last frame)
@@ -253,9 +259,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         texture: wgpu.GPUTexture = self.renderpass.texture_front
         texture_view = texture.create_view(usage=wgpu.TextureUsage.TEXTURE_BINDING)
         sampler = device.create_sampler(**self.sampler_settings)
-        bind_group_entries = self._bind_group_entries(
-            texture_view, sampler
-        )
+        bind_group_entries = self._bind_group_entries(texture_view, sampler)
         return binding_layout, bind_group_entries
 
 
@@ -305,7 +309,9 @@ class ShadertoyChannelTexture(ShadertoyChannel):
             vflip = True
             self.data = np.ascontiguousarray(self.data[::-1, :, :])
 
-    def bind_texture(self, device: wgpu.GPUDevice) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
+    def bind_texture(
+        self, device: wgpu.GPUDevice
+    ) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
         """
         prepares the texture and sampler. Returns it's bind goup layout entries and bind group entries.
         """
