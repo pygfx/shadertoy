@@ -266,10 +266,10 @@ class Shadertoy:
         # We use non srgb variants, because we want to let the shader fully control the color-space.
         # Defaults usually return the srgb variant, but a non srgb option is usually available
         # comparable: https://docs.rs/wgpu/latest/wgpu/enum.TextureFormat.html#method.remove_srgb_suffix
-        self._format = self._present_context.get_preferred_format(
+        preferred_format = self._present_context.get_preferred_format(
             adapter=self._device.adapter
-        ).removesuffix("-srgb")
-
+        )
+        self._format = wgpu.TextureFormat[preferred_format.removesuffix("-srgb")]
         self._present_context.configure(device=self._device, format=self._format)
 
     def _bind_events(self):
@@ -400,6 +400,6 @@ class Shadertoy:
         self._uniform_data["mouse"] = mouse_pos
         self._uniform_data["date"] = date
         self._canvas.request_draw(self._draw_frame)
-        frame = self._canvas.draw()
+        frame_mem = self._canvas.draw()
 
-        return frame
+        return frame_mem

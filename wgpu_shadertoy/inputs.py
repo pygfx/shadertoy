@@ -1,8 +1,9 @@
-from typing import Tuple
-
 import numpy as np
 import wgpu
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from passes import RenderPass, BufferRenderPass
 
 class ShadertoyChannel:
     """
@@ -27,11 +28,12 @@ class ShadertoyChannel:
         self._parent = kwargs.get("parent", None)
 
     @property
-    def sampler_settings(self) -> dict:
+    def sampler_settings(self) -> wgpu.SamplerDescriptor:
         """
-        Sampler settings for this channel. Wrap currently supported. Filter not yet.
+        Sampler settings for this channel. Wrap currently supported.
         """
         settings = {}
+        settings["label"] = f"sampler for {self}"
         wrap = self.kwargs.get("wrap", "clamp-to-edge")
         # "warp", "clamp" or "repeat" is what we should expect on Shadertoy
         if wrap.startswith("clamp"):
@@ -49,10 +51,10 @@ class ShadertoyChannel:
         # both min and mag will use the same filter.
         settings["mag_filter"] = filter
         settings["min_filter"] = filter
-        return settings
+        return wgpu.SamplerDescriptor(**settings)
 
     @property
-    def parent(self):
+    def parent(self) -> "RenderPass":
         """
         Parent renderpass of this channel.
         """
@@ -85,14 +87,14 @@ class ShadertoyChannel:
         return 2 * (self.channel_idx + 1)
 
     @property
-    def channel_res(self) -> Tuple[int, int, int, int]:
+    def channel_res(self) -> tuple[int, int, int, int]:
         """
         Tuple of (width, height, pixel_aspect=1, padding=-99)
         """
         return (self.size[1], self.size[0], 1, -99)
 
     @property
-    def size(self) -> Tuple:  # what shape tho?
+    def size(self) -> tuple:  # what shape tho?
         """
         Size of the texture.
         """
@@ -237,12 +239,12 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         return self.renderpass.texture_front.size
 
     @property
-    def renderpass(self):  # -> BufferRenderPass:
+    def renderpass(self) -> "BufferRenderPass":
         if self._renderpass is None:
             self._renderpass = self.parent.main.buffers[self.buffer_idx]
         return self._renderpass
 
-    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+    def bind_texture(self, device: wgpu.GPUDevice) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
         """
         returns a tuple of binding_layout and binding_groups_layout_entries
         takes the texture form `front` the buffer renderpass (last frame)
@@ -303,9 +305,9 @@ class ShadertoyChannelTexture(ShadertoyChannel):
             vflip = True
             self.data = np.ascontiguousarray(self.data[::-1, :, :])
 
-    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+    def bind_texture(self, device: wgpu.GPUDevice) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
         """
-        prepares the texture and sampler. Returns it's binding layouts and bindgroup layout entries
+        prepares the texture and sampler. Returns it's bind goup layout entries and bind group entries.
         """
 
         binding_layout = self._binding_layout()

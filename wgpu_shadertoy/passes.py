@@ -1,6 +1,7 @@
 import re
-from typing import List
-
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .shadertoy import Shadertoy
 import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
@@ -68,7 +69,7 @@ class RenderPass:
         return self._shader_code
 
     @property
-    def main(self):  # -> "Shadertoy": #TODO: how can be get this type hint?
+    def main(self) -> "Shadertoy": #TODO: how can be get this type hint?
         if self._main is not None:
             return self._main
         else:
@@ -103,7 +104,7 @@ class RenderPass:
                 )
         return self._shader_type
 
-    def _attach_inputs(self, inputs: list) -> List[ShadertoyChannel]:
+    def _attach_inputs(self, inputs: list) -> list[ShadertoyChannel]:
         """
         Attach up to four input (channels) to a RenderPass.
         Handles cases where input is detected but not provided by falling back a 8x8 black texture.
