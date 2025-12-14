@@ -75,6 +75,7 @@ def _download_media_channels(
                     media_url + inp["src"], headers=HEADERS, stream=True
                 )
                 if response.status_code != 200:
+                    # Maybe provide a placeholder texture (with a red "X") as a fallback?
                     raise requests.exceptions.HTTPError(
                         f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
                     )
