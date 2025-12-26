@@ -49,7 +49,11 @@ class RenderPass:
     """
 
     def __init__(
-        self, code: str, main: "Shadertoy|None" = None, shader_type: str = "glsl", inputs: list[ShadertoyChannel] = []
+        self,
+        code: str,
+        main: "Shadertoy|None" = None,
+        shader_type: str = "glsl",
+        inputs: list[ShadertoyChannel] = [],
     ):
         self._shader_code = code
         self._main = main
@@ -211,7 +215,9 @@ class RenderPass:
         channel_res = []
         for channel in self.channels:
             if channel is None:
-                channel_res.extend([0, 0, 1, -99])  # default values; quick hack... this is actually a vec3 so the padding might be messed up!
+                channel_res.extend(
+                    [0, 0, 1, -99]
+                )  # default values; quick hack... this is actually a vec3 so the padding might be messed up!
                 continue
             layout, layout_entry = channel.bind_texture(device=self._device)
             binding_layout.extend(layout)
