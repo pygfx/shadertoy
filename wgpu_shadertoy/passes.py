@@ -89,6 +89,7 @@ class RenderPass:
         """
         self._main = main_cls
 
+    # perhaps this doesn't need to have an underscore?
     @property
     def _device(self) -> wgpu.GPUDevice:
         return self.main._device
@@ -146,7 +147,6 @@ class RenderPass:
             elif inp is None and inp_idx in detected_channels:
                 # this is the base case where we sample the black texture.
                 channel = ShadertoyChannelTexture(channel_idx=inp_idx)
-                # FIXME: breaks glsl_inercia example on auto layout due to a commented out channel that isn't used.
             else:
                 # do we even get here?
                 channel = None
