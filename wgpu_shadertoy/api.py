@@ -74,13 +74,21 @@ def _download_media_channels(
                 response = requests.get(
                     media_url + inp["src"], headers=HEADERS, stream=True
                 )
-                if response.status_code != 200:
-                    raise requests.exceptions.HTTPError(
-                        f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+                if response.status_code == 200:
+                    img = Image.open(response.raw)
+                    if use_cache:
+                        img.save(cache_path)
+                else:
+                    # provide a placeholder texture (with a red "X") as a fallback
+                    img = Image.frombytes(
+                        "L", (3, 3), bytes([127, 0, 127, 0, 255, 0, 127, 0, 127])
                     )
-                img = Image.open(response.raw)
-                if use_cache:
-                    img.save(cache_path)
+                    # in the future we might want to raise this again, but the API is unavailable and media is inaccessible for scripts right now.
+                    # raise requests.exceptions.HTTPError(
+                    #     f"Failed to load media {media_url + inp['src']} with status code {response.status_code}"
+                    # )
+                    complete = False  # this also marks that a fallback is used.
+
             args = {"data": img}
         elif inp["ctype"] == "buffer":
             args = {

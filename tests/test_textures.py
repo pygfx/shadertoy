@@ -22,12 +22,13 @@ def test_textures_wgsl():
     test_pattern = memoryview(
         bytearray((int(i != k) * 255 for i in range(8) for k in range(8))) * 4
     ).cast("B", shape=[8, 8, 4])
-    gradient = memoryview(
-        bytearray((i for i in range(0, 255, 8) for _ in range(4))) * 32
-    ).cast("B", shape=[32, 32, 4])
+    gradient = memoryview(bytearray((i for i in range(0, 255, 8))) * 32).cast(
+        "B", shape=[32, 32, 1]
+    )
 
     # test both construction methods and different sampler settings
     channel0 = ShadertoyChannelTexture(test_pattern, wrap="repeat", vflip=False)
+    # also tests the monochrome variant of texture
     channel1 = ShadertoyChannel(gradient, ctype="texture")
 
     shader = Shadertoy(
@@ -67,9 +68,9 @@ def test_textures_glsl():
     test_pattern = memoryview(
         bytearray((int(i != k) * 255 for i in range(8) for k in range(8))) * 4
     ).cast("B", shape=[8, 8, 4])
-    gradient = memoryview(
-        bytearray((i for i in range(0, 255, 8) for _ in range(4))) * 32
-    ).cast("B", shape=[32, 32, 4])
+    gradient = memoryview(bytearray((i for i in range(0, 255, 8))) * 32).cast(
+        "B", shape=[32, 32, 1]
+    )  # doesn't test the empty channel dimension case
 
     # test both construction methods and different sampler settings
     channel0 = ShadertoyChannelTexture(test_pattern, wrap="repeat", vflip="false")

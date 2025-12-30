@@ -19,6 +19,9 @@ Possible sections in each release:
 Fixed:
 * Behaviour with GUI scaling https://github.com/pygfx/shadertoy/pull/51
 
+Changed:
+* Updated main dependencies, plenty of typing improvements https://github.com/pygfx/shadertoy/pull/58
+
 
 ### [v0.2.0] - 2025-06-06
 

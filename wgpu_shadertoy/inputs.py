@@ -1,7 +1,10 @@
-from typing import Tuple
+from typing import TYPE_CHECKING
 
 import numpy as np
 import wgpu
+
+if TYPE_CHECKING:
+    from passes import BufferRenderPass, RenderPass
 
 
 class ShadertoyChannel:
@@ -14,7 +17,9 @@ class ShadertoyChannel:
         wrap (str): The wrap mode, can be one of ("clamp-to-edge", "repeat", "clamp"). Default is "clamp-to-edge".
     """
 
-    def __init__(self, *args, ctype=None, channel_idx=None, **kwargs):
+    def __init__(
+        self, *args, ctype: str | None = None, channel_idx: int | None = None, **kwargs
+    ):
         self.ctype = ctype
         if channel_idx is None:
             channel_idx = kwargs.pop("channel_idx", None)
@@ -25,11 +30,12 @@ class ShadertoyChannel:
         self._parent = kwargs.get("parent", None)
 
     @property
-    def sampler_settings(self) -> dict:
+    def sampler_settings(self) -> wgpu.SamplerDescriptor:
         """
-        Sampler settings for this channel. Wrap currently supported. Filter not yet.
+        Sampler settings for this channel. Wrap currently supported.
         """
         settings = {}
+        settings["label"] = f"sampler for {self}"
         wrap = self.kwargs.get("wrap", "clamp-to-edge")
         # "warp", "clamp" or "repeat" is what we should expect on Shadertoy
         if wrap.startswith("clamp"):
@@ -47,10 +53,10 @@ class ShadertoyChannel:
         # both min and mag will use the same filter.
         settings["mag_filter"] = filter
         settings["min_filter"] = filter
-        return settings
+        return wgpu.SamplerDescriptor(**settings)
 
     @property
-    def parent(self):
+    def parent(self) -> "RenderPass":
         """
         Parent renderpass of this channel.
         """
@@ -69,7 +75,7 @@ class ShadertoyChannel:
         return self._channel_idx
 
     @channel_idx.setter
-    def channel_idx(self, idx=int):
+    def channel_idx(self, idx: int):
         if idx not in (0, 1, 2, 3):
             raise ValueError("Channel index must be in [0,1,2,3]")
         self._channel_idx = idx
@@ -83,14 +89,14 @@ class ShadertoyChannel:
         return 2 * (self.channel_idx + 1)
 
     @property
-    def channel_res(self) -> Tuple[int, int, int, int]:
+    def channel_res(self) -> tuple[int, int, int, int]:
         """
         Tuple of (width, height, pixel_aspect=1, padding=-99)
         """
         return (self.size[1], self.size[0], 1, -99)
 
     @property
-    def size(self) -> Tuple:  # what shape tho?
+    def size(self) -> tuple:  # what shape tho?
         """
         Size of the texture.
         """
@@ -112,35 +118,41 @@ class ShadertoyChannel:
         else:
             raise NotImplementedError(f"Doesn't support {self.ctype=} yet")
 
-    # TODO: can this be avoided?
-    def _binding_layout(self):
+    def bind_texture(
+        self, device: wgpu.GPUDevice
+    ) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
+        """
+        returns a list of binding_group_entries
+        """
+        # TODO: can we just overload this in the Buffer case and reuse the texture variant for most inputs?
+        raise NotImplementedError("bind_texture must be implemented in subclass")
+
+    # TODO: can this be avoided? maybe, but not currently
+    def _binding_layout(self) -> list[wgpu.BindGroupLayoutEntry]:
         return [
-            {
-                "binding": self.texture_binding,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "texture": {
-                    "sample_type": wgpu.TextureSampleType.float,
-                    "view_dimension": wgpu.TextureViewDimension.d2,
-                },
-            },
-            {
-                "binding": self.sampler_binding,
-                "visibility": wgpu.ShaderStage.FRAGMENT,
-                "sampler": {"type": wgpu.SamplerBindingType.filtering},
-            },
+            wgpu.BindGroupLayoutEntry(
+                binding=self.texture_binding,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                texture=wgpu.TextureBindingLayout(),
+            ),
+            wgpu.BindGroupLayoutEntry(
+                binding=self.sampler_binding,
+                visibility=wgpu.ShaderStage.FRAGMENT,
+                sampler=wgpu.SamplerBindingLayout(),
+            ),
         ]
 
-    def _bind_groups_layout_entries(self, texture_view, sampler) -> list:
+    def _bind_group_entries(self, texture_view, sampler) -> list[wgpu.BindGroupEntry]:
         # TODO maybe refactor this all into a prepare bindings method?
         return [
-            {
-                "binding": self.texture_binding,
-                "resource": texture_view,
-            },
-            {
-                "binding": self.sampler_binding,
-                "resource": sampler,
-            },
+            wgpu.BindGroupEntry(
+                binding=self.texture_binding,
+                resource=texture_view,
+            ),
+            wgpu.BindGroupEntry(
+                binding=self.sampler_binding,
+                resource=sampler,
+            ),
         ]
 
     def make_header(self, shader_type: str) -> str:
@@ -187,7 +199,7 @@ class ShadertoyChannel:
             data_repr = None
         class_repr = {k: v for k, v in self.__dict__.items() if k != "data"}
         class_repr["data"] = data_repr
-        class_repr["class"] = self.__class__
+        class_repr["class"] = self.__class__  # maybe move this to the front?
         return repr(class_repr)
 
 
@@ -231,12 +243,14 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         return self.renderpass.texture_front.size
 
     @property
-    def renderpass(self):  # -> BufferRenderPass:
+    def renderpass(self) -> "BufferRenderPass":
         if self._renderpass is None:
             self._renderpass = self.parent.main.buffers[self.buffer_idx]
         return self._renderpass
 
-    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+    def bind_texture(
+        self, device: wgpu.GPUDevice
+    ) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
         """
         returns a tuple of binding_layout and binding_groups_layout_entries
         takes the texture form `front` the buffer renderpass (last frame)
@@ -245,10 +259,8 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         texture: wgpu.GPUTexture = self.renderpass.texture_front
         texture_view = texture.create_view(usage=wgpu.TextureUsage.TEXTURE_BINDING)
         sampler = device.create_sampler(**self.sampler_settings)
-        bind_groups_layout_entry = self._bind_groups_layout_entries(
-            texture_view, sampler
-        )
-        return binding_layout, bind_groups_layout_entry
+        bind_group_entries = self._bind_group_entries(texture_view, sampler)
+        return binding_layout, bind_group_entries
 
 
 class ShadertoyChannelCubemapA(ShadertoyChannel):
@@ -272,21 +284,16 @@ class ShadertoyChannelTexture(ShadertoyChannel):
         if data is not None:
             self.data = np.ascontiguousarray(data)
         else:
-            self.data = np.zeros((8, 8, 4), dtype=np.uint8)
+            self.data = np.zeros((8, 8, 1), dtype=np.uint8)
 
         # if channel dimension is missing, it's a greyscale texture
         if len(self.data.shape) == 2:
             self.data = np.reshape(self.data, self.data.shape + (1,))
-        # greyscale textures become just red while green and blue remain 0s
+
         if self.data.shape[2] == 1:
-            self.data = np.stack(
-                [
-                    self.data[:, :, 0],
-                    np.zeros_like(self.data[:, :, 0]),
-                    np.zeros_like(self.data[:, :, 0]),
-                ],
-                axis=-1,
-            )
+            self.format = wgpu.TextureFormat.r8unorm
+        else:
+            self.format = wgpu.TextureFormat.rgba8unorm
         # if alpha channel is not given, it's filled with max value (255)
         if self.data.shape[2] == 3:
             self.data = np.concatenate(
@@ -302,38 +309,38 @@ class ShadertoyChannelTexture(ShadertoyChannel):
             vflip = True
             self.data = np.ascontiguousarray(self.data[::-1, :, :])
 
-    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+    def bind_texture(
+        self, device: wgpu.GPUDevice
+    ) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
         """
-        prepares the texture and sampler. Returns it's binding layouts and bindgroup layout entries
+        prepares the texture and sampler. Returns it's bind goup layout entries and bind group entries.
         """
 
         binding_layout = self._binding_layout()
         texture = device.create_texture(
             size=self.texture_size,
-            format=wgpu.TextureFormat.rgba8unorm,
+            format=self.format,
             usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
         )
 
         texture_view = texture.create_view()
         device.queue.write_texture(
-            destination={
-                "texture": texture,
-            },
+            destination=wgpu.TexelCopyTextureInfo(
+                texture=texture,
+            ),
             data=self.data,
-            data_layout={
-                "bytes_per_row": self.data.strides[0],  # multiple of 256
-                "rows_per_image": self.size[0],
-            },
+            data_layout=wgpu.TexelCopyBufferLayout(
+                bytes_per_row=self.data.strides[0],  # multiple of 256
+                rows_per_image=self.size[0],
+            ),
             size=texture.size,
         )
 
         sampler = device.create_sampler(**self.sampler_settings)
 
-        bind_groups_layout_entry = self._bind_groups_layout_entries(
-            texture_view, sampler
-        )
+        bind_group_entries = self._bind_group_entries(texture_view, sampler)
 
-        return binding_layout, bind_groups_layout_entry
+        return binding_layout, bind_group_entries
 
 
 class ShadertoyChannelCubemap(ShadertoyChannel):
