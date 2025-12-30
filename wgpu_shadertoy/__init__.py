@@ -1,4 +1,9 @@
-from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
+from .inputs import (
+    ShadertoyChannel,
+    ShadertoyChannelBuffer,
+    ShadertoyChannelKeyboard,
+    ShadertoyChannelTexture,
+)
 from .passes import BufferRenderPass, ImageRenderPass
 from .shadertoy import Shadertoy
 

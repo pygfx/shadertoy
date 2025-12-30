@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .shadertoy import Shadertoy
+from typing import TYPE_CHECKING
+
 import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
@@ -277,6 +279,18 @@ class RenderPass:
             size=self.main._uniform_data.nbytes,
         )
 
+        if any(channel is not None and channel.dynamic for channel in self.channels):
+            self._setup_renderpipeline()
+            # because this calls bind_texture which again might call update?
+            # updates all the channels tho
+            # we should instead use the channel.update function for BufferChannels somehow... or check for a valid renderpipeline
+            # to only regenerate this if needed.
+
+        for channel in self.channels:
+            if channel is not None and channel.dynamic:
+                # update the texture for the channel
+                channel.update(self._device)
+
         command_encoder: wgpu.GPUCommandEncoder = self._device.create_command_encoder()
         current_texture: wgpu.GPUTexture = self.get_current_texture()
 
@@ -292,7 +306,7 @@ class RenderPass:
                 )
             ],
         )
-        self._setup_renderpipeline()
+        # self._setup_renderpipeline()
         render_pass.set_pipeline(self._render_pipeline)
         # self._bind_group might get generalized out for buffer
         render_pass.set_bind_group(0, self._bind_group, [], 0, 99)

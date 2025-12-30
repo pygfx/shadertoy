@@ -94,7 +94,10 @@ def _download_media_channels(
             args = {
                 "buffer": "abcd"[int(inp["src"][-5])]
             }  # hack with the preview image to get the buffer index
+        elif inp["ctype"] in ("keyboard",):  # + others that don't need any conversion
+            args = {}  # maybe that can be set as default?
         else:
+            # just for unsupported types now
             complete = False
             continue  # skip the below rows
         channel = ShadertoyChannel(
