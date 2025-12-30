@@ -5,6 +5,7 @@ import time
 
 import wgpu
 from rendercanvas.auto import RenderCanvas, loop
+from rendercanvas.base import BaseRenderCanvas  # for typing
 from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
 from rendercanvas.offscreen import loop as run_offscreen
 
@@ -77,6 +78,7 @@ class Shadertoy:
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
         canvas (RenderCanvas): Optionally provide the canvas the image pass will render too. Defaults to None (means auto?)
+        device (wgpu.GPUDevice): Optionally provide the device to use. Defaults to None (means auto).
 
     The shader code must contain a entry point function:
 
@@ -113,7 +115,8 @@ class Shadertoy:
         buffers: list[BufferRenderPass] = [],
         title: str = "Shadertoy",
         complete: bool = True,
-        canvas=None,
+        canvas: BaseRenderCanvas | None = None,
+        device: wgpu.GPUDevice | None = None,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -150,10 +153,18 @@ class Shadertoy:
 
         self.title += " $fps FPS"
 
-        device_features = []
+        device_features = set()
         if buffers:
-            device_features.append(wgpu.FeatureName.float32_filterable)
-        self._device = self._request_device(device_features)
+            device_features.add(wgpu.FeatureName.float32_filterable)
+        if device:
+            if device.features.intersection(device_features) == device_features:
+                self._device = device
+            else:
+                raise ValueError(
+                    f"Provided device does not support required features: {device_features}."
+                )
+        else:
+            self._device = self._request_device(device_features)
 
         self._prepare_canvas(canvas=canvas)
         self._bind_events()
@@ -222,12 +233,13 @@ class Shadertoy:
         shader_data = shadertoy_from_id(id_or_url)
         return cls.from_json(shader_data, **kwargs)
 
-    def _prepare_canvas(self, canvas=None):
-        # TODO: refactor to accept a canvas class as a keyword argument
+    def _prepare_canvas(self, canvas: BaseRenderCanvas | None = None):
+        # should there be kwargs for the canvas creation? right now the user needs to provide a canvas instance themselves.
 
         if canvas:
             self._canvas = canvas
         elif self._offscreen:
+            # can we do offscreen to a GPU texture (without the CPU download?)
             self._canvas = OffscreenCanvas(
                 title=self.title,
                 size=self.resolution,
@@ -243,20 +255,21 @@ class Shadertoy:
                 update_mode="fastest",
                 vsync=True,
             )
+        self._present_context = self._canvas.get_wgpu_context()
         psize = self._canvas.get_physical_size()
         # in case of display scaling, we need to overwrite these values, which we only know after the canvas is created
         self._uniform_data["resolution"] = tuple(
+            # iResolution.z seems to be hardcodede to 1.0 in shadertoy, apart from some channels?
             [float(psize[0]), float(psize[1]), self._canvas.get_pixel_ratio()]
         )
-        self._present_context = self._canvas.get_context("wgpu")
 
         # We use non srgb variants, because we want to let the shader fully control the color-space.
         # Defaults usually return the srgb variant, but a non srgb option is usually available
         # comparable: https://docs.rs/wgpu/latest/wgpu/enum.TextureFormat.html#method.remove_srgb_suffix
-        self._format = self._present_context.get_preferred_format(
+        preferred_format = self._present_context.get_preferred_format(
             adapter=self._device.adapter
-        ).removesuffix("-srgb")
-
+        )
+        self._format = wgpu.TextureFormat[preferred_format.removesuffix("-srgb")]
         self._present_context.configure(device=self._device, format=self._format)
 
     def _bind_events(self):
@@ -358,7 +371,7 @@ class Shadertoy:
         time_float: float = 0.0,
         time_delta: float = 0.167,
         frame: int = 0,
-        framerate: int = 60.0,
+        framerate: float = 60.0,
         mouse_pos: tuple = (0.0, 0.0, 0.0, 0.0),
         date: tuple = (0.0, 0.0, 0.0, 0.0),
     ) -> memoryview:
@@ -387,24 +400,6 @@ class Shadertoy:
         self._uniform_data["mouse"] = mouse_pos
         self._uniform_data["date"] = date
         self._canvas.request_draw(self._draw_frame)
-        frame = self._canvas.draw()
+        frame_mem = self._canvas.draw()
 
-        return frame
-
-
-if __name__ == "__main__":
-    shader = Shadertoy(
-        """
-    fn shader_main(frag_coord: vec2<f32>) -> vec4<f32> {
-        let uv = frag_coord / i_resolution.xy;
-
-        if ( length(frag_coord - i_mouse.xy) < 20.0 ) {
-            return vec4<f32>(textureSample(i_channel0, sampler0, uv));
-        }else{
-            return vec4<f32>( 0.5 + 0.5 * sin(i_time * vec3<f32>(uv, 1.0) ), 1.0);
-        }
-
-    }
-    """
-    )
-    shader.show()
+        return frame_mem
