@@ -3,10 +3,9 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .shadertoy import Shadertoy
-import wgpu
 from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .shadertoy import Shadertoy
+
+import wgpu
 
 from .inputs import ShadertoyChannel, ShadertoyChannelBuffer, ShadertoyChannelTexture
 
@@ -279,14 +278,13 @@ class RenderPass:
             data_offset=0,
             size=self.main._uniform_data.nbytes,
         )
-        
+
         if any(channel is not None and channel.dynamic for channel in self.channels):
             self._setup_renderpipeline()
             # because this calls bind_texture which again might call update?
             # updates all the channels tho
             # we should instead use the channel.update function for BufferChannels somehow... or check for a valid renderpipeline
             # to only regenerate this if needed.
-
 
         for channel in self.channels:
             if channel is not None and channel.dynamic:

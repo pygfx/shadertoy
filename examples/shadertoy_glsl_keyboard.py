@@ -103,4 +103,3 @@ shader = Shadertoy(shader_code, resolution=(800, 450), inputs=[keyboard_channel]
 
 if __name__ == "__main__":
     shader.show()
-

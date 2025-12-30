@@ -358,7 +358,6 @@ class Shadertoy:
         self._device.queue.submit(render_encoders)
         self._canvas.request_draw()
 
-
     def show(self):
         self._canvas.request_draw(self._draw_frame)
         if self._offscreen:

@@ -2,9 +2,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import wgpu
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .passes import RenderPass
 
 if TYPE_CHECKING:
     from passes import BufferRenderPass, RenderPass
@@ -21,7 +18,7 @@ KEY_MAP = {
     "Shift": 16,
     "Enter": 13,
     "Tab": 9,
-    " ": 32, # space
+    " ": 32,  # space
     "ArrowDown": 40,
     "ArrowLeft": 37,
     "ArrowRight": 39,
@@ -48,6 +45,7 @@ KEY_MAP = {
     "F12": 123,
 }
 
+
 class ShadertoyChannel:
     """
     ShadertoyChannel Base class. If nothing is provided, it defaults to a 8x8 black texture.
@@ -70,6 +68,7 @@ class ShadertoyChannel:
         self.dynamic: bool = False  # is this still needed? should it be private?
         self._parent = kwargs.get("parent", None)
 
+    # Can't this be done in init directly?
     @property
     def sampler_settings(self) -> wgpu.SamplerDescriptor:
         """
@@ -249,19 +248,18 @@ class ShadertoyChannel:
 # "Misc" input tab
 class ShadertoyChannelKeyboard(ShadertoyChannel):
     # isn't this basically a texture/video??
-    # can we have a GPU buffer and then just write it to texture?
     # do we only update on keypresses or do we do it every frame (can you do multiple keypressese faster than a frame?)
     # ref: https://www.shadertoy.com/view/lsXGzf
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.format = wgpu.TextureFormat.r8unorm #or r8sint?
+        super().__init__(**kwargs)  # for the sampler settings
+        self.format = wgpu.TextureFormat.r8unorm  # or r8sint?
         self.dynamic = True  # could be named "needs_update" to be more clear
-        self.vflip = True #always true but we handle that manually, so don't really need the var!
+        self.vflip = True  # always true but we handle that manually, so don't really need the var!
 
         # when we get this via the ._infer_subclass() method - we might already have a parent and can register the events now!
         if self._parent is not None:
             self.register_events()
-            
+
     # do we have to redo both parts?
     @property
     def parent(self) -> "RenderPass":
@@ -278,7 +276,6 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         # register the events here?
         self.register_events()
 
-
     @property
     def data(self):
         """
@@ -286,17 +283,22 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         """
         # TODO: maybe we should have some kind of _shared object for this and more
         if not hasattr(self.parent.main, "_keyboard_state"):
-            self.parent.main._keyboard_state = np.zeros((3, 256), dtype=np.uint8)  # 3 rows, 256 keys and only one channel
+            self.parent.main._keyboard_state = np.zeros(
+                (3, 256), dtype=np.uint8
+            )  # 3 rows, 256 keys and only one channel
         return self.parent.main._keyboard_state
-    
+
     @property
     def texture(self):
-        # texture is also shared 
+        # texture is also shared
         if not hasattr(self.parent.main, "_keyboard_texture"):
-            self.parent.main._keyboard_texture = self.parent.main._device.create_texture(
-                size=(256, 3, 1),  # note it's columns, rows here
-                format=self.format,
-                usage=wgpu.TextureUsage.TEXTURE_BINDING | wgpu.TextureUsage.COPY_DST,
+            self.parent.main._keyboard_texture = (
+                self.parent.main._device.create_texture(
+                    size=(256, 3, 1),  # note it's columns, rows here
+                    format=self.format,
+                    usage=wgpu.TextureUsage.TEXTURE_BINDING
+                    | wgpu.TextureUsage.COPY_DST,
+                )
             )
         return self.parent.main._keyboard_texture
 
@@ -306,21 +308,31 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
         """
         # TODO: if events already exist just exit...
         # print(self.parent.main._canvas._events._event_handlers)
-        if self.parent.main._canvas._events._event_handlers.get("key_down") and self.parent.main._canvas._events._event_handlers.get("key_up"):
+        if self.parent.main._canvas._events._event_handlers.get(
+            "key_down"
+        ) and self.parent.main._canvas._events._event_handlers.get("key_up"):
             # print("Keyboard events already registered, skipping...")
             return
 
         def on_key_down(event):
             try:
-                key_code = KEY_MAP.get(event["key"]) or ord(event["key"].upper()) # we only want to evaluate ord() if there is no mapping!
-                assert key_code < 256, f"Key {event['key']} code {key_code} is out of range for keyboard channel."
+                key_code = KEY_MAP.get(event["key"]) or ord(
+                    event["key"].upper()
+                )  # we only want to evaluate ord() if there is no mapping!
+                assert key_code < 256, (
+                    f"Key {event['key']} code {key_code} is out of range for keyboard channel."
+                )
             except TypeError:
                 print(f"Key event error: {event['key']}")
                 key_code = 0
             self.data[0, key_code] = 255
-            self.data[1, key_code] = 255 # this only stays for a little bit of time?
-            self.data[2, key_code] = 255 if self.data[2, key_code] == 0 else 0 # toggle pressed state
-            self.dynamic = 2  # basically tell it to update for next frame and one after that!
+            self.data[1, key_code] = 255  # this only stays for a little bit of time?
+            self.data[2, key_code] = (
+                255 if self.data[2, key_code] == 0 else 0
+            )  # toggle pressed state
+            self.dynamic = (
+                2  # basically tell it to update for next frame and one after that!
+            )
 
         def on_key_up(event):
             try:
@@ -328,16 +340,16 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
                 assert key_code < 256
             except TypeError:
                 key_code = 0
-            self.data[0, key_code] = 0 # up action only triggers the "state" row
+            self.data[0, key_code] = 0  # up action only triggers the "state" row
             self.dynamic = True
 
         self.parent.main._canvas.add_event_handler(on_key_down, "key_down")
         self.parent.main._canvas.add_event_handler(on_key_up, "key_up")
 
-
-
     # copied from ShadertoyChannelTexture, changed sizes (maybe it could be moved to the base class?)
-    def bind_texture(self, device: wgpu.GPUDevice) -> Tuple[list, list]:
+    def bind_texture(
+        self, device: wgpu.GPUDevice
+    ) -> tuple[list[wgpu.BindGroupLayoutEntry], list[wgpu.BindGroupEntry]]:
         """
         prepares the texture and sampler. Returns it's binding layouts and bindgroup layout entries
         """
@@ -348,13 +360,11 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
 
         # TODO: this could also be cached...
         texture_view = self.texture.create_view()
-        
+
         # sampler can actually be unique per channel due to filtering and wrap settings.
         sampler = device.create_sampler(**self.sampler_settings)
 
-        bind_groups_layout_entry = self._bind_groups_layout_entries(
-            texture_view, sampler
-        )
+        bind_groups_layout_entry = self._bind_group_entries(texture_view, sampler)
 
         return binding_layout, bind_groups_layout_entry
 
@@ -367,15 +377,18 @@ class ShadertoyChannelKeyboard(ShadertoyChannel):
             },
             data=np.ascontiguousarray(self.data),
             data_layout={
-                "bytes_per_row": 256, # int8 texture of 256
+                "bytes_per_row": 256,  # int8 texture of 256
                 "rows_per_image": 3,
             },
             size=self.texture.size,
         )
-        self.data[1, :] = np.zeros(256, dtype=np.uint8)  # reset the second row to 0s after we uploaded that data (could be an issue if we reuse this channel...)
+        self.data[1, :] = np.zeros(
+            256, dtype=np.uint8
+        )  # reset the second row to 0s after we uploaded that data (could be an issue if we reuse this channel...)
 
         # because we need to essentially draw one more time
         self.dynamic -= 1
+
 
 class ShadertoyChannelWebcam(ShadertoyChannel):
     pass
@@ -416,7 +429,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
         if self._renderpass is None:
             self._renderpass = self.parent.main.buffers[self.buffer_idx]
         return self._renderpass
-    
+
     def update(self, device: wgpu.GPUDevice):
         # TODO: buffer passes get updated through a combination of the draw function swapping textures
         # and the draw function also calling _setup_renderpipeline() to get the newer bindings...
@@ -424,7 +437,7 @@ class ShadertoyChannelBuffer(ShadertoyChannel):
 
         # not the solution as we call it too often from here...
         # self.renderpass._setup_renderpipeline()
-        pass # to avoid warnings here.
+        pass  # to avoid warnings here.
 
     def bind_texture(
         self, device: wgpu.GPUDevice
