@@ -2,12 +2,16 @@ import collections
 import ctypes
 import os
 import time
+from typing import TYPE_CHECKING
 
 import wgpu
 from rendercanvas.auto import RenderCanvas, loop
 from rendercanvas.base import BaseRenderCanvas  # for typing
 from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
 from rendercanvas.offscreen import loop as run_offscreen
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
 
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
@@ -353,7 +357,7 @@ class Shadertoy:
         framerate: float = 60.0,
         mouse_pos: tuple = (0.0, 0.0, 0.0, 0.0),
         date: tuple = (0.0, 0.0, 0.0, 0.0),
-    ) -> memoryview:
+    ) -> "npt.NDArray":
         """
         Returns an image of the specified time. (Only available when ``offscreen=True``), you can set the uniforms manually via the parameters.
         Snapshots will be saved in the channel order of self._format.
@@ -366,8 +370,7 @@ class Shadertoy:
             mouse_pos (tuple(float)): The mouse position in pixels in the snapshot. It essentially sets ``i_mouse`` to a 4-tuple. (Default is (0.0,0.0,0.0,0.0))
             date (tuple(float)): The 4-tuple for ``i_date`` in year, months, day, seconds. (Default is (0.0,0.0,0.0,0.0))
         Returns:
-            frame (memoryview): snapshot with transparency. This object can be converted to a numpy array (without copying data)
-        using ``np.asarray(arr)``
+            frame (np.ndarray): snapshot with transparency as a contigous NxMx4 numpy array.
         """
         if not self._offscreen:
             raise NotImplementedError("Snapshot is only available in offscreen mode.")
