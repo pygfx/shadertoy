@@ -78,7 +78,6 @@ class Shadertoy:
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
         canvas (RenderCanvas): Optionally provide the canvas the image pass will render too. Defaults to None (means auto?)
-        device (wgpu.GPUDevice): Optionally provide the device to use. Defaults to None (means auto).
 
     The shader code must contain a entry point function:
 
@@ -116,7 +115,6 @@ class Shadertoy:
         title: str = "Shadertoy",
         complete: bool = True,
         canvas: BaseRenderCanvas | None = None,
-        device: wgpu.GPUDevice | None = None,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -153,19 +151,11 @@ class Shadertoy:
 
         self.title += " $fps FPS"
 
-        device_features = set()
         if buffers:
-            device_features.add(wgpu.FeatureName.float32_filterable)
-        if device:
-            if device.features.intersection(device_features) == device_features:
-                self._device = device
-            else:
-                raise ValueError(
-                    f"Provided device does not support required features: {device_features}."
-                )
-        else:
-            self._device = self._request_device(device_features)
+            # as far as I know this is the only feature we need, if there is more we can bring back the more complex logic
+            wgpu.utils.preconfigure_default_device("wgpu-shadertoy", required_features={wgpu.FeatureName.float32_filterable})
 
+        self._device = wgpu.utils.get_default_device()
         self._prepare_canvas(canvas=canvas)
         self._bind_events()
 
@@ -206,20 +196,6 @@ class Shadertoy:
             # TODO: where will cube and sound go?
             self._renderpasses.append(self.image)
         return self._renderpasses
-
-    def _request_device(self, features) -> wgpu.GPUDevice:
-        """
-        returns the _global_device if no features are required
-        otherwise requests a new device with the required features
-        this logic is needed to pass unit tests due to how we run examples.
-        Might be deprecated in the future, ref: https://github.com/pygfx/wgpu-py/pull/517
-        """
-        if not features:
-            return wgpu.utils.get_default_device()
-
-        return wgpu.gpu.request_adapter_sync(
-            power_preference="high-performance"
-        ).request_device_sync(required_features=features)
 
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
