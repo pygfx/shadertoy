@@ -18,7 +18,9 @@ from .passes import BufferRenderPass, ImageRenderPass, RenderPass
 
 # as far as I know this is the only feature we need, if there is more we can bring back the more complex logic
 # but only if we have buffer passes... so we might keep a few users out that don't have it and also don't need it.
-wgpu.utils.preconfigure_default_device("wgpu-shadertoy", required_features={wgpu.FeatureName.float32_filterable})
+wgpu.utils.preconfigure_default_device(
+    "wgpu-shadertoy", required_features={wgpu.FeatureName.float32_filterable}
+)
 
 
 class UniformArray:

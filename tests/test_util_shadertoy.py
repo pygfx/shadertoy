@@ -159,8 +159,9 @@ def test_shadertoy_offscreen():
 
 def test_shadertoy_snapshot():
     # Import here, because it imports the wgpu.gui.auto
-    from wgpu_shadertoy import Shadertoy
     import numpy as np
+
+    from wgpu_shadertoy import Shadertoy
 
     shader_code = """
         void mainImage(out vec4 fragColor, vec2 fragCoord) {
