@@ -246,7 +246,10 @@ class Shadertoy:
             adapter=self._device.adapter
         )
         self._format = wgpu.TextureFormat[preferred_format.removesuffix("-srgb")]
-        self._present_context.configure(device=self._device, format=self._format)
+        # so any existing config doesn't get overwritten like additional usages, see: https://github.com/pygfx/pygfx/pull/1257
+        config = self._present_context.get_configuration() or {}
+        config.update({"device": self._device, "format": self._format})
+        self._present_context.configure(**config)
 
     def _bind_events(self):
         # event spec: https://jupyter-rfb.readthedocs.io/en/stable/events.html
