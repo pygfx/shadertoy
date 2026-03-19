@@ -12,6 +12,10 @@ from rendercanvas.offscreen import loop as run_offscreen
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
 
+# as far as I know this is the only feature we need, if there is more we can bring back the more complex logic
+# but only if we have buffer passes... so we might keep a few users out that don't have it and also don't need it.
+wgpu.utils.preconfigure_default_device("wgpu-shadertoy", required_features={wgpu.FeatureName.float32_filterable})
+
 
 class UniformArray:
     """Convenience class to create a uniform array.
@@ -150,10 +154,6 @@ class Shadertoy:
             self.title += " (incomplete)"
 
         self.title += " $fps FPS"
-
-        if buffers:
-            # as far as I know this is the only feature we need, if there is more we can bring back the more complex logic
-            wgpu.utils.preconfigure_default_device("wgpu-shadertoy", required_features={wgpu.FeatureName.float32_filterable})
 
         self._device = wgpu.utils.get_default_device()
         self._prepare_canvas(canvas=canvas)
