@@ -159,6 +159,8 @@ def test_shadertoy_offscreen():
 
 def test_shadertoy_snapshot():
     # Import here, because it imports the wgpu.gui.auto
+    import numpy as np
+
     from wgpu_shadertoy import Shadertoy
 
     shader_code = """
@@ -216,8 +218,8 @@ def test_shadertoy_snapshot():
     assert shader.image.shader_code == shader_code
     assert shader.image.shader_type == "glsl"
     assert shader._offscreen is True
-    assert frame1a == frame1b
-    assert frame2a == frame2b
+    assert np.allclose(frame1a, frame1b)
+    assert np.allclose(frame2a, frame2b)
 
 
 def test_shadertoy_with_buffers():

@@ -2,6 +2,7 @@ import collections
 import ctypes
 import os
 import time
+from typing import TYPE_CHECKING
 
 import wgpu
 from rendercanvas.auto import RenderCanvas, loop
@@ -9,8 +10,17 @@ from rendercanvas.base import BaseRenderCanvas  # for typing
 from rendercanvas.offscreen import RenderCanvas as OffscreenCanvas
 from rendercanvas.offscreen import loop as run_offscreen
 
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
 from .api import shader_args_from_json, shadertoy_from_id
 from .passes import BufferRenderPass, ImageRenderPass, RenderPass
+
+# as far as I know this is the only feature we need, if there is more we can bring back the more complex logic
+# but only if we have buffer passes... so we might keep a few users out that don't have it and also don't need it.
+wgpu.utils.preconfigure_default_device(
+    "wgpu-shadertoy", required_features={wgpu.FeatureName.float32_filterable}
+)
 
 
 class UniformArray:
@@ -78,7 +88,6 @@ class Shadertoy:
         title (str): The title of the window. Defaults to "Shadertoy".
         complete (bool): Whether the shader is complete. Unsupported renderpasses or inputs will set this to False. Default is True.
         canvas (RenderCanvas): Optionally provide the canvas the image pass will render too. Defaults to None (means auto?)
-        device (wgpu.GPUDevice): Optionally provide the device to use. Defaults to None (means auto).
 
     The shader code must contain a entry point function:
 
@@ -116,7 +125,6 @@ class Shadertoy:
         title: str = "Shadertoy",
         complete: bool = True,
         canvas: BaseRenderCanvas | None = None,
-        device: wgpu.GPUDevice | None = None,
     ) -> None:
         self._uniform_data = UniformArray(
             ("mouse", "f", 4),
@@ -153,19 +161,7 @@ class Shadertoy:
 
         self.title += " $fps FPS"
 
-        device_features = set()
-        if buffers:
-            device_features.add(wgpu.FeatureName.float32_filterable)
-        if device:
-            if device.features.intersection(device_features) == device_features:
-                self._device = device
-            else:
-                raise ValueError(
-                    f"Provided device does not support required features: {device_features}."
-                )
-        else:
-            self._device = self._request_device(device_features)
-
+        self._device = wgpu.utils.get_default_device()
         self._prepare_canvas(canvas=canvas)
         self._bind_events()
 
@@ -206,20 +202,6 @@ class Shadertoy:
             # TODO: where will cube and sound go?
             self._renderpasses.append(self.image)
         return self._renderpasses
-
-    def _request_device(self, features) -> wgpu.GPUDevice:
-        """
-        returns the _global_device if no features are required
-        otherwise requests a new device with the required features
-        this logic is needed to pass unit tests due to how we run examples.
-        Might be deprecated in the future, ref: https://github.com/pygfx/wgpu-py/pull/517
-        """
-        if not features:
-            return wgpu.utils.get_default_device()
-
-        return wgpu.gpu.request_adapter_sync(
-            power_preference="high-performance"
-        ).request_device_sync(required_features=features)
 
     @classmethod
     def from_json(cls, dict_or_path, **kwargs):
@@ -270,7 +252,10 @@ class Shadertoy:
             adapter=self._device.adapter
         )
         self._format = wgpu.TextureFormat[preferred_format.removesuffix("-srgb")]
-        self._present_context.configure(device=self._device, format=self._format)
+        # so any existing config doesn't get overwritten like additional usages, see: https://github.com/pygfx/pygfx/pull/1257
+        config = self._present_context.get_configuration() or {}
+        config.update({"device": self._device, "format": self._format})
+        self._present_context.configure(**config)
 
     def _bind_events(self):
         # event spec: https://jupyter-rfb.readthedocs.io/en/stable/events.html
@@ -374,7 +359,7 @@ class Shadertoy:
         framerate: float = 60.0,
         mouse_pos: tuple = (0.0, 0.0, 0.0, 0.0),
         date: tuple = (0.0, 0.0, 0.0, 0.0),
-    ) -> memoryview:
+    ) -> "npt.NDArray":
         """
         Returns an image of the specified time. (Only available when ``offscreen=True``), you can set the uniforms manually via the parameters.
         Snapshots will be saved in the channel order of self._format.
@@ -387,8 +372,7 @@ class Shadertoy:
             mouse_pos (tuple(float)): The mouse position in pixels in the snapshot. It essentially sets ``i_mouse`` to a 4-tuple. (Default is (0.0,0.0,0.0,0.0))
             date (tuple(float)): The 4-tuple for ``i_date`` in year, months, day, seconds. (Default is (0.0,0.0,0.0,0.0))
         Returns:
-            frame (memoryview): snapshot with transparency. This object can be converted to a numpy array (without copying data)
-        using ``np.asarray(arr)``
+            frame (np.ndarray): snapshot with transparency as a contigous NxMx4 numpy array.
         """
         if not self._offscreen:
             raise NotImplementedError("Snapshot is only available in offscreen mode.")
